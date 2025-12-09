@@ -46,14 +46,6 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .HasColumnName("title_embedding")
             .HasColumnType("vector(1536)");
 
-        builder.Property(i => i.SummaryCz)
-            .HasColumnName("summary_cz")
-            .HasMaxLength(2048);
-
-        builder.Property(i => i.SummaryCzEmbedding)
-            .HasColumnName("summary_cz_embedding")
-            .HasColumnType("vector(1536)");
-
         builder.Property(i => i.SyncedAt)
             .HasColumnName("synced_at")
             .IsRequired();

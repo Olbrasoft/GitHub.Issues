@@ -12,9 +12,8 @@ public class Issue
     public string HtmlUrl { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public Vector? TitleEmbedding { get; set; }
-    public string? SummaryCz { get; set; }
-    public Vector? SummaryCzEmbedding { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;
+    public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
 }
