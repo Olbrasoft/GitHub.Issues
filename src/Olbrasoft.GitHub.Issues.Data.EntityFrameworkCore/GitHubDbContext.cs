@@ -14,6 +14,8 @@ public class GitHubDbContext : DbContext
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<IssueLabel> IssueLabels => Set<IssueLabel>();
+    public DbSet<EventType> EventTypes => Set<EventType>();
+    public DbSet<IssueEvent> IssueEvents => Set<IssueEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

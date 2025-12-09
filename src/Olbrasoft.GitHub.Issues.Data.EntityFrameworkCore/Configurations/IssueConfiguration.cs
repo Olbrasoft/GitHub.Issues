@@ -28,13 +28,12 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .HasMaxLength(1024)
             .IsRequired();
 
-        builder.Property(i => i.State)
-            .HasColumnName("state")
-            .HasMaxLength(20)
+        builder.Property(i => i.IsOpen)
+            .HasColumnName("is_open")
             .IsRequired();
 
-        builder.Property(i => i.HtmlUrl)
-            .HasColumnName("html_url")
+        builder.Property(i => i.Url)
+            .HasColumnName("url")
             .HasMaxLength(512)
             .IsRequired();
 

@@ -8,14 +8,15 @@ public class Issue
     public int RepositoryId { get; set; }
     public int Number { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string State { get; set; } = "open";
-    public string HtmlUrl { get; set; } = string.Empty;
+    public bool IsOpen { get; set; } = true;
+    public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public Vector? TitleEmbedding { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
+    public ICollection<IssueEvent> Events { get; set; } = new List<IssueEvent>();
 
     // Sub-issues hierarchy (1:N self-reference)
     public int? ParentIssueId { get; set; }

@@ -45,9 +45,13 @@ public class IssueSearchService
             .Include(i => i.Repository)
             .Where(i => i.TitleEmbedding != null);
 
-        if (!string.Equals(state, "all", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(state, "open", StringComparison.OrdinalIgnoreCase))
         {
-            issuesQuery = issuesQuery.Where(i => i.State == state);
+            issuesQuery = issuesQuery.Where(i => i.IsOpen);
+        }
+        else if (string.Equals(state, "closed", StringComparison.OrdinalIgnoreCase))
+        {
+            issuesQuery = issuesQuery.Where(i => !i.IsOpen);
         }
 
         var results = await issuesQuery
@@ -57,8 +61,8 @@ public class IssueSearchService
             {
                 Id = i.Id,
                 Title = i.Title,
-                State = i.State,
-                HtmlUrl = i.HtmlUrl,
+                IsOpen = i.IsOpen,
+                Url = i.Url,
                 RepositoryName = i.Repository.FullName,
                 Similarity = 1 - i.TitleEmbedding!.CosineDistance(queryEmbedding)
             })
