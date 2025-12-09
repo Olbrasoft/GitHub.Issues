@@ -55,8 +55,8 @@ public class GitHubSyncService : IGitHubSyncService
         _logger.LogInformation("Starting sync for {Owner}/{Repo}", owner, repo);
 
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
-        await SyncIssuesAsync(repository, owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
+        await SyncIssuesAsync(repository, owner, repo, cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
     }
