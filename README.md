@@ -1,63 +1,180 @@
 # GitHub.Issues
 
-GitHub issues management with semantic search - ASP.NET Core Razor Pages application.
+Semantic search for GitHub issues using vector embeddings (pgvector) and Ollama. Synchronizes issues from multiple GitHub repositories and enables natural language search.
+
+## Features
+
+- **Semantic Search**: Find issues by meaning, not just keywords (using vector embeddings)
+- **Multi-Repository Support**: Sync and search across multiple GitHub repositories
+- **Sub-Issues Hierarchy**: Track parent-child relationships between issues
+- **Issue Events**: Track issue lifecycle events (opened, closed, labeled, etc.)
+- **Labels Sync**: Full label synchronization with colors
+- **Auto-Start Ollama**: Automatically starts Ollama service if not running
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   GitHub API    │────▶│   Sync Tool     │────▶│   PostgreSQL    │
+│                 │     │   (CLI app)     │     │   + pgvector    │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+                        ┌─────────────────┐              │
+                        │     Ollama      │◀─────────────┤
+                        │ (nomic-embed)   │              │
+                        └─────────────────┘              │
+                                                         ▼
+                        ┌─────────────────┐     ┌─────────────────┐
+                        │    Web UI       │────▶│  Search Service │
+                        │  (Razor Pages)  │     │ (vector search) │
+                        └─────────────────┘     └─────────────────┘
+```
 
 ## Project Structure
 
 ```
 GitHub.Issues/
 ├── src/
-│   ├── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/    # Web UI (Razor Pages)
-│   ├── Olbrasoft.GitHub.Issues.Data/                      # Entities
-│   ├── Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/  # DbContext, Configurations
-│   └── Olbrasoft.GitHub.Issues.Business/                  # Services
-├── test/
-│   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests/
-├── plugins/
-│   └── mcp-github-issues/                                 # MCP plugin for OpenCode
+│   ├── Olbrasoft.GitHub.Issues.Data/                     # Domain entities
+│   ├── Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/ # EF Core, DbContext, pgvector
+│   ├── Olbrasoft.GitHub.Issues.Sync/                     # CLI sync tool
+│   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/    # Web UI
 ├── GitHub.Issues.sln
 └── README.md
 ```
 
-## Features
-
-- Semantic search for GitHub issues using vector embeddings (pgvector)
-- Czech language UI
-- REST API for OpenCode/Claude integration
-- MCP plugin for AI assistants
-
 ## Requirements
 
-- .NET 8.0+
-- PostgreSQL with pgvector extension
-- Ollama with nomic-embed-text model (for embeddings)
+- .NET 9.0+
+- PostgreSQL 15+ with pgvector extension
+- Ollama with `nomic-embed-text` model
 
-## Getting Started
+## Quick Start
+
+### 1. Install Prerequisites
+
+```bash
+# PostgreSQL with pgvector
+sudo apt install postgresql postgresql-contrib
+sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull nomic-embed-text
+```
+
+### 2. Setup Database
+
+```bash
+# Create database and user
+sudo -u postgres psql
+CREATE DATABASE github;
+CREATE USER github_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE github TO github_user;
+\c github
+CREATE EXTENSION vector;
+```
+
+### 3. Configure & Run
 
 ```bash
 # Clone repository
 git clone https://github.com/Olbrasoft/GitHub.Issues.git
+cd GitHub.Issues
 
-# Restore packages
-dotnet restore
+# Set GitHub token (for private repos or higher rate limits)
+cd src/Olbrasoft.GitHub.Issues.Sync
+dotnet user-secrets set "GitHub:Token" "ghp_your_token_here"
 
+# Update connection string in appsettings.json
 # Run migrations
 dotnet ef database update -p src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore
 
-# Run application
+# Sync issues
+dotnet run --project src/Olbrasoft.GitHub.Issues.Sync -- sync Olbrasoft/GitHub.Issues
+
+# Run web UI
 dotnet run --project src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages
 ```
 
-## Namespaces
+## Usage
 
-Following Microsoft naming conventions:
+### Sync Tool
 
-| Project | Namespace |
-|---------|-----------|
-| Web UI | `Olbrasoft.GitHub.Issues.AspNetCore.RazorPages` |
-| Entities | `Olbrasoft.GitHub.Issues.Data` |
-| EF Core | `Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore` |
-| Services | `Olbrasoft.GitHub.Issues.Business` |
+```bash
+# Sync all configured repositories
+dotnet run --project src/Olbrasoft.GitHub.Issues.Sync -- sync
+
+# Sync specific repository
+dotnet run --project src/Olbrasoft.GitHub.Issues.Sync -- sync owner/repo
+```
+
+### Web UI
+
+Open `http://localhost:5000` to search issues using natural language.
+
+## Configuration
+
+### appsettings.json
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=github;Username=github_user;Password=xxx"
+  },
+  "Embeddings": {
+    "BaseUrl": "http://localhost:11434",
+    "Model": "nomic-embed-text"
+  },
+  "GitHub": {
+    "Token": "",
+    "Repositories": [
+      "Olbrasoft/GitHub.Issues"
+    ]
+  }
+}
+```
+
+### User Secrets (recommended for tokens)
+
+```bash
+cd src/Olbrasoft.GitHub.Issues.Sync
+dotnet user-secrets set "GitHub:Token" "ghp_your_token_here"
+```
+
+## Database Schema
+
+| Entity | Description |
+|--------|-------------|
+| `Repository` | GitHub repository (owner/name, URL) |
+| `Issue` | Issue with title, state, URL, vector embedding |
+| `Label` | Repository labels with colors |
+| `IssueLabel` | Many-to-many: Issue ↔ Label |
+| `EventType` | Event types (opened, closed, labeled, etc.) |
+| `IssueEvent` | Issue events with actor and timestamp |
+
+Issues support parent-child hierarchy via `ParentIssueId` self-reference.
+
+## API Endpoints
+
+The sync service uses GitHub REST API v3:
+
+- `GET /repos/{owner}/{repo}/issues?state=all` - Bulk fetch all issues
+- `GET /repos/{owner}/{repo}/issues/events` - Bulk fetch all events
+- `GET /repos/{owner}/{repo}/labels` - Fetch labels
+
+Vector dimension: **768** (nomic-embed-text)
+
+## Documentation
+
+Detailed documentation is available in the [docs/](docs/) folder:
+
+- [Home](docs/Home.md) - Overview
+- [Architecture](docs/Architecture.md) - System design
+- [Database Schema](docs/Database-Schema.md) - Entity relationships
+- [Sync Service](docs/Sync-Service.md) - GitHub sync process
+- [Search](docs/Search.md) - Semantic search
+- [Configuration](docs/Configuration.md) - Setup and configuration
 
 ## License
 
