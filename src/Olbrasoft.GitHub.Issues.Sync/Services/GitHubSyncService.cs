@@ -49,7 +49,32 @@ public class GitHubSyncService : IGitHubSyncService
 
     public async Task SyncAllRepositoriesAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var repoFullName in _settings.Repositories)
+        IEnumerable<string> repositories;
+
+        if (_settings.Repositories.Count > 0)
+        {
+            // Use explicit list from config
+            _logger.LogInformation("Using explicit repository list from configuration ({Count} repositories)", _settings.Repositories.Count);
+            repositories = _settings.Repositories;
+        }
+        else if (!string.IsNullOrEmpty(_settings.Owner))
+        {
+            // Discover repos via API
+            _logger.LogInformation("Discovering repositories for owner: {Owner} (type: {OwnerType})", _settings.Owner, _settings.OwnerType);
+            repositories = await FetchAllRepositoriesForOwnerAsync(cancellationToken);
+        }
+        else
+        {
+            _logger.LogWarning("No repositories to sync. Configure either 'Repositories' list or 'Owner' in settings.");
+            return;
+        }
+
+        await SyncRepositoriesAsync(repositories, cancellationToken);
+    }
+
+    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, CancellationToken cancellationToken = default)
+    {
+        foreach (var repoFullName in repositories)
         {
             var parts = repoFullName.Split('/');
             if (parts.Length != 2)
@@ -60,6 +85,83 @@ public class GitHubSyncService : IGitHubSyncService
 
             await SyncRepositoryAsync(parts[0], parts[1], cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Fetches all repositories for the configured owner using GitHub API.
+    /// Filters based on IncludeArchived, IncludeForks, and has_issues settings.
+    /// </summary>
+    private async Task<List<string>> FetchAllRepositoriesForOwnerAsync(CancellationToken cancellationToken)
+    {
+        var repositories = new List<string>();
+        var page = 1;
+        var owner = _settings.Owner!;
+
+        while (true)
+        {
+            // Use different API endpoint for users vs organizations
+            var url = _settings.OwnerType.Equals("org", StringComparison.OrdinalIgnoreCase)
+                ? $"orgs/{owner}/repos?per_page=100&page={page}"
+                : $"users/{owner}/repos?per_page=100&type=all&page={page}";
+
+            _logger.LogDebug("Fetching repositories page {Page} for {Owner}", page, owner);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            var pageRepos = doc.RootElement.EnumerateArray().ToList();
+            if (pageRepos.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var repo in pageRepos)
+            {
+                var fullName = repo.GetProperty("full_name").GetString();
+                if (string.IsNullOrEmpty(fullName))
+                {
+                    continue;
+                }
+
+                // Check has_issues - skip repos with issues disabled
+                if (repo.TryGetProperty("has_issues", out var hasIssuesElement) && !hasIssuesElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: has_issues=false", fullName);
+                    continue;
+                }
+
+                // Check archived - skip unless IncludeArchived is true
+                if (!_settings.IncludeArchived &&
+                    repo.TryGetProperty("archived", out var archivedElement) && archivedElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: archived", fullName);
+                    continue;
+                }
+
+                // Check fork - skip unless IncludeForks is true
+                if (!_settings.IncludeForks &&
+                    repo.TryGetProperty("fork", out var forkElement) && forkElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: fork", fullName);
+                    continue;
+                }
+
+                repositories.Add(fullName);
+            }
+
+            if (pageRepos.Count < 100)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _logger.LogInformation("Discovered {Count} repositories for {Owner}", repositories.Count, owner);
+        return repositories;
     }
 
     public async Task SyncRepositoryAsync(string owner, string repo, CancellationToken cancellationToken = default)

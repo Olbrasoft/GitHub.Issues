@@ -39,8 +39,9 @@ var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingServic
 if (args.Length == 0)
 {
     logger.LogInformation("Usage:");
-    logger.LogInformation("  sync              - Sync all configured repositories");
-    logger.LogInformation("  sync owner/repo   - Sync specific repository");
+    logger.LogInformation("  sync                             - Sync all (config list OR dynamic discovery)");
+    logger.LogInformation("  sync owner/repo                  - Sync single repository");
+    logger.LogInformation("  sync owner/repo1 owner/repo2 ... - Sync list of repositories");
     return;
 }
 
@@ -54,19 +55,37 @@ try
             // Ensure Ollama is running before sync (auto-start if needed)
             await embeddingService.EnsureOllamaRunningAsync();
 
-            if (args.Length > 1)
+            if (args.Length == 1)
             {
+                // sync - use config list or dynamic discovery
+                await syncService.SyncAllRepositoriesAsync();
+            }
+            else if (args.Length == 2)
+            {
+                // sync owner/repo - single repository
                 var parts = args[1].Split('/');
                 if (parts.Length != 2)
                 {
-                    logger.LogError("Invalid repository format. Expected 'owner/repo'");
+                    logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", args[1]);
                     return;
                 }
                 await syncService.SyncRepositoryAsync(parts[0], parts[1]);
             }
             else
             {
-                await syncService.SyncAllRepositoriesAsync();
+                // sync owner/repo1 owner/repo2 ... - multiple repositories
+                var repositories = new List<string>();
+                for (var i = 1; i < args.Length; i++)
+                {
+                    var parts = args[i].Split('/');
+                    if (parts.Length != 2)
+                    {
+                        logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", args[i]);
+                        return;
+                    }
+                    repositories.Add(args[i]);
+                }
+                await syncService.SyncRepositoriesAsync(repositories);
             }
             break;
 
