@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,25 +15,35 @@ public class GitHubSyncService : IGitHubSyncService
     private readonly GitHubDbContext _dbContext;
     private readonly IEmbeddingService _embeddingService;
     private readonly GitHubClient _gitHubClient;
+    private readonly HttpClient _httpClient;
     private readonly GitHubSettings _settings;
     private readonly ILogger<GitHubSyncService> _logger;
 
     public GitHubSyncService(
         GitHubDbContext dbContext,
         IEmbeddingService embeddingService,
+        HttpClient httpClient,
         IOptions<GitHubSettings> settings,
         ILogger<GitHubSyncService> logger)
     {
         _dbContext = dbContext;
         _embeddingService = embeddingService;
+        _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
 
-        _gitHubClient = new GitHubClient(new ProductHeaderValue("Olbrasoft-GitHub-Issues-Sync"));
+        _gitHubClient = new GitHubClient(new Octokit.ProductHeaderValue("Olbrasoft-GitHub-Issues-Sync"));
+
+        // Configure HttpClient for GitHub API
+        _httpClient.BaseAddress = new Uri("https://api.github.com/");
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
 
         if (!string.IsNullOrEmpty(_settings.Token))
         {
             _gitHubClient.Credentials = new Credentials(_settings.Token);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
         }
     }
 
@@ -57,6 +69,7 @@ public class GitHubSyncService : IGitHubSyncService
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
         await SyncIssuesAsync(repository, owner, repo, cancellationToken);
+        await SyncSubIssuesAsync(repository, owner, repo, cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
     }
@@ -226,5 +239,96 @@ public class GitHubSyncService : IGitHubSyncService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SyncSubIssuesAsync(
+        Data.Entities.Repository repository,
+        string owner,
+        string repo,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Syncing sub-issues hierarchy for {Owner}/{Repo}", owner, repo);
+
+        // Get all issues for this repository
+        var issues = await _dbContext.Issues
+            .Where(i => i.RepositoryId == repository.Id)
+            .ToListAsync(cancellationToken);
+
+        var issuesByNumber = issues.ToDictionary(i => i.Number);
+        var updatedCount = 0;
+
+        foreach (var issue in issues)
+        {
+            try
+            {
+                var subIssueNumbers = await GetSubIssueNumbersAsync(owner, repo, issue.Number, cancellationToken);
+
+                foreach (var subIssueNumber in subIssueNumbers)
+                {
+                    if (issuesByNumber.TryGetValue(subIssueNumber, out var childIssue))
+                    {
+                        if (childIssue.ParentIssueId != issue.Id)
+                        {
+                            childIssue.ParentIssueId = issue.Id;
+                            updatedCount++;
+                            _logger.LogDebug("Set parent of issue #{Child} to #{Parent}", subIssueNumber, issue.Number);
+                        }
+                    }
+                }
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Issue has no sub-issues endpoint (404) - this is normal for issues without sub-issues
+                continue;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch sub-issues for issue #{Number}", issue.Number);
+            }
+        }
+
+        if (updatedCount > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Updated {Count} parent-child relationships", updatedCount);
+        }
+        else
+        {
+            _logger.LogInformation("No sub-issues relationships found");
+        }
+    }
+
+    private async Task<List<int>> GetSubIssueNumbersAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<int>();
+        var url = $"repos/{owner}/{repo}/issues/{issueNumber}/sub_issues?per_page=100";
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return result; // No sub-issues
+            }
+            response.EnsureSuccessStatusCode();
+        }
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+
+        foreach (var element in doc.RootElement.EnumerateArray())
+        {
+            if (element.TryGetProperty("number", out var numberProperty))
+            {
+                result.Add(numberProperty.GetInt32());
+            }
+        }
+
+        return result;
     }
 }
