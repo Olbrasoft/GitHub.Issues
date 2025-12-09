@@ -213,9 +213,14 @@ public class GitHubSyncService : IGitHubSyncService
 
             if (label == null)
             {
-                label = new Data.Entities.Label { Name = ghLabel.Name };
+                label = new Data.Entities.Label { Name = ghLabel.Name, Color = ghLabel.Color };
                 _dbContext.Labels.Add(label);
-                _logger.LogDebug("Created label: {Name}", ghLabel.Name);
+                _logger.LogDebug("Created label: {Name} ({Color})", ghLabel.Name, ghLabel.Color);
+            }
+            else if (label.Color != ghLabel.Color)
+            {
+                label.Color = ghLabel.Color;
+                _logger.LogDebug("Updated label color: {Name} ({Color})", ghLabel.Name, ghLabel.Color);
             }
         }
 

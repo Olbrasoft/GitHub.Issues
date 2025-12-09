@@ -20,6 +20,12 @@ public class LabelConfiguration : IEntityTypeConfiguration<Label>
             .HasMaxLength(256)
             .IsRequired();
 
+        builder.Property(l => l.Color)
+            .HasColumnName("color")
+            .HasMaxLength(6)
+            .HasDefaultValue("ededed")
+            .IsRequired();
+
         builder.HasIndex(l => l.Name)
             .IsUnique();
     }
