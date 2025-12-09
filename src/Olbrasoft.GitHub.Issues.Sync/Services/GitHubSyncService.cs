@@ -258,8 +258,11 @@ public class GitHubSyncService : IGitHubSyncService
         var issuesByNumber = issues.ToDictionary(i => i.Number);
         var updatedCount = 0;
 
-        foreach (var issue in issues)
+        for (var i = 0; i < issues.Count; i++)
         {
+            var issue = issues[i];
+            _logger.LogInformation("Sub-issues: Processing {Current}/{Total}: #{Number}", i + 1, issues.Count, issue.Number);
+
             try
             {
                 var subIssueNumbers = await GetSubIssueNumbersAsync(owner, repo, issue.Number, cancellationToken);
@@ -286,6 +289,9 @@ public class GitHubSyncService : IGitHubSyncService
             {
                 _logger.LogWarning(ex, "Failed to fetch sub-issues for issue #{Number}", issue.Number);
             }
+
+            // Rate limiting delay
+            await Task.Delay(100, cancellationToken);
         }
 
         if (updatedCount > 0)
@@ -357,8 +363,11 @@ public class GitHubSyncService : IGitHubSyncService
 
         var newEventsCount = 0;
 
-        foreach (var issue in issues)
+        for (var i = 0; i < issues.Count; i++)
         {
+            var issue = issues[i];
+            _logger.LogInformation("Events: Processing {Current}/{Total}: #{Number}", i + 1, issues.Count, issue.Number);
+
             try
             {
                 var ghEvents = await _gitHubClient.Issue.Events.GetAllForIssue(owner, repo, issue.Number);
@@ -392,12 +401,22 @@ public class GitHubSyncService : IGitHubSyncService
                     _dbContext.IssueEvents.Add(issueEvent);
                     existingEventIds.Add(ghEvent.Id); // Track to avoid duplicates within same sync
                     newEventsCount++;
+
+                    // Periodic save every 100 events
+                    if (newEventsCount % 100 == 0)
+                    {
+                        await _dbContext.SaveChangesAsync(cancellationToken);
+                        _logger.LogInformation("Saved {Count} events so far...", newEventsCount);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch events for issue #{Number}", issue.Number);
             }
+
+            // Rate limiting delay
+            await Task.Delay(100, cancellationToken);
         }
 
         if (newEventsCount > 0)
