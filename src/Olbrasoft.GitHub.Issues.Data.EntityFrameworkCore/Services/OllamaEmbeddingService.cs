@@ -53,7 +53,7 @@ public class OllamaEmbeddingService : IEmbeddingService
         var process = Process.Start(new ProcessStartInfo
         {
             FileName = "systemctl",
-            Arguments = "start ollama",
+            Arguments = "--user start ollama",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false
