@@ -68,8 +68,7 @@ public class GitHubSyncService : IGitHubSyncService
 
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        await SyncIssuesAsync(repository, owner, repo, cancellationToken);
-        await SyncSubIssuesAsync(repository, owner, repo, cancellationToken);
+        await SyncIssuesAsync(repository, owner, repo, cancellationToken); // Also handles parent-child relationships via parent_issue_url
         await SyncEventsAsync(repository, owner, repo, cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
@@ -109,108 +108,210 @@ public class GitHubSyncService : IGitHubSyncService
         string repo,
         CancellationToken cancellationToken)
     {
-        var lastSyncedIssue = await _dbContext.Issues
-            .Where(i => i.RepositoryId == repository.Id)
-            .OrderByDescending(i => i.GitHubUpdatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var request = new RepositoryIssueRequest
-        {
-            State = ItemStateFilter.All,
-            SortProperty = IssueSort.Updated,
-            SortDirection = SortDirection.Descending
-        };
-
-        if (lastSyncedIssue != null)
-        {
-            request.Since = lastSyncedIssue.GitHubUpdatedAt;
-        }
-
-        var options = new ApiOptions { PageSize = 100 };
-        var issues = await _gitHubClient.Issue.GetAllForRepository(owner, repo, request, options);
-
-        _logger.LogInformation("Found {Count} issues to sync for {Owner}/{Repo}", issues.Count, owner, repo);
+        _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API", owner, repo);
 
         var syncedAt = DateTimeOffset.UtcNow;
+        var allIssues = new List<JsonElement>();
+        var page = 1;
 
-        foreach (var ghIssue in issues)
+        // Fetch all issues using bulk API with pagination
+        while (true)
         {
-            // Skip pull requests (GitHub API returns them as issues)
-            if (ghIssue.PullRequest != null)
+            var url = $"repos/{owner}/{repo}/issues?state=all&per_page=100&page={page}";
+            _logger.LogDebug("Fetching issues page {Page}", page);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            var pageIssues = doc.RootElement.EnumerateArray().ToList();
+            if (pageIssues.Count == 0)
+            {
+                break;
+            }
+
+            // Clone elements since JsonDocument will be disposed
+            foreach (var issue in pageIssues)
+            {
+                allIssues.Add(issue.Clone());
+            }
+
+            _logger.LogDebug("Fetched {Count} issues on page {Page}", pageIssues.Count, page);
+
+            if (pageIssues.Count < 100)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _logger.LogInformation("Found {Count} issues to sync for {Owner}/{Repo}", allIssues.Count, owner, repo);
+
+        // Dictionary to track parent_issue_url -> child issue number for later FK update
+        var parentChildRelationships = new Dictionary<int, string>(); // childNumber -> parentIssueUrl
+
+        foreach (var ghIssue in allIssues)
+        {
+            // Skip pull requests (they have pull_request property)
+            if (ghIssue.TryGetProperty("pull_request", out _))
             {
                 continue;
             }
 
-            await SyncIssueAsync(repository, ghIssue, syncedAt, cancellationToken);
+            var issueNumber = ghIssue.GetProperty("number").GetInt32();
+            var title = ghIssue.GetProperty("title").GetString() ?? "";
+            var state = ghIssue.GetProperty("state").GetString();
+            var htmlUrl = ghIssue.GetProperty("html_url").GetString() ?? "";
+            var updatedAt = ghIssue.GetProperty("updated_at").GetDateTimeOffset();
+            var createdAt = ghIssue.GetProperty("created_at").GetDateTimeOffset();
+
+            // Extract parent_issue_url if present
+            if (ghIssue.TryGetProperty("parent_issue_url", out var parentUrlElement) &&
+                parentUrlElement.ValueKind == JsonValueKind.String)
+            {
+                var parentUrl = parentUrlElement.GetString();
+                if (!string.IsNullOrEmpty(parentUrl))
+                {
+                    parentChildRelationships[issueNumber] = parentUrl;
+                }
+            }
+
+            // Get or create issue
+            var issue = await _dbContext.Issues
+                .Include(i => i.IssueLabels)
+                .FirstOrDefaultAsync(i => i.RepositoryId == repository.Id && i.Number == issueNumber, cancellationToken);
+
+            var isNew = issue == null;
+
+            if (isNew)
+            {
+                issue = new Data.Entities.Issue
+                {
+                    RepositoryId = repository.Id,
+                    Number = issueNumber
+                };
+                _dbContext.Issues.Add(issue);
+            }
+
+            issue!.Title = title;
+            issue.IsOpen = state == "open";
+            issue.Url = htmlUrl;
+            issue.GitHubUpdatedAt = updatedAt;
+            issue.SyncedAt = syncedAt;
+
+            // Generate embedding for new issues
+            if (isNew)
+            {
+                var embedding = await _embeddingService.GenerateEmbeddingAsync(title, cancellationToken);
+                if (embedding == null)
+                {
+                    throw new InvalidOperationException($"Failed to generate embedding for issue #{issueNumber}. Ollama may be unavailable.");
+                }
+                issue.TitleEmbedding = embedding;
+            }
+
+            // Sync labels
+            if (ghIssue.TryGetProperty("labels", out var labelsElement))
+            {
+                var existingLabelIds = issue.IssueLabels.Select(il => il.LabelId).ToHashSet();
+                var ghLabelNames = new List<string>();
+
+                foreach (var labelElement in labelsElement.EnumerateArray())
+                {
+                    if (labelElement.TryGetProperty("name", out var nameElement))
+                    {
+                        ghLabelNames.Add(nameElement.GetString() ?? "");
+                    }
+                }
+
+                // Remove labels that are no longer present
+                var labelsToRemove = issue.IssueLabels
+                    .Where(il => !ghLabelNames.Contains(_dbContext.Labels.Find(il.LabelId)?.Name ?? ""))
+                    .ToList();
+
+                foreach (var labelToRemove in labelsToRemove)
+                {
+                    issue.IssueLabels.Remove(labelToRemove);
+                }
+
+                // Add new labels
+                foreach (var labelName in ghLabelNames)
+                {
+                    var label = await _dbContext.Labels.FirstOrDefaultAsync(
+                        l => l.RepositoryId == repository.Id && l.Name == labelName, cancellationToken);
+                    if (label != null && !existingLabelIds.Contains(label.Id))
+                    {
+                        issue.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = label.Id });
+                    }
+                }
+            }
+
+            _logger.LogDebug("Synced issue #{Number}: {Title}", issueNumber, title);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Update parent-child relationships after all issues are synced
+        if (parentChildRelationships.Count > 0)
+        {
+            _logger.LogInformation("Updating {Count} parent-child relationships", parentChildRelationships.Count);
+
+            var issuesByNumber = await _dbContext.Issues
+                .Where(i => i.RepositoryId == repository.Id)
+                .ToDictionaryAsync(i => i.Number, cancellationToken);
+
+            var updatedCount = 0;
+            foreach (var (childNumber, parentUrl) in parentChildRelationships)
+            {
+                // Parse parent issue number from URL (e.g., https://api.github.com/repos/owner/repo/issues/123)
+                var parentNumber = ExtractIssueNumberFromUrl(parentUrl);
+                if (parentNumber.HasValue && issuesByNumber.TryGetValue(parentNumber.Value, out var parentIssue))
+                {
+                    if (issuesByNumber.TryGetValue(childNumber, out var childIssue))
+                    {
+                        if (childIssue.ParentIssueId != parentIssue.Id)
+                        {
+                            childIssue.ParentIssueId = parentIssue.Id;
+                            updatedCount++;
+                            _logger.LogDebug("Set parent of issue #{Child} to #{Parent}", childNumber, parentNumber.Value);
+                        }
+                    }
+                }
+            }
+
+            if (updatedCount > 0)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Updated {Count} parent-child relationships", updatedCount);
+            }
+        }
     }
 
-    private async Task SyncIssueAsync(
-        Data.Entities.Repository repository,
-        Octokit.Issue ghIssue,
-        DateTimeOffset syncedAt,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Extracts issue number from GitHub API URL (e.g., https://api.github.com/repos/owner/repo/issues/123)
+    /// </summary>
+    private static int? ExtractIssueNumberFromUrl(string url)
     {
-        var issue = await _dbContext.Issues
-            .Include(i => i.IssueLabels)
-            .FirstOrDefaultAsync(i => i.RepositoryId == repository.Id && i.Number == ghIssue.Number, cancellationToken);
-
-        var isNew = issue == null;
-
-        if (isNew)
+        if (string.IsNullOrEmpty(url))
         {
-            issue = new Data.Entities.Issue
-            {
-                RepositoryId = repository.Id,
-                Number = ghIssue.Number
-            };
-            _dbContext.Issues.Add(issue);
+            return null;
         }
 
-        issue!.Title = ghIssue.Title;
-        issue.IsOpen = ghIssue.State.Value == ItemState.Open;
-        issue.Url = ghIssue.HtmlUrl;
-        issue.GitHubUpdatedAt = ghIssue.UpdatedAt ?? ghIssue.CreatedAt;
-        issue.SyncedAt = syncedAt;
-
-        // Generate embedding for new issues
-        if (isNew)
+        // URL format: https://api.github.com/repos/{owner}/{repo}/issues/{number}
+        var lastSlashIndex = url.LastIndexOf('/');
+        if (lastSlashIndex >= 0 && lastSlashIndex < url.Length - 1)
         {
-            var embedding = await _embeddingService.GenerateEmbeddingAsync(ghIssue.Title, cancellationToken);
-            if (embedding == null)
+            var numberPart = url[(lastSlashIndex + 1)..];
+            if (int.TryParse(numberPart, out var number))
             {
-                throw new InvalidOperationException($"Failed to generate embedding for issue #{ghIssue.Number}. Ollama may be unavailable.");
-            }
-            issue.TitleEmbedding = embedding;
-        }
-
-        // Sync labels
-        var existingLabelIds = issue.IssueLabels.Select(il => il.LabelId).ToHashSet();
-        var ghLabelNames = ghIssue.Labels.Select(l => l.Name).ToList();
-
-        // Remove labels that are no longer present
-        var labelsToRemove = issue.IssueLabels
-            .Where(il => !ghLabelNames.Contains(_dbContext.Labels.Find(il.LabelId)?.Name ?? ""))
-            .ToList();
-
-        foreach (var labelToRemove in labelsToRemove)
-        {
-            issue.IssueLabels.Remove(labelToRemove);
-        }
-
-        // Add new labels
-        foreach (var labelName in ghLabelNames)
-        {
-            var label = await _dbContext.Labels.FirstOrDefaultAsync(l => l.RepositoryId == repository.Id && l.Name == labelName, cancellationToken);
-            if (label != null && !existingLabelIds.Contains(label.Id))
-            {
-                issue.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = label.Id });
+                return number;
             }
         }
 
-        _logger.LogDebug("Synced issue #{Number}: {Title}", ghIssue.Number, ghIssue.Title);
+        return null;
     }
 
     private async Task SyncLabelsAsync(
@@ -242,191 +343,155 @@ public class GitHubSyncService : IGitHubSyncService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task SyncSubIssuesAsync(
-        Data.Entities.Repository repository,
-        string owner,
-        string repo,
-        CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Syncing sub-issues hierarchy for {Owner}/{Repo}", owner, repo);
-
-        // Get all issues for this repository
-        var issues = await _dbContext.Issues
-            .Where(i => i.RepositoryId == repository.Id)
-            .ToListAsync(cancellationToken);
-
-        var issuesByNumber = issues.ToDictionary(i => i.Number);
-        var updatedCount = 0;
-
-        for (var i = 0; i < issues.Count; i++)
-        {
-            var issue = issues[i];
-            _logger.LogInformation("Sub-issues: Processing {Current}/{Total}: #{Number}", i + 1, issues.Count, issue.Number);
-
-            try
-            {
-                var subIssueNumbers = await GetSubIssueNumbersAsync(owner, repo, issue.Number, cancellationToken);
-
-                foreach (var subIssueNumber in subIssueNumbers)
-                {
-                    if (issuesByNumber.TryGetValue(subIssueNumber, out var childIssue))
-                    {
-                        if (childIssue.ParentIssueId != issue.Id)
-                        {
-                            childIssue.ParentIssueId = issue.Id;
-                            updatedCount++;
-                            _logger.LogDebug("Set parent of issue #{Child} to #{Parent}", subIssueNumber, issue.Number);
-                        }
-                    }
-                }
-            }
-            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                // Issue has no sub-issues endpoint (404) - this is normal for issues without sub-issues
-                continue;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch sub-issues for issue #{Number}", issue.Number);
-            }
-
-            // Rate limiting delay
-            await Task.Delay(100, cancellationToken);
-        }
-
-        if (updatedCount > 0)
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Updated {Count} parent-child relationships", updatedCount);
-        }
-        else
-        {
-            _logger.LogInformation("No sub-issues relationships found");
-        }
-    }
-
-    private async Task<List<int>> GetSubIssueNumbersAsync(
-        string owner,
-        string repo,
-        int issueNumber,
-        CancellationToken cancellationToken)
-    {
-        var result = new List<int>();
-        var url = $"repos/{owner}/{repo}/issues/{issueNumber}/sub_issues?per_page=100";
-
-        var response = await _httpClient.GetAsync(url, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return result; // No sub-issues
-            }
-            response.EnsureSuccessStatusCode();
-        }
-
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var doc = JsonDocument.Parse(json);
-
-        foreach (var element in doc.RootElement.EnumerateArray())
-        {
-            if (element.TryGetProperty("number", out var numberProperty))
-            {
-                result.Add(numberProperty.GetInt32());
-            }
-        }
-
-        return result;
-    }
-
     private async Task SyncEventsAsync(
         Data.Entities.Repository repository,
         string owner,
         string repo,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Syncing issue events for {Owner}/{Repo}", owner, repo);
+        _logger.LogInformation("Syncing issue events for {Owner}/{Repo} using bulk API", owner, repo);
 
         // Cache event types for faster lookup
         var eventTypes = await _dbContext.EventTypes.ToDictionaryAsync(et => et.Name, cancellationToken);
 
-        // Get all issues for this repository
-        var issues = await _dbContext.Issues
+        // Get all issues for this repository (to map issue numbers to IDs)
+        var issuesByNumber = await _dbContext.Issues
             .Where(i => i.RepositoryId == repository.Id)
-            .ToListAsync(cancellationToken);
+            .ToDictionaryAsync(i => i.Number, cancellationToken);
 
         // Get existing event IDs to avoid duplicates
         var existingEventIds = await _dbContext.IssueEvents
-            .Where(ie => issues.Select(i => i.Id).Contains(ie.IssueId))
+            .Where(ie => issuesByNumber.Values.Select(i => i.Id).Contains(ie.IssueId))
             .Select(ie => ie.GitHubEventId)
             .ToHashSetAsync(cancellationToken);
 
-        var newEventsCount = 0;
+        var allEvents = new List<JsonElement>();
+        var page = 1;
 
-        for (var i = 0; i < issues.Count; i++)
+        // Fetch all events using bulk repo events endpoint with pagination
+        while (true)
         {
-            var issue = issues[i];
-            _logger.LogInformation("Events: Processing {Current}/{Total}: #{Number}", i + 1, issues.Count, issue.Number);
+            var url = $"repos/{owner}/{repo}/issues/events?per_page=100&page={page}";
+            _logger.LogDebug("Fetching events page {Page}", page);
 
-            try
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            var pageEvents = doc.RootElement.EnumerateArray().ToList();
+            if (pageEvents.Count == 0)
             {
-                var ghEvents = await _gitHubClient.Issue.Events.GetAllForIssue(owner, repo, issue.Number);
+                break;
+            }
 
-                foreach (var ghEvent in ghEvents)
+            // Clone elements since JsonDocument will be disposed
+            foreach (var evt in pageEvents)
+            {
+                allEvents.Add(evt.Clone());
+            }
+
+            _logger.LogDebug("Fetched {Count} events on page {Page}", pageEvents.Count, page);
+
+            if (pageEvents.Count < 100)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _logger.LogInformation("Found {Count} events to process for {Owner}/{Repo}", allEvents.Count, owner, repo);
+
+        var newEventsCount = 0;
+        var skippedCount = 0;
+
+        foreach (var ghEvent in allEvents)
+        {
+            // Get GitHub event ID
+            var eventId = ghEvent.GetProperty("id").GetInt64();
+
+            // Skip if already synced
+            if (existingEventIds.Contains(eventId))
+            {
+                continue;
+            }
+
+            // Get issue number from the issue object in the event
+            if (!ghEvent.TryGetProperty("issue", out var issueElement))
+            {
+                skippedCount++;
+                continue;
+            }
+
+            var issueNumber = issueElement.GetProperty("number").GetInt32();
+
+            // Find the issue in our database
+            if (!issuesByNumber.TryGetValue(issueNumber, out var issue))
+            {
+                skippedCount++;
+                continue;
+            }
+
+            // Get event type
+            var eventTypeName = ghEvent.GetProperty("event").GetString() ?? "";
+
+            if (!eventTypes.TryGetValue(eventTypeName, out var eventType))
+            {
+                _logger.LogDebug("Unknown event type: {EventType}, skipping", eventTypeName);
+                skippedCount++;
+                continue;
+            }
+
+            // Get actor info
+            int? actorId = null;
+            string? actorLogin = null;
+            if (ghEvent.TryGetProperty("actor", out var actorElement) && actorElement.ValueKind != JsonValueKind.Null)
+            {
+                if (actorElement.TryGetProperty("id", out var actorIdElement))
                 {
-                    // Skip if already synced
-                    if (existingEventIds.Contains(ghEvent.Id))
-                    {
-                        continue;
-                    }
-
-                    var eventTypeName = ghEvent.Event.StringValue;
-
-                    if (!eventTypes.TryGetValue(eventTypeName, out var eventType))
-                    {
-                        _logger.LogDebug("Unknown event type: {EventType}, skipping", eventTypeName);
-                        continue;
-                    }
-
-                    var issueEvent = new Data.Entities.IssueEvent
-                    {
-                        IssueId = issue.Id,
-                        EventTypeId = eventType.Id,
-                        GitHubEventId = ghEvent.Id,
-                        CreatedAt = ghEvent.CreatedAt,
-                        ActorId = ghEvent.Actor?.Id != null ? (int)ghEvent.Actor.Id : null,
-                        ActorLogin = ghEvent.Actor?.Login
-                    };
-
-                    _dbContext.IssueEvents.Add(issueEvent);
-                    existingEventIds.Add(ghEvent.Id); // Track to avoid duplicates within same sync
-                    newEventsCount++;
-
-                    // Periodic save every 100 events
-                    if (newEventsCount % 100 == 0)
-                    {
-                        await _dbContext.SaveChangesAsync(cancellationToken);
-                        _logger.LogInformation("Saved {Count} events so far...", newEventsCount);
-                    }
+                    actorId = actorIdElement.GetInt32();
+                }
+                if (actorElement.TryGetProperty("login", out var actorLoginElement))
+                {
+                    actorLogin = actorLoginElement.GetString();
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch events for issue #{Number}", issue.Number);
-            }
 
-            // Rate limiting delay
-            await Task.Delay(100, cancellationToken);
+            // Get created_at
+            var createdAt = ghEvent.GetProperty("created_at").GetDateTimeOffset();
+
+            var issueEvent = new Data.Entities.IssueEvent
+            {
+                IssueId = issue.Id,
+                EventTypeId = eventType.Id,
+                GitHubEventId = eventId,
+                CreatedAt = createdAt,
+                ActorId = actorId,
+                ActorLogin = actorLogin
+            };
+
+            _dbContext.IssueEvents.Add(issueEvent);
+            existingEventIds.Add(eventId); // Track to avoid duplicates within same sync
+            newEventsCount++;
+
+            // Periodic save every 100 events
+            if (newEventsCount % 100 == 0)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Saved {Count} events so far...", newEventsCount);
+            }
         }
 
         if (newEventsCount > 0)
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Synced {Count} new issue events", newEventsCount);
+            _logger.LogInformation("Synced {Count} new issue events (skipped {Skipped})", newEventsCount, skippedCount);
         }
         else
         {
-            _logger.LogInformation("No new issue events to sync");
+            _logger.LogInformation("No new issue events to sync (skipped {Skipped})", skippedCount);
         }
     }
 }
