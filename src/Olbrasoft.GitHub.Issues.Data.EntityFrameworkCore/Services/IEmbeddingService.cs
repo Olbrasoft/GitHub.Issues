@@ -6,5 +6,6 @@ public interface IEmbeddingService
 {
     Task<Vector?> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default);
     Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default);
+    Task EnsureOllamaRunningAsync(CancellationToken cancellationToken = default);
     bool IsConfigured { get; }
 }

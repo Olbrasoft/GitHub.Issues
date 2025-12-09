@@ -48,13 +48,8 @@ try
     switch (command)
     {
         case "sync":
-            // Check Ollama availability before sync
-            if (!await embeddingService.IsAvailableAsync())
-            {
-                logger.LogError("Sync cannot run: Ollama is not available. Please start Ollama first: sudo systemctl start ollama");
-                Environment.Exit(1);
-                return;
-            }
+            // Ensure Ollama is running before sync (auto-start if needed)
+            await embeddingService.EnsureOllamaRunningAsync();
 
             if (args.Length > 1)
             {
