@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
 using Pgvector;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
 public class OllamaEmbeddingService : IEmbeddingService
 {

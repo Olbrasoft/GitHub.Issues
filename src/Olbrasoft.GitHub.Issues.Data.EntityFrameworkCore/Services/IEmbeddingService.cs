@@ -1,6 +1,6 @@
 using Pgvector;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
 public interface IEmbeddingService
 {

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

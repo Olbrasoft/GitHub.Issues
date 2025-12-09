@@ -1,4 +1,4 @@
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
 public class EmbeddingSettings
 {

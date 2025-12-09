@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
-using Pgvector;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Pgvector.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
