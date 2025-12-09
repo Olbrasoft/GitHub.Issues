@@ -1,0 +1,61 @@
+@page
+@model Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages.IndexModel
+@{
+    ViewData["Title"] = "Hledat GitHub issues";
+}
+
+<div class="search-container">
+    <h1>Hledat GitHub issues</h1>
+
+    <form method="get" class="search-form">
+        <div class="search-row">
+            <input type="text"
+                   name="Query"
+                   value="@Model.Query"
+                   placeholder="Zadejte hledaný text..."
+                   class="search-input" />
+            <button type="submit" class="search-button">Hledat</button>
+        </div>
+
+        <div class="filter-row">
+            <label>Stav:</label>
+            <select name="State" class="state-select">
+                <option value="all" selected="@(Model.State == "all")">Vše</option>
+                <option value="open" selected="@(Model.State == "open")">Otevřený</option>
+                <option value="closed" selected="@(Model.State == "closed")">Zavřený</option>
+            </select>
+        </div>
+    </form>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.Query))
+{
+    <div class="results-container">
+        <h2>Výsledky vyhledávání</h2>
+
+        @if (Model.Results.Count == 0)
+        {
+            <p class="no-results">Žádné výsledky</p>
+        }
+        else
+        {
+            <ul class="results-list">
+                @foreach (var result in Model.Results)
+                {
+                    <li class="result-item">
+                        <div class="result-header">
+                            <a href="@result.HtmlUrl" target="_blank" class="result-title">@result.Title</a>
+                            <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
+                                @result.StateCzech
+                            </span>
+                        </div>
+                        <div class="result-meta">
+                            <span class="repository">@result.RepositoryName</span>
+                            <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
