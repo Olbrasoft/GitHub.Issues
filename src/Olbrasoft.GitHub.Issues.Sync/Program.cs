@@ -30,6 +30,7 @@ var host = builder.Build();
 using var scope = host.Services.CreateScope();
 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>();
+var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
 
 // Parse command line arguments
 if (args.Length == 0)
@@ -47,6 +48,14 @@ try
     switch (command)
     {
         case "sync":
+            // Check Ollama availability before sync
+            if (!await embeddingService.IsAvailableAsync())
+            {
+                logger.LogError("Sync cannot run: Ollama is not available. Please start Ollama first: sudo systemctl start ollama");
+                Environment.Exit(1);
+                return;
+            }
+
             if (args.Length > 1)
             {
                 var parts = args[1].Split('/');
@@ -71,4 +80,5 @@ try
 catch (Exception ex)
 {
     logger.LogError(ex, "Sync failed");
+    Environment.Exit(1);
 }

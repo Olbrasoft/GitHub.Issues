@@ -26,6 +26,19 @@ public class OllamaEmbeddingService : IEmbeddingService
 
     public bool IsConfigured => !string.IsNullOrEmpty(_settings.BaseUrl);
 
+    public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/tags", cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<Vector?> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
