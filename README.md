@@ -167,14 +167,14 @@ Vector dimension: **768** (nomic-embed-text)
 
 ## Documentation
 
-Detailed documentation is available in the [docs/](docs/) folder:
+See the [Wiki](https://github.com/Olbrasoft/GitHub.Issues/wiki) for detailed documentation:
 
-- [Home](docs/Home.md) - Overview
-- [Architecture](docs/Architecture.md) - System design
-- [Database Schema](docs/Database-Schema.md) - Entity relationships
-- [Sync Service](docs/Sync-Service.md) - GitHub sync process
-- [Search](docs/Search.md) - Semantic search
-- [Configuration](docs/Configuration.md) - Setup and configuration
+- [Home](https://github.com/Olbrasoft/GitHub.Issues/wiki) - Overview
+- [Architecture](https://github.com/Olbrasoft/GitHub.Issues/wiki/Architecture) - System design
+- [Database Schema](https://github.com/Olbrasoft/GitHub.Issues/wiki/Database-Schema) - Entity relationships
+- [Sync Service](https://github.com/Olbrasoft/GitHub.Issues/wiki/Sync-Service) - GitHub sync process
+- [Search](https://github.com/Olbrasoft/GitHub.Issues/wiki/Search) - Semantic search
+- [Configuration](https://github.com/Olbrasoft/GitHub.Issues/wiki/Configuration) - Setup and configuration
 
 ## License
 
