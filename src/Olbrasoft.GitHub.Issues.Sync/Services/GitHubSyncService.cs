@@ -70,6 +70,7 @@ public class GitHubSyncService : IGitHubSyncService
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
         await SyncIssuesAsync(repository, owner, repo, cancellationToken);
         await SyncSubIssuesAsync(repository, owner, repo, cancellationToken);
+        await SyncEventsAsync(repository, owner, repo, cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
     }
@@ -330,5 +331,83 @@ public class GitHubSyncService : IGitHubSyncService
         }
 
         return result;
+    }
+
+    private async Task SyncEventsAsync(
+        Data.Entities.Repository repository,
+        string owner,
+        string repo,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Syncing issue events for {Owner}/{Repo}", owner, repo);
+
+        // Cache event types for faster lookup
+        var eventTypes = await _dbContext.EventTypes.ToDictionaryAsync(et => et.Name, cancellationToken);
+
+        // Get all issues for this repository
+        var issues = await _dbContext.Issues
+            .Where(i => i.RepositoryId == repository.Id)
+            .ToListAsync(cancellationToken);
+
+        // Get existing event IDs to avoid duplicates
+        var existingEventIds = await _dbContext.IssueEvents
+            .Where(ie => issues.Select(i => i.Id).Contains(ie.IssueId))
+            .Select(ie => ie.GitHubEventId)
+            .ToHashSetAsync(cancellationToken);
+
+        var newEventsCount = 0;
+
+        foreach (var issue in issues)
+        {
+            try
+            {
+                var ghEvents = await _gitHubClient.Issue.Events.GetAllForIssue(owner, repo, issue.Number);
+
+                foreach (var ghEvent in ghEvents)
+                {
+                    // Skip if already synced
+                    if (existingEventIds.Contains(ghEvent.Id))
+                    {
+                        continue;
+                    }
+
+                    var eventTypeName = ghEvent.Event.StringValue;
+
+                    if (!eventTypes.TryGetValue(eventTypeName, out var eventType))
+                    {
+                        _logger.LogDebug("Unknown event type: {EventType}, skipping", eventTypeName);
+                        continue;
+                    }
+
+                    var issueEvent = new Data.Entities.IssueEvent
+                    {
+                        IssueId = issue.Id,
+                        EventTypeId = eventType.Id,
+                        GitHubEventId = ghEvent.Id,
+                        CreatedAt = ghEvent.CreatedAt,
+                        ActorId = ghEvent.Actor?.Id != null ? (int)ghEvent.Actor.Id : null,
+                        ActorLogin = ghEvent.Actor?.Login
+                    };
+
+                    _dbContext.IssueEvents.Add(issueEvent);
+                    existingEventIds.Add(ghEvent.Id); // Track to avoid duplicates within same sync
+                    newEventsCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch events for issue #{Number}", issue.Number);
+            }
+        }
+
+        if (newEventsCount > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Synced {Count} new issue events", newEventsCount);
+        }
+        else
+        {
+            _logger.LogInformation("No new issue events to sync");
+        }
     }
 }
