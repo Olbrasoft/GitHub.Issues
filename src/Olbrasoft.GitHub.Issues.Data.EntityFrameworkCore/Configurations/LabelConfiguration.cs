@@ -15,6 +15,10 @@ public class LabelConfiguration : IEntityTypeConfiguration<Label>
         builder.Property(l => l.Id)
             .HasColumnName("id");
 
+        builder.Property(l => l.RepositoryId)
+            .HasColumnName("repository_id")
+            .IsRequired();
+
         builder.Property(l => l.Name)
             .HasColumnName("name")
             .HasMaxLength(256)
@@ -26,7 +30,12 @@ public class LabelConfiguration : IEntityTypeConfiguration<Label>
             .HasDefaultValue("ededed")
             .IsRequired();
 
-        builder.HasIndex(l => l.Name)
+        builder.HasOne(l => l.Repository)
+            .WithMany(r => r.Labels)
+            .HasForeignKey(l => l.RepositoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(l => new { l.RepositoryId, l.Name })
             .IsUnique();
     }
 }

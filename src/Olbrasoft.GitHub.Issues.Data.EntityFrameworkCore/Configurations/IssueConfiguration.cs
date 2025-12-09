@@ -43,7 +43,8 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
 
         builder.Property(i => i.TitleEmbedding)
             .HasColumnName("title_embedding")
-            .HasColumnType("vector(1536)");
+            .HasColumnType("vector(1536)")
+            .IsRequired();
 
         builder.Property(i => i.SyncedAt)
             .HasColumnName("synced_at")

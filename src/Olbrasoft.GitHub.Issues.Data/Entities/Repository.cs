@@ -8,4 +8,5 @@ public class Repository
     public string HtmlUrl { get; set; } = string.Empty;
 
     public ICollection<Issue> Issues { get; set; } = new List<Issue>();
+    public ICollection<Label> Labels { get; set; } = new List<Label>();
 }

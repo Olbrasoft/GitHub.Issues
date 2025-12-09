@@ -161,14 +161,15 @@ public class GitHubSyncService : IGitHubSyncService
         issue.GitHubUpdatedAt = ghIssue.UpdatedAt ?? ghIssue.CreatedAt;
         issue.SyncedAt = syncedAt;
 
-        // Generate embedding for new issues or if title changed
-        if (isNew || issue.TitleEmbedding == null)
+        // Generate embedding for new issues
+        if (isNew)
         {
             var embedding = await _embeddingService.GenerateEmbeddingAsync(ghIssue.Title, cancellationToken);
-            if (embedding != null)
+            if (embedding == null)
             {
-                issue.TitleEmbedding = embedding;
+                throw new InvalidOperationException($"Failed to generate embedding for issue #{ghIssue.Number}. Ollama may be unavailable.");
             }
+            issue.TitleEmbedding = embedding;
         }
 
         // Sync labels
@@ -188,7 +189,7 @@ public class GitHubSyncService : IGitHubSyncService
         // Add new labels
         foreach (var labelName in ghLabelNames)
         {
-            var label = await _dbContext.Labels.FirstOrDefaultAsync(l => l.Name == labelName, cancellationToken);
+            var label = await _dbContext.Labels.FirstOrDefaultAsync(l => l.RepositoryId == repository.Id && l.Name == labelName, cancellationToken);
             if (label != null && !existingLabelIds.Contains(label.Id))
             {
                 issue.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = label.Id });
@@ -209,11 +210,11 @@ public class GitHubSyncService : IGitHubSyncService
         foreach (var ghLabel in ghLabels)
         {
             var label = await _dbContext.Labels
-                .FirstOrDefaultAsync(l => l.Name == ghLabel.Name, cancellationToken);
+                .FirstOrDefaultAsync(l => l.RepositoryId == repository.Id && l.Name == ghLabel.Name, cancellationToken);
 
             if (label == null)
             {
-                label = new Data.Entities.Label { Name = ghLabel.Name, Color = ghLabel.Color };
+                label = new Data.Entities.Label { RepositoryId = repository.Id, Name = ghLabel.Name, Color = ghLabel.Color };
                 _dbContext.Labels.Add(label);
                 _logger.LogDebug("Created label: {Name} ({Color})", ghLabel.Name, ghLabel.Color);
             }
