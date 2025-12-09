@@ -57,5 +57,16 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
 
         builder.HasIndex(i => new { i.RepositoryId, i.Number })
             .IsUnique();
+
+        // Sub-issues hierarchy (self-referencing 1:N relationship)
+        builder.Property(i => i.ParentIssueId)
+            .HasColumnName("parent_issue_id");
+
+        builder.HasOne(i => i.ParentIssue)
+            .WithMany(i => i.SubIssues)
+            .HasForeignKey(i => i.ParentIssueId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(i => i.ParentIssueId);
     }
 }

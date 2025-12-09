@@ -16,4 +16,9 @@ public class Issue
 
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
+
+    // Sub-issues hierarchy (1:N self-reference)
+    public int? ParentIssueId { get; set; }
+    public Issue? ParentIssue { get; set; }
+    public ICollection<Issue> SubIssues { get; set; } = new List<Issue>();
 }
