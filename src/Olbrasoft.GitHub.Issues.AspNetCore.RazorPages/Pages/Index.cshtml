@@ -33,7 +33,7 @@
                 }
             </select>
         </div>
-        <input type="hidden" name="Page" value="1" />
+        <input type="hidden" name="PageNum" value="1" />
     </form>
 </div>
 
@@ -79,14 +79,14 @@
                 <div class="pagination">
                     @if (Model.PageNumber > 1)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Page=@(Model.PageNumber - 1)&PageSize=@Model.PageSize" class="page-link">« Předchozí</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize" class="page-link">« Předchozí</a>
                     }
 
                     <span class="page-info">Stránka @Model.PageNumber z @Model.SearchResult.TotalPages</span>
 
                     @if (Model.PageNumber < Model.SearchResult.TotalPages)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Page=@(Model.PageNumber + 1)&PageSize=@Model.PageSize" class="page-link">Další »</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize" class="page-link">Další »</a>
                     }
                 </div>
             }

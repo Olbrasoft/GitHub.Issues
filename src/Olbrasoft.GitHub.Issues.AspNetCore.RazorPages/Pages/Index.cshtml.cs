@@ -20,7 +20,7 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string State { get; set; } = "all";
 
-    [BindProperty(SupportsGet = true, Name = "Page")]
+    [BindProperty(SupportsGet = true, Name = "PageNum")]
     public int PageNumber { get; set; } = 1;
 
     [BindProperty(SupportsGet = true)]
