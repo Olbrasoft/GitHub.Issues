@@ -28,9 +28,4 @@ public interface IGitHubSyncService
     /// <param name="fullRefresh">If true, ignores last sync timestamp and re-syncs everything</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task SyncRepositoriesAsync(IEnumerable<string> repositories, bool fullRefresh = false, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Re-embeds all existing issues with title + body combined.
-    /// </summary>
-    Task ReEmbedAllIssuesAsync(CancellationToken cancellationToken = default);
 }

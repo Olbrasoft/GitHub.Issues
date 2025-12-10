@@ -36,81 +36,59 @@ var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>()
 var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
 
 // Parse command line arguments
-if (args.Length == 0)
+if (args.Length == 0 || args[0].ToLowerInvariant() != "sync")
 {
     logger.LogInformation("Usage:");
-    logger.LogInformation("  sync [--full-refresh]                             - Sync all (incremental by default)");
-    logger.LogInformation("  sync owner/repo [--full-refresh]                  - Sync single repository");
-    logger.LogInformation("  sync owner/repo1 owner/repo2 ... [--full-refresh] - Sync list of repositories");
-    logger.LogInformation("  reembed                                           - Re-embed all issues with title+body");
+    logger.LogInformation("  sync                                - Sync all repositories (incremental)");
+    logger.LogInformation("  sync --full-refresh                 - Sync all repositories (full)");
+    logger.LogInformation("  sync --repo Owner/Repo              - Sync single repository (incremental)");
+    logger.LogInformation("  sync --repo Owner/Repo --full-refresh - Sync single repository (full)");
     logger.LogInformation("");
     logger.LogInformation("Options:");
-    logger.LogInformation("  --full-refresh  Ignore last sync timestamp and re-sync everything");
+    logger.LogInformation("  --repo Owner/Repo  Target a specific repository");
+    logger.LogInformation("  --full-refresh     Ignore last sync timestamp, process all issues");
     return;
 }
 
-var command = args[0].ToLowerInvariant();
-
-// Check for --full-refresh flag
+// Parse flags
 var fullRefresh = args.Contains("--full-refresh", StringComparer.OrdinalIgnoreCase);
-var repoArgs = args.Where(a => !a.StartsWith("--") && a != command).ToList();
+string? targetRepo = null;
+
+// Find --repo flag and its value
+for (var i = 0; i < args.Length - 1; i++)
+{
+    if (args[i].Equals("--repo", StringComparison.OrdinalIgnoreCase))
+    {
+        targetRepo = args[i + 1];
+        break;
+    }
+}
 
 try
 {
-    switch (command)
+    // Ensure Ollama is running before sync (auto-start if needed)
+    await embeddingService.EnsureOllamaRunningAsync();
+
+    if (fullRefresh)
     {
-        case "sync":
-            // Ensure Ollama is running before sync (auto-start if needed)
-            await embeddingService.EnsureOllamaRunningAsync();
+        logger.LogInformation("Full refresh mode enabled - ignoring last sync timestamps");
+    }
 
-            if (fullRefresh)
-            {
-                logger.LogInformation("Full refresh mode enabled - ignoring last sync timestamps");
-            }
-
-            if (repoArgs.Count == 0)
-            {
-                // sync - use config list or dynamic discovery
-                await syncService.SyncAllRepositoriesAsync(fullRefresh);
-            }
-            else if (repoArgs.Count == 1)
-            {
-                // sync owner/repo - single repository
-                var parts = repoArgs[0].Split('/');
-                if (parts.Length != 2)
-                {
-                    logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", repoArgs[0]);
-                    return;
-                }
-                await syncService.SyncRepositoryAsync(parts[0], parts[1], fullRefresh);
-            }
-            else
-            {
-                // sync owner/repo1 owner/repo2 ... - multiple repositories
-                var repositories = new List<string>();
-                foreach (var repoArg in repoArgs)
-                {
-                    var parts = repoArg.Split('/');
-                    if (parts.Length != 2)
-                    {
-                        logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", repoArg);
-                        return;
-                    }
-                    repositories.Add(repoArg);
-                }
-                await syncService.SyncRepositoriesAsync(repositories, fullRefresh);
-            }
-            break;
-
-        case "reembed":
-            // Re-embed all issues with title+body (fetches body from GitHub API)
-            await embeddingService.EnsureOllamaRunningAsync();
-            await syncService.ReEmbedAllIssuesAsync();
-            break;
-
-        default:
-            logger.LogError("Unknown command: {Command}", command);
-            break;
+    if (targetRepo != null)
+    {
+        // Sync single repository
+        var parts = targetRepo.Split('/');
+        if (parts.Length != 2)
+        {
+            logger.LogError("Invalid repository format: {Repo}. Expected 'Owner/Repo'", targetRepo);
+            return;
+        }
+        await syncService.SyncRepositoryAsync(parts[0], parts[1], fullRefresh);
+    }
+    else
+    {
+        // Sync all repositories (from config or dynamic discovery)
+        await syncService.SyncAllRepositoriesAsync(fullRefresh);
     }
 }
 catch (Exception ex)
