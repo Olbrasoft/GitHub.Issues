@@ -1,9 +1,8 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 
@@ -14,21 +13,21 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 /// </summary>
 public class IssueSyncService : IIssueSyncService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IIssueSyncBusinessService _issueSyncBusiness;
     private readonly IEmbeddingService _embeddingService;
     private readonly HttpClient _httpClient;
     private readonly SyncSettings _syncSettings;
     private readonly ILogger<IssueSyncService> _logger;
 
     public IssueSyncService(
-        GitHubDbContext dbContext,
+        IIssueSyncBusinessService issueSyncBusiness,
         IEmbeddingService embeddingService,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
         IOptions<SyncSettings> syncSettings,
         ILogger<IssueSyncService> logger)
     {
-        _dbContext = dbContext;
+        _issueSyncBusiness = issueSyncBusiness;
         _embeddingService = embeddingService;
         _httpClient = httpClient;
         _syncSettings = syncSettings.Value;
@@ -106,6 +105,9 @@ public class IssueSyncService : IIssueSyncService
             since.HasValue ? "changed" : "total",
             owner, repo);
 
+        // Get existing issues for this repository to detect changes
+        var existingIssues = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
+
         // Dictionary to track parent_issue_url -> child issue number for later FK update
         var parentChildRelationships = new Dictionary<int, string>(); // childNumber -> parentIssueUrl
 
@@ -137,43 +139,21 @@ public class IssueSyncService : IIssueSyncService
                 }
             }
 
-            // Get or create issue
-            var issue = await _dbContext.Issues
-                .Include(i => i.IssueLabels)
-                .FirstOrDefaultAsync(i => i.RepositoryId == repository.Id && i.Number == issueNumber, cancellationToken);
-
-            var isNew = issue == null;
-
-            if (isNew)
-            {
-                issue = new Issue
-                {
-                    RepositoryId = repository.Id,
-                    Number = issueNumber
-                };
-                _dbContext.Issues.Add(issue);
-            }
-
-            // Detect if issue has changed (compare GitHubUpdatedAt)
-            var hasChanged = !isNew && issue!.GitHubUpdatedAt < updatedAt;
-
-            issue!.Title = title;
-            issue.IsOpen = state == "open";
-            issue.Url = htmlUrl;
-            issue.GitHubUpdatedAt = updatedAt;
-            issue.SyncedAt = syncedAt;
+            // Check if issue exists and has changed
+            var existingIssue = existingIssues.GetValueOrDefault(issueNumber);
+            var isNew = existingIssue == null;
+            var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < updatedAt;
 
             // Generate embedding for new issues OR re-embed if issue has changed
-            var needsReEmbed = isNew || hasChanged;
-            if (needsReEmbed)
+            Pgvector.Vector? embedding = null;
+            if (isNew || hasChanged)
             {
                 var textToEmbed = CreateEmbeddingText(title, body);
-                var embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
+                embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
                 if (embedding == null)
                 {
                     throw new InvalidOperationException($"Failed to generate embedding for issue #{issueNumber}. Ollama may be unavailable.");
                 }
-                issue.Embedding = embedding;
 
                 if (hasChanged)
                 {
@@ -181,46 +161,39 @@ public class IssueSyncService : IIssueSyncService
                 }
             }
 
+            // Save issue (creates or updates)
+            var savedIssue = await _issueSyncBusiness.SaveIssueAsync(
+                repository.Id,
+                issueNumber,
+                title,
+                state == "open",
+                htmlUrl,
+                updatedAt,
+                syncedAt,
+                embedding,
+                cancellationToken);
+
             // Sync labels
             if (ghIssue.TryGetProperty("labels", out var labelsElement))
             {
-                var existingLabelIds = issue.IssueLabels.Select(il => il.LabelId).ToHashSet();
-                var ghLabelNames = new List<string>();
-
+                var labelNames = new List<string>();
                 foreach (var labelElement in labelsElement.EnumerateArray())
                 {
                     if (labelElement.TryGetProperty("name", out var nameElement))
                     {
-                        ghLabelNames.Add(nameElement.GetString() ?? "");
+                        var name = nameElement.GetString();
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            labelNames.Add(name);
+                        }
                     }
                 }
 
-                // Remove labels that are no longer present
-                var labelsToRemove = issue.IssueLabels
-                    .Where(il => !ghLabelNames.Contains(_dbContext.Labels.Find(il.LabelId)?.Name ?? ""))
-                    .ToList();
-
-                foreach (var labelToRemove in labelsToRemove)
-                {
-                    issue.IssueLabels.Remove(labelToRemove);
-                }
-
-                // Add new labels
-                foreach (var labelName in ghLabelNames)
-                {
-                    var label = await _dbContext.Labels.FirstOrDefaultAsync(
-                        l => l.RepositoryId == repository.Id && l.Name == labelName, cancellationToken);
-                    if (label != null && !existingLabelIds.Contains(label.Id))
-                    {
-                        issue.IssueLabels.Add(new IssueLabel { IssueId = issue.Id, LabelId = label.Id });
-                    }
-                }
+                await _issueSyncBusiness.SyncLabelsAsync(savedIssue.Id, repository.Id, labelNames, cancellationToken);
             }
 
             _logger.LogDebug("Synced issue #{Number}: {Title}", issueNumber, title);
         }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Update parent-child relationships after all issues are synced
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
@@ -238,32 +211,29 @@ public class IssueSyncService : IIssueSyncService
 
         _logger.LogInformation("Updating {Count} parent-child relationships", parentChildRelationships.Count);
 
-        var issuesByNumber = await _dbContext.Issues
-            .Where(i => i.RepositoryId == repositoryId)
-            .ToDictionaryAsync(i => i.Number, cancellationToken);
+        // Get all issues for this repository
+        var issuesByNumber = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repositoryId, cancellationToken);
 
-        var updatedCount = 0;
+        // Build childId -> parentId map
+        var childToParentMap = new Dictionary<int, int?>();
         foreach (var (childNumber, parentUrl) in parentChildRelationships)
         {
-            // Parse parent issue number from URL (e.g., https://api.github.com/repos/owner/repo/issues/123)
             var parentNumber = ExtractIssueNumberFromUrl(parentUrl);
-            if (parentNumber.HasValue && issuesByNumber.TryGetValue(parentNumber.Value, out var parentIssue))
+            if (parentNumber.HasValue &&
+                issuesByNumber.TryGetValue(parentNumber.Value, out var parentIssue) &&
+                issuesByNumber.TryGetValue(childNumber, out var childIssue))
             {
-                if (issuesByNumber.TryGetValue(childNumber, out var childIssue))
+                if (childIssue.ParentIssueId != parentIssue.Id)
                 {
-                    if (childIssue.ParentIssueId != parentIssue.Id)
-                    {
-                        childIssue.ParentIssueId = parentIssue.Id;
-                        updatedCount++;
-                        _logger.LogDebug("Set parent of issue #{Child} to #{Parent}", childNumber, parentNumber.Value);
-                    }
+                    childToParentMap[childIssue.Id] = parentIssue.Id;
+                    _logger.LogDebug("Set parent of issue #{Child} to #{Parent}", childNumber, parentNumber.Value);
                 }
             }
         }
 
-        if (updatedCount > 0)
+        if (childToParentMap.Count > 0)
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            var updatedCount = await _issueSyncBusiness.BatchSetParentsAsync(childToParentMap, cancellationToken);
             _logger.LogInformation("Updated {Count} parent-child relationships", updatedCount);
         }
     }

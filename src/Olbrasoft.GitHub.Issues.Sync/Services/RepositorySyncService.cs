@@ -1,9 +1,8 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
@@ -13,7 +12,7 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 /// </summary>
 public class RepositorySyncService : IRepositorySyncService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IRepositorySyncBusinessService _repositorySyncBusiness;
     private readonly IGitHubApiClient _gitHubApiClient;
     private readonly HttpClient _httpClient;
     private readonly GitHubSettings _settings;
@@ -21,14 +20,14 @@ public class RepositorySyncService : IRepositorySyncService
     private readonly ILogger<RepositorySyncService> _logger;
 
     public RepositorySyncService(
-        GitHubDbContext dbContext,
+        IRepositorySyncBusinessService repositorySyncBusiness,
         IGitHubApiClient gitHubApiClient,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
         IOptions<SyncSettings> syncSettings,
         ILogger<RepositorySyncService> logger)
     {
-        _dbContext = dbContext;
+        _repositorySyncBusiness = repositorySyncBusiness;
         _gitHubApiClient = gitHubApiClient;
         _httpClient = httpClient;
         _settings = settings.Value;
@@ -53,22 +52,18 @@ public class RepositorySyncService : IRepositorySyncService
         CancellationToken cancellationToken = default)
     {
         var fullName = $"{owner}/{repo}";
-        var repository = await _dbContext.Repositories
-            .FirstOrDefaultAsync(r => r.FullName == fullName, cancellationToken);
+        var repository = await _repositorySyncBusiness.GetByFullNameAsync(fullName, cancellationToken);
 
         if (repository == null)
         {
             var ghRepo = await _gitHubApiClient.GetRepositoryAsync(owner, repo);
 
-            repository = new Repository
-            {
-                GitHubId = ghRepo.Id,
-                FullName = ghRepo.FullName,
-                HtmlUrl = ghRepo.HtmlUrl
-            };
+            repository = await _repositorySyncBusiness.SaveRepositoryAsync(
+                ghRepo.Id,
+                ghRepo.FullName,
+                ghRepo.HtmlUrl,
+                cancellationToken);
 
-            _dbContext.Repositories.Add(repository);
-            await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Created repository: {FullName}", fullName);
         }
 
@@ -102,16 +97,16 @@ public class RepositorySyncService : IRepositorySyncService
                 break;
             }
 
-            foreach (var repo in pageRepos)
+            foreach (var repoElement in pageRepos)
             {
-                var fullName = repo.GetProperty("full_name").GetString();
+                var fullName = repoElement.GetProperty("full_name").GetString();
                 if (string.IsNullOrEmpty(fullName))
                 {
                     continue;
                 }
 
                 // Check has_issues - skip repos with issues disabled
-                if (repo.TryGetProperty("has_issues", out var hasIssuesElement) && !hasIssuesElement.GetBoolean())
+                if (repoElement.TryGetProperty("has_issues", out var hasIssuesElement) && !hasIssuesElement.GetBoolean())
                 {
                     _logger.LogDebug("Skipping {Repo}: has_issues=false", fullName);
                     continue;
@@ -119,7 +114,7 @@ public class RepositorySyncService : IRepositorySyncService
 
                 // Check archived - skip unless IncludeArchived is true
                 if (!_settings.IncludeArchived &&
-                    repo.TryGetProperty("archived", out var archivedElement) && archivedElement.GetBoolean())
+                    repoElement.TryGetProperty("archived", out var archivedElement) && archivedElement.GetBoolean())
                 {
                     _logger.LogDebug("Skipping {Repo}: archived", fullName);
                     continue;
@@ -127,7 +122,7 @@ public class RepositorySyncService : IRepositorySyncService
 
                 // Check fork - skip unless IncludeForks is true
                 if (!_settings.IncludeForks &&
-                    repo.TryGetProperty("fork", out var forkElement) && forkElement.GetBoolean())
+                    repoElement.TryGetProperty("fork", out var forkElement) && forkElement.GetBoolean())
                 {
                     _logger.LogDebug("Skipping {Repo}: fork", fullName);
                     continue;

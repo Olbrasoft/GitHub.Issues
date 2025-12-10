@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Business;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 
@@ -10,7 +10,7 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 /// </summary>
 public class GitHubSyncService : IGitHubSyncService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IRepositorySyncBusinessService _repositorySyncBusiness;
     private readonly IRepositorySyncService _repositorySyncService;
     private readonly ILabelSyncService _labelSyncService;
     private readonly IIssueSyncService _issueSyncService;
@@ -19,7 +19,7 @@ public class GitHubSyncService : IGitHubSyncService
     private readonly ILogger<GitHubSyncService> _logger;
 
     public GitHubSyncService(
-        GitHubDbContext dbContext,
+        IRepositorySyncBusinessService repositorySyncBusiness,
         IRepositorySyncService repositorySyncService,
         ILabelSyncService labelSyncService,
         IIssueSyncService issueSyncService,
@@ -27,7 +27,7 @@ public class GitHubSyncService : IGitHubSyncService
         IOptions<GitHubSettings> settings,
         ILogger<GitHubSyncService> logger)
     {
-        _dbContext = dbContext;
+        _repositorySyncBusiness = repositorySyncBusiness;
         _repositorySyncService = repositorySyncService;
         _labelSyncService = labelSyncService;
         _issueSyncService = issueSyncService;
@@ -109,9 +109,8 @@ public class GitHubSyncService : IGitHubSyncService
         await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken);
         await _eventSyncService.SyncEventsAsync(repository, owner, repo, effectiveSince, cancellationToken);
 
-        // Update last synced timestamp
-        repository.LastSyncedAt = DateTimeOffset.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Update last synced timestamp via Business service
+        await _repositorySyncBusiness.UpdateLastSyncedAsync(repository.Id, DateTimeOffset.UtcNow, cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
     }

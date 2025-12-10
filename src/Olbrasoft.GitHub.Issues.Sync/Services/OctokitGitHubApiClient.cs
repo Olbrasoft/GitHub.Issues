@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Octokit;
+using Olbrasoft.GitHub.Issues.Business;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 

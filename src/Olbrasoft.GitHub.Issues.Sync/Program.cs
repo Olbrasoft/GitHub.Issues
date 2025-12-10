@@ -4,9 +4,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Olbrasoft.Data.Cqrs;
+using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.Mediation;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -14,11 +18,17 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true);
 
-// Configure DbContext
+// Configure DbContext (still needed for CQRS handlers)
 builder.Services.AddDbContext<GitHubDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         o => o.UseVector()));
+
+// Register CQRS handlers
+builder.Services.AddCqrs(ServiceLifetime.Scoped, typeof(GitHubDbContext).Assembly);
+
+// Register Mediator
+builder.Services.AddMediation(typeof(GitHubDbContext).Assembly).UseRequestHandlerMediator();
 
 // Configure process runner and service manager (DIP - abstractions for testability)
 builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
@@ -30,9 +40,17 @@ builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 
-// Configure GitHub sync services
+// Configure settings
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
+
+// Register Business layer sync services (Clean Architecture)
+builder.Services.AddScoped<IIssueSyncBusinessService, IssueSyncBusinessService>();
+builder.Services.AddScoped<ILabelSyncBusinessService, LabelSyncBusinessService>();
+builder.Services.AddScoped<IRepositorySyncBusinessService, RepositorySyncBusinessService>();
+builder.Services.AddScoped<IEventSyncBusinessService, EventSyncBusinessService>();
+
+// Register GitHub API client
 builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
 
 // Register specialized sync services (SRP - each has one responsibility)

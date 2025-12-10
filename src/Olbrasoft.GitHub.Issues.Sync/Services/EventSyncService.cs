@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Data.Commands.EventCommands;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
@@ -13,19 +13,22 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 /// </summary>
 public class EventSyncService : IEventSyncService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IIssueSyncBusinessService _issueSyncBusiness;
+    private readonly IEventSyncBusinessService _eventSyncBusiness;
     private readonly HttpClient _httpClient;
     private readonly SyncSettings _syncSettings;
     private readonly ILogger<EventSyncService> _logger;
 
     public EventSyncService(
-        GitHubDbContext dbContext,
+        IIssueSyncBusinessService issueSyncBusiness,
+        IEventSyncBusinessService eventSyncBusiness,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
         IOptions<SyncSettings> syncSettings,
         ILogger<EventSyncService> logger)
     {
-        _dbContext = dbContext;
+        _issueSyncBusiness = issueSyncBusiness;
+        _eventSyncBusiness = eventSyncBusiness;
         _httpClient = httpClient;
         _syncSettings = syncSettings.Value;
         _logger = logger;
@@ -53,18 +56,13 @@ public class EventSyncService : IEventSyncService
             owner, repo, since.HasValue ? "incremental" : "full");
 
         // Cache event types for faster lookup
-        var eventTypes = await _dbContext.EventTypes.ToDictionaryAsync(et => et.Name, cancellationToken);
+        var eventTypes = await _eventSyncBusiness.GetAllEventTypesAsync(cancellationToken);
 
         // Get all issues for this repository (to map issue numbers to IDs)
-        var issuesByNumber = await _dbContext.Issues
-            .Where(i => i.RepositoryId == repository.Id)
-            .ToDictionaryAsync(i => i.Number, cancellationToken);
+        var issuesByNumber = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
 
         // Get existing event IDs to avoid duplicates
-        var existingEventIds = await _dbContext.IssueEvents
-            .Where(ie => issuesByNumber.Values.Select(i => i.Id).Contains(ie.IssueId))
-            .Select(ie => ie.GitHubEventId)
-            .ToHashSetAsync(cancellationToken);
+        var existingEventIds = await _eventSyncBusiness.GetExistingEventIdsAsync(repository.Id, cancellationToken);
 
         var allEvents = new List<JsonElement>();
         var page = 1;
@@ -119,7 +117,7 @@ public class EventSyncService : IEventSyncService
 
         _logger.LogInformation("Found {Count} events to process for {Owner}/{Repo}", allEvents.Count, owner, repo);
 
-        var newEventsCount = 0;
+        var eventsToSave = new List<IssueEventData>();
         var skippedCount = 0;
 
         foreach (var ghEvent in allEvents)
@@ -177,31 +175,20 @@ public class EventSyncService : IEventSyncService
             // Get created_at
             var createdAt = ghEvent.GetProperty("created_at").GetDateTimeOffset();
 
-            var issueEvent = new IssueEvent
-            {
-                IssueId = issue.Id,
-                EventTypeId = eventType.Id,
-                GitHubEventId = eventId,
-                CreatedAt = createdAt,
-                ActorId = actorId,
-                ActorLogin = actorLogin
-            };
+            eventsToSave.Add(new IssueEventData(
+                issue.Id,
+                eventType.Id,
+                eventId,
+                createdAt,
+                actorId,
+                actorLogin));
 
-            _dbContext.IssueEvents.Add(issueEvent);
             existingEventIds.Add(eventId); // Track to avoid duplicates within same sync
-            newEventsCount++;
-
-            // Periodic save every BatchSaveSize events
-            if (newEventsCount % _syncSettings.BatchSaveSize == 0)
-            {
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("Saved {Count} events so far...", newEventsCount);
-            }
         }
 
-        if (newEventsCount > 0)
+        if (eventsToSave.Count > 0)
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            var newEventsCount = await _eventSyncBusiness.SaveEventsBatchAsync(eventsToSave, existingEventIds, cancellationToken);
             _logger.LogInformation("Synced {Count} new issue events (skipped {Skipped})", newEventsCount, skippedCount);
         }
         else

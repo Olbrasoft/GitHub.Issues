@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
@@ -10,16 +9,16 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 /// </summary>
 public class LabelSyncService : ILabelSyncService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly ILabelSyncBusinessService _labelSyncBusiness;
     private readonly IGitHubApiClient _gitHubApiClient;
     private readonly ILogger<LabelSyncService> _logger;
 
     public LabelSyncService(
-        GitHubDbContext dbContext,
+        ILabelSyncBusinessService labelSyncBusiness,
         IGitHubApiClient gitHubApiClient,
         ILogger<LabelSyncService> logger)
     {
-        _dbContext = dbContext;
+        _labelSyncBusiness = labelSyncBusiness;
         _gitHubApiClient = gitHubApiClient;
         _logger = logger;
     }
@@ -34,22 +33,18 @@ public class LabelSyncService : ILabelSyncService
 
         foreach (var ghLabel in ghLabels)
         {
-            var label = await _dbContext.Labels
-                .FirstOrDefaultAsync(l => l.RepositoryId == repository.Id && l.Name == ghLabel.Name, cancellationToken);
+            var label = await _labelSyncBusiness.GetLabelAsync(repository.Id, ghLabel.Name, cancellationToken);
 
             if (label == null)
             {
-                label = new Label { RepositoryId = repository.Id, Name = ghLabel.Name, Color = ghLabel.Color };
-                _dbContext.Labels.Add(label);
+                await _labelSyncBusiness.SaveLabelAsync(repository.Id, ghLabel.Name, ghLabel.Color, cancellationToken);
                 _logger.LogDebug("Created label: {Name} ({Color})", ghLabel.Name, ghLabel.Color);
             }
             else if (label.Color != ghLabel.Color)
             {
-                label.Color = ghLabel.Color;
+                await _labelSyncBusiness.SaveLabelAsync(repository.Id, ghLabel.Name, ghLabel.Color, cancellationToken);
                 _logger.LogDebug("Updated label color: {Name} ({Color})", ghLabel.Name, ghLabel.Color);
             }
         }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }
