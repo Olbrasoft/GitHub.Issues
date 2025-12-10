@@ -7,9 +7,9 @@ namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages;
 
 public class IndexModel : PageModel
 {
-    private readonly IssueSearchService _searchService;
+    private readonly IIssueSearchService _searchService;
 
-    public IndexModel(IssueSearchService searchService)
+    public IndexModel(IIssueSearchService searchService)
     {
         _searchService = searchService;
     }

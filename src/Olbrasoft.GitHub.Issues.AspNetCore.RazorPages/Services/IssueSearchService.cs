@@ -6,7 +6,7 @@ using Pgvector.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 
-public class IssueSearchService
+public class IssueSearchService : IIssueSearchService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly IEmbeddingService _embeddingService;

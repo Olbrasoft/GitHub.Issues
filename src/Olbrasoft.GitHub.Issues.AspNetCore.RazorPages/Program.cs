@@ -28,7 +28,7 @@ builder.Services.Configure<EmbeddingSettings>(
 
 // Register services
 builder.Services.AddHttpClient<IEmbeddingService, OllamaEmbeddingService>();
-builder.Services.AddScoped<IssueSearchService>();
+builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 
 var app = builder.Build();
 
