@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
+using Olbrasoft.Data.Cqrs;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
@@ -45,17 +45,8 @@ public static class ServiceCollectionExtensions
             }
         });
 
-        // Register provider-specific vector search repository
-        switch (provider)
-        {
-            case DatabaseProvider.PostgreSQL:
-                services.AddScoped<IVectorSearchRepository, PostgreSqlVectorSearchRepository>();
-                break;
-
-            case DatabaseProvider.SqlServer:
-                services.AddScoped<IVectorSearchRepository, SqlServerVectorSearchRepository>();
-                break;
-        }
+        // Register CQRS handlers from this assembly (replaces legacy IVectorSearchRepository)
+        services.AddCqrs(ServiceLifetime.Scoped, typeof(GitHubDbContext).Assembly);
 
         return services;
     }

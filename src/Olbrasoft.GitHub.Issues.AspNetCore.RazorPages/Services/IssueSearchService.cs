@@ -1,23 +1,24 @@
+using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
+using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 
 public class IssueSearchService : IIssueSearchService
 {
-    private readonly IVectorSearchRepository _vectorSearchRepository;
+    private readonly IQueryProcessor _queryProcessor;
     private readonly IEmbeddingService _embeddingService;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ILogger<IssueSearchService> _logger;
 
     public IssueSearchService(
-        IVectorSearchRepository vectorSearchRepository,
+        IQueryProcessor queryProcessor,
         IEmbeddingService embeddingService,
         IGitHubGraphQLClient graphQLClient,
         ILogger<IssueSearchService> logger)
     {
-        _vectorSearchRepository = vectorSearchRepository;
+        _queryProcessor = queryProcessor;
         _embeddingService = embeddingService;
         _graphQLClient = graphQLClient;
         _logger = logger;
@@ -43,29 +44,32 @@ public class IssueSearchService : IIssueSearchService
             return new SearchResultPage();
         }
 
-        // Get total count for pagination
-        var totalCount = await _vectorSearchRepository.GetTotalCountAsync(state, cancellationToken);
-
-        // Get paginated results using provider-specific vector search
-        var skip = (page - 1) * pageSize;
-        var searchResults = await _vectorSearchRepository.SearchBySimilarityAsync(
-            queryEmbedding, state, skip, pageSize, cancellationToken);
-
-        // Map to IssueSearchResult and parse Owner/RepoName
-        var results = searchResults.Select(r =>
+        // Execute CQRS query for vector search
+        var searchQuery = new IssueSearchQuery(_queryProcessor)
         {
-            var parts = r.RepositoryFullName.Split('/');
+            QueryEmbedding = queryEmbedding,
+            State = state,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var searchPage = await searchQuery.ToResultAsync(cancellationToken);
+
+        // Map DTOs to presentation models
+        var results = searchPage.Results.Select(dto =>
+        {
+            var parts = dto.RepositoryFullName.Split('/');
             return new IssueSearchResult
             {
-                Id = r.Id,
-                IssueNumber = r.IssueNumber,
-                Title = r.Title,
-                IsOpen = r.IsOpen,
-                Url = r.Url,
-                RepositoryName = r.RepositoryFullName,
+                Id = dto.Id,
+                IssueNumber = dto.IssueNumber,
+                Title = dto.Title,
+                IsOpen = dto.IsOpen,
+                Url = dto.Url,
+                RepositoryName = dto.RepositoryFullName,
                 Owner = parts.Length == 2 ? parts[0] : string.Empty,
                 RepoName = parts.Length == 2 ? parts[1] : string.Empty,
-                Similarity = r.Similarity
+                Similarity = dto.Similarity
             };
         }).ToList();
 
@@ -75,10 +79,10 @@ public class IssueSearchService : IIssueSearchService
         return new SearchResultPage
         {
             Results = results,
-            TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+            TotalCount = searchPage.TotalCount,
+            Page = searchPage.Page,
+            PageSize = searchPage.PageSize,
+            TotalPages = searchPage.TotalPages
         };
     }
 
