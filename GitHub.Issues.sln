@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Asp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Sync", "src\Olbrasoft.GitHub.Issues.Sync\Olbrasoft.GitHub.Issues.Sync.csproj", "{5D93CB38-3839-4547-BA50-091CFFD6D6A4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Tests", "test\Olbrasoft.GitHub.Issues.Tests\Olbrasoft.GitHub.Issues.Tests.csproj", "{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,18 @@ Global
 		{5D93CB38-3839-4547-BA50-091CFFD6D6A4}.Release|x64.Build.0 = Release|Any CPU
 		{5D93CB38-3839-4547-BA50-091CFFD6D6A4}.Release|x86.ActiveCfg = Release|Any CPU
 		{5D93CB38-3839-4547-BA50-091CFFD6D6A4}.Release|x86.Build.0 = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|x64.Build.0 = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Debug|x86.Build.0 = Debug|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|x64.ActiveCfg = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|x64.Build.0 = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|x86.ActiveCfg = Release|Any CPU
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +96,7 @@ Global
 		{9C6C57CE-255D-44DA-A468-3F10AB48F1AC} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{2D574DF6-98E8-4AC4-87F1-EB170F6F3ECF} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{5D93CB38-3839-4547-BA50-091CFFD6D6A4} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+		{BD26A5E3-5A2A-4BD0-8AB1-C3289AE5B736} = {EAC845CB-591C-4C68-A151-4D75CBD553AE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {12345678-ABCD-EF12-3456-7890ABCDEF12}
