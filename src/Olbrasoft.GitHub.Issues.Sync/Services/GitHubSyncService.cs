@@ -219,8 +219,9 @@ public class GitHubSyncService : IGitHubSyncService
         // Determine if we should use incremental sync
         var lastSyncedAt = repository.LastSyncedAt;
         var useIncremental = !fullRefresh && lastSyncedAt.HasValue;
+        // Use UTC and encode the + sign for URL safety
         var sinceParam = useIncremental
-            ? $"&since={lastSyncedAt!.Value:O}"
+            ? $"&since={Uri.EscapeDataString(lastSyncedAt!.Value.UtcDateTime.ToString("O"))}"
             : "";
 
         _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API ({Mode}{Since})",
