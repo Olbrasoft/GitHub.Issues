@@ -47,7 +47,7 @@ public class GitHubSyncService : IGitHubSyncService
         }
     }
 
-    public async Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, CancellationToken cancellationToken = default)
+    public async Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         IEnumerable<string> repositories;
 
@@ -69,10 +69,10 @@ public class GitHubSyncService : IGitHubSyncService
             return;
         }
 
-        await SyncRepositoriesAsync(repositories, since, cancellationToken);
+        await SyncRepositoriesAsync(repositories, since, smartMode, cancellationToken);
     }
 
-    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         foreach (var repoFullName in repositories)
         {
@@ -83,7 +83,7 @@ public class GitHubSyncService : IGitHubSyncService
                 continue;
             }
 
-            await SyncRepositoryAsync(parts[0], parts[1], since, cancellationToken);
+            await SyncRepositoryAsync(parts[0], parts[1], since, smartMode, cancellationToken);
         }
     }
 
@@ -164,17 +164,37 @@ public class GitHubSyncService : IGitHubSyncService
         return repositories;
     }
 
-    public async Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}{Since}",
-            since.HasValue ? "incremental" : "full",
-            owner, repo,
-            since.HasValue ? $" (since {since.Value:u})" : "");
-
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
+
+        // In smart mode, use stored last_synced_at if available
+        var effectiveSince = since;
+        if (smartMode && !since.HasValue && repository.LastSyncedAt.HasValue)
+        {
+            effectiveSince = repository.LastSyncedAt;
+            _logger.LogInformation("Smart sync: using stored timestamp {Timestamp:u} for {Owner}/{Repo}",
+                effectiveSince.Value, owner, repo);
+        }
+
+        var mode = smartMode ? "smart" : (effectiveSince.HasValue ? "incremental" : "full");
+        var isFirstSync = smartMode && !repository.LastSyncedAt.HasValue;
+
+        if (isFirstSync)
+        {
+            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo} (first sync - full download)",
+                mode, owner, repo);
+        }
+        else
+        {
+            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}{Since}",
+                mode, owner, repo,
+                effectiveSince.HasValue ? $" (since {effectiveSince.Value:u})" : "");
+        }
+
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        await SyncIssuesAsync(repository, owner, repo, since, cancellationToken); // Also handles parent-child relationships via parent_issue_url
-        await SyncEventsAsync(repository, owner, repo, since, cancellationToken);
+        await SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken); // Also handles parent-child relationships via parent_issue_url
+        await SyncEventsAsync(repository, owner, repo, effectiveSince, cancellationToken);
 
         // Update last synced timestamp
         repository.LastSyncedAt = DateTimeOffset.UtcNow;

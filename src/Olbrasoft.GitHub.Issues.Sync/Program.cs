@@ -40,20 +40,24 @@ if (args.Length == 0 || args[0].ToLowerInvariant() != "sync")
 {
     logger.LogInformation("Usage:");
     logger.LogInformation("  sync                                        - Full sync of all repositories");
+    logger.LogInformation("  sync --smart                                - Smart sync (auto-use last_synced_at from DB)");
     logger.LogInformation("  sync --repo Owner/Repo                      - Full sync of specific repository");
     logger.LogInformation("  sync --repo X --repo Y                      - Full sync of multiple repositories");
     logger.LogInformation("  sync --since 2025-12-10T00:00:00Z           - Incremental sync (changes since timestamp)");
     logger.LogInformation("  sync --since 2025-12-10T00:00:00Z --repo X  - Incremental sync of specific repo");
+    logger.LogInformation("  sync --smart --repo X                       - Smart sync of specific repo");
     logger.LogInformation("");
     logger.LogInformation("Options:");
     logger.LogInformation("  --repo Owner/Repo     Target specific repository (can be repeated)");
     logger.LogInformation("  --since TIMESTAMP     Incremental sync: only issues changed since TIMESTAMP (ISO 8601)");
+    logger.LogInformation("  --smart               Use stored last_synced_at timestamp (auto-incremental)");
     return;
 }
 
 // Parse flags
 var targetRepos = new List<string>();
 DateTimeOffset? sinceTimestamp = null;
+var smartMode = args.Contains("--smart", StringComparer.OrdinalIgnoreCase);
 
 // Find --repo flags (can be repeated) and --since flag
 for (var i = 0; i < args.Length - 1; i++)
@@ -76,12 +80,23 @@ for (var i = 0; i < args.Length - 1; i++)
     }
 }
 
+// Validate: --smart and --since are mutually exclusive
+if (smartMode && sinceTimestamp.HasValue)
+{
+    logger.LogError("Cannot use --smart and --since together. Choose one.");
+    return;
+}
+
 try
 {
     // Ensure Ollama is running before sync (auto-start if needed)
     await embeddingService.EnsureOllamaRunningAsync();
 
-    if (sinceTimestamp.HasValue)
+    if (smartMode)
+    {
+        logger.LogInformation("Smart sync mode - using stored last_synced_at timestamps");
+    }
+    else if (sinceTimestamp.HasValue)
     {
         logger.LogInformation("Incremental sync mode - only changes since {Timestamp:u}", sinceTimestamp.Value);
     }
@@ -103,12 +118,12 @@ try
             }
         }
         // Sync specified repositories
-        await syncService.SyncRepositoriesAsync(targetRepos, sinceTimestamp);
+        await syncService.SyncRepositoriesAsync(targetRepos, sinceTimestamp, smartMode);
     }
     else
     {
         // Sync all repositories (from config or dynamic discovery)
-        await syncService.SyncAllRepositoriesAsync(sinceTimestamp);
+        await syncService.SyncAllRepositoriesAsync(sinceTimestamp, smartMode);
     }
 }
 catch (Exception ex)

@@ -8,8 +8,9 @@ public interface IGitHubSyncService
     /// <param name="owner">Repository owner</param>
     /// <param name="repo">Repository name</param>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
+    /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, CancellationToken cancellationToken = default);
+    Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes all repositories based on configuration:
@@ -17,14 +18,16 @@ public interface IGitHubSyncService
     /// - Otherwise, if Owner is set, discovers repos via API
     /// </summary>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
+    /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, CancellationToken cancellationToken = default);
+    Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes a list of repositories provided as arguments.
     /// </summary>
     /// <param name="repositories">List of repositories in "owner/repo" format</param>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
+    /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, CancellationToken cancellationToken = default);
+    Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 }
