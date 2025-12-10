@@ -8,12 +8,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddRazorPages();
 
-// Configure DbContext
+// Configure DbContext with secrets pattern
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var dbPassword = builder.Configuration["DbPassword"];
+
+if (!string.IsNullOrEmpty(dbPassword))
+{
+    connectionString += $";Password={dbPassword}";
+}
+
 builder.Services.AddDbContext<GitHubDbContext>(options =>
 {
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions => npgsqlOptions.UseVector());
+    options.UseNpgsql(connectionString, npgsqlOptions => npgsqlOptions.UseVector());
 });
 
 // Configure embedding settings

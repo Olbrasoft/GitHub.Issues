@@ -20,13 +20,21 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string State { get; set; } = "all";
 
-    public List<IssueSearchResult> Results { get; set; } = new();
+    [BindProperty(SupportsGet = true, Name = "Page")]
+    public int PageNumber { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int PageSize { get; set; } = 10;
+
+    public SearchResultPage SearchResult { get; set; } = new();
+
+    public static readonly int[] PageSizeOptions = { 10, 25, 50 };
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(Query))
         {
-            Results = await _searchService.SearchAsync(Query, State, cancellationToken: cancellationToken);
+            SearchResult = await _searchService.SearchAsync(Query, State, PageNumber, PageSize, cancellationToken);
         }
     }
 }

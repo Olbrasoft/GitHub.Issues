@@ -194,3 +194,55 @@ footer {
 .similarity {
     color: #0366d6;
 }
+
+/* Page size select */
+.page-size-select {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+    margin-left: 1rem;
+}
+
+/* Results header */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.results-count {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #eee;
+}
+
+.page-link {
+    padding: 0.5rem 1rem;
+    background-color: #0366d6;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.page-link:hover {
+    background-color: #0256b9;
+}
+
+.page-info {
+    color: #666;
+    font-size: 0.875rem;
+}

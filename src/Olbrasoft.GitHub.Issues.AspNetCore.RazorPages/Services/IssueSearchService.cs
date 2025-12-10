@@ -22,15 +22,16 @@ public class IssueSearchService
         _logger = logger;
     }
 
-    public async Task<List<IssueSearchResult>> SearchAsync(
+    public async Task<SearchResultPage> SearchAsync(
         string query,
         string state = "all",
-        int limit = 20,
+        int page = 1,
+        int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return new List<IssueSearchResult>();
+            return new SearchResultPage();
         }
 
         var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, cancellationToken);
@@ -38,11 +39,12 @@ public class IssueSearchService
         if (queryEmbedding == null)
         {
             _logger.LogWarning("Failed to generate embedding for query: {Query}", query);
-            return new List<IssueSearchResult>();
+            return new SearchResultPage();
         }
 
         var issuesQuery = _dbContext.Issues
             .Include(i => i.Repository)
+            .Where(i => i.Embedding != null)
             .AsQueryable();
 
         if (string.Equals(state, "open", StringComparison.OrdinalIgnoreCase))
@@ -54,9 +56,15 @@ public class IssueSearchService
             issuesQuery = issuesQuery.Where(i => !i.IsOpen);
         }
 
+        // Get total count for pagination
+        var totalCount = await issuesQuery.CountAsync(cancellationToken);
+
+        // Get paginated results
+        var skip = (page - 1) * pageSize;
         var results = await issuesQuery
-            .OrderBy(i => i.Embedding.CosineDistance(queryEmbedding))
-            .Take(limit)
+            .OrderBy(i => i.Embedding!.CosineDistance(queryEmbedding))
+            .Skip(skip)
+            .Take(pageSize)
             .Select(i => new IssueSearchResult
             {
                 Id = i.Id,
@@ -64,10 +72,17 @@ public class IssueSearchService
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryName = i.Repository.FullName,
-                Similarity = 1 - i.Embedding.CosineDistance(queryEmbedding)
+                Similarity = 1 - i.Embedding!.CosineDistance(queryEmbedding)
             })
             .ToListAsync(cancellationToken);
 
-        return results;
+        return new SearchResultPage
+        {
+            Results = results,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+        };
     }
 }

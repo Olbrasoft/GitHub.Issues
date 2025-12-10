@@ -7,7 +7,7 @@
 <div class="search-container">
     <h1>Hledat GitHub issues</h1>
 
-    <form method="get" class="search-form">
+    <form method="get" class="search-form" id="searchForm">
         <div class="search-row">
             <input type="text"
                    name="Query"
@@ -24,23 +24,40 @@
                 <option value="open" selected="@(Model.State == "open")">Otevřený</option>
                 <option value="closed" selected="@(Model.State == "closed")">Zavřený</option>
             </select>
+
+            <label>Položek na stránku:</label>
+            <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
+                @foreach (var size in IndexModel.PageSizeOptions)
+                {
+                    <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                }
+            </select>
         </div>
+        <input type="hidden" name="Page" value="1" />
     </form>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.Query))
 {
     <div class="results-container">
-        <h2>Výsledky vyhledávání</h2>
+        <div class="results-header">
+            <h2>Výsledky vyhledávání</h2>
+            @if (Model.SearchResult.TotalCount > 0)
+            {
+                <span class="results-count">
+                    Zobrazeno @((Model.SearchResult.Page - 1) * Model.SearchResult.PageSize + 1)-@(Math.Min(Model.SearchResult.Page * Model.SearchResult.PageSize, Model.SearchResult.TotalCount)) z @Model.SearchResult.TotalCount
+                </span>
+            }
+        </div>
 
-        @if (Model.Results.Count == 0)
+        @if (Model.SearchResult.Results.Count == 0)
         {
             <p class="no-results">Žádné výsledky</p>
         }
         else
         {
             <ul class="results-list">
-                @foreach (var result in Model.Results)
+                @foreach (var result in Model.SearchResult.Results)
                 {
                     <li class="result-item">
                         <div class="result-header">
@@ -56,6 +73,23 @@
                     </li>
                 }
             </ul>
+
+            @if (Model.SearchResult.TotalPages > 1)
+            {
+                <div class="pagination">
+                    @if (Model.SearchResult.HasPreviousPage)
+                    {
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Page=@(Model.SearchResult.Page - 1)&PageSize=@Model.PageSize" class="page-link">« Předchozí</a>
+                    }
+
+                    <span class="page-info">Stránka @Model.SearchResult.Page z @Model.SearchResult.TotalPages</span>
+
+                    @if (Model.SearchResult.HasNextPage)
+                    {
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Page=@(Model.SearchResult.Page + 1)&PageSize=@Model.PageSize" class="page-link">Další »</a>
+                    }
+                </div>
+            }
         }
     </div>
 }
