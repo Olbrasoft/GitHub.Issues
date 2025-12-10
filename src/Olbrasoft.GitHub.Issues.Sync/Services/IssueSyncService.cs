@@ -150,7 +150,7 @@ public class IssueSyncService : IIssueSyncService
             if (isNew || hasChanged)
             {
                 var textToEmbed = CreateEmbeddingText(title, body);
-                embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
+                embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, EmbeddingInputType.Document, cancellationToken);
                 if (embedding == null)
                 {
                     _logger.LogWarning("Could not generate embedding for issue #{Number}. Embedding service may be unavailable. Issue will be synced without vector.", issueNumber);

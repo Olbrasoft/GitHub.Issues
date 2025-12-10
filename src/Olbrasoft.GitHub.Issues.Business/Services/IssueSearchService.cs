@@ -41,7 +41,7 @@ public class IssueSearchService : Service, IIssueSearchService
             return new SearchResultPage();
         }
 
-        var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, cancellationToken);
+        var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, EmbeddingInputType.Query, cancellationToken);
 
         if (queryEmbedding == null)
         {

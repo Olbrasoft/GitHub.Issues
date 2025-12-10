@@ -23,7 +23,7 @@ public class IssueSearchServiceTests
     {
         // Arrange
         _embeddingServiceMock
-            .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<EmbeddingInputType>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Vector?)null);
 
         // Note: We can't easily test with real DbContext due to pgvector dependency

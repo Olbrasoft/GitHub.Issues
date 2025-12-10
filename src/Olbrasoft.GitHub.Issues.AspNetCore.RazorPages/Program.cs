@@ -42,20 +42,33 @@ builder.Services.Configure<AiProvidersSettings>(
 builder.Services.Configure<SummarizationSettings>(
     builder.Configuration.GetSection("Summarization"));
 
-// Register process runner and service manager (required by OllamaEmbeddingService)
-builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
-builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
+// Get embedding settings to determine provider
+var embeddingSettings = builder.Configuration.GetSection("Embeddings").Get<EmbeddingSettings>() ?? new EmbeddingSettings();
 
 // Register Mediator and CQRS handlers
 builder.Services.AddMediation(typeof(Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries.IssueSearchQuery).Assembly)
     .UseRequestHandlerMediator();
 
+// Register embedding service based on provider configuration
+if (embeddingSettings.Provider == EmbeddingProvider.Cohere)
+{
+    // Cohere cloud API - no local service management needed
+    builder.Services.AddHttpClient<CohereEmbeddingService>();
+    builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
+}
+else
+{
+    // Ollama local service (default)
+    builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
+    builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
+    builder.Services.AddHttpClient<OllamaEmbeddingService>();
+    builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+    builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+}
+
 // Register services
-builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
 builder.Services.AddHttpClient<AiSummarizationService>();
-builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
-builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
 builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();

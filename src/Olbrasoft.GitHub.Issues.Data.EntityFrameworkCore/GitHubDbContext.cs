@@ -44,6 +44,8 @@ public class GitHubDbContext : DbContext
             modelBuilder.HasPostgresExtension("vector");
 
             // PostgreSQL: Use native pgvector type
+            // 768 dimensions for local Ollama nomic-embed-text
+            // Azure uses SQL Server with varbinary(max) which doesn't have dimension constraint
             modelBuilder.Entity<Issue>()
                 .Property(e => e.Embedding)
                 .HasColumnType("vector(768)");

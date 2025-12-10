@@ -76,8 +76,9 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
         throw new InvalidOperationException($"Failed to start Ollama after {totalWaitSeconds} seconds");
     }
 
-    public async Task<Vector?> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<Vector?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
     {
+        // Ollama doesn't distinguish between document and query embeddings - parameter ignored
         if (string.IsNullOrWhiteSpace(text))
         {
             return null;
