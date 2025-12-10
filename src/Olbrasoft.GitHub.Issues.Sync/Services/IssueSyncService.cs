@@ -145,6 +145,7 @@ public class IssueSyncService : IIssueSyncService
             var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < updatedAt;
 
             // Generate embedding for new issues OR re-embed if issue has changed
+            // Embeddings are optional - if Ollama is unavailable, issues are still synced without vectors
             Pgvector.Vector? embedding = null;
             if (isNew || hasChanged)
             {
@@ -152,10 +153,9 @@ public class IssueSyncService : IIssueSyncService
                 embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
                 if (embedding == null)
                 {
-                    throw new InvalidOperationException($"Failed to generate embedding for issue #{issueNumber}. Ollama may be unavailable.");
+                    _logger.LogWarning("Could not generate embedding for issue #{Number}. Embedding service may be unavailable. Issue will be synced without vector.", issueNumber);
                 }
-
-                if (hasChanged)
+                else if (hasChanged)
                 {
                     _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", issueNumber, title);
                 }

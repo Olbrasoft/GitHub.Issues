@@ -119,15 +119,11 @@ app.MapPost("/api/database/migrate", async (IDatabaseStatusService dbStatus, Can
 
 app.MapPost("/api/data/import", async (
     IGitHubSyncService syncService,
-    IServiceLifecycleManager lifecycleManager,
     ILogger<Program> logger,
     CancellationToken ct) =>
 {
     try
     {
-        // Ensure embedding service is running (for generating embeddings during sync)
-        await lifecycleManager.EnsureRunningAsync(ct);
-
         logger.LogInformation("Starting data import from GitHub (smart sync mode)");
         await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, ct);
 
