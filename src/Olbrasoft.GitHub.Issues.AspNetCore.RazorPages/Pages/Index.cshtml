@@ -4,8 +4,27 @@
     ViewData["Title"] = "Hledat GitHub issues";
 }
 
+<!-- Database status notification area -->
+<div id="dbStatusBanner" class="db-status-banner" style="display: none;">
+    <div class="db-status-content">
+        <span class="db-status-icon"></span>
+        <span class="db-status-message"></span>
+        <button id="dbActionBtn" class="db-action-btn" style="display: none;"></button>
+        <button id="dbDismissBtn" class="db-dismiss-btn" title="Zavřít">&times;</button>
+    </div>
+</div>
+
 <div class="search-container">
-    <h1>Hledat GitHub issues</h1>
+    <div class="search-header">
+        <h1>Hledat GitHub issues</h1>
+        <div class="header-actions">
+            <button id="importBtn" class="import-btn" title="Importovat data z GitHubu">
+                <span class="import-icon">&#8635;</span>
+                <span class="import-text">Importovat data</span>
+            </button>
+            <span id="dbStats" class="db-stats"></span>
+        </div>
+    </div>
 
     <form method="get" class="search-form" id="searchForm">
         <div class="search-row">
@@ -124,4 +143,5 @@
             Model.SelectedRepositories.Select(r => new { id = r.Id, fullName = r.FullName })));
     </script>
     <script src="~/js/repo-filter.js"></script>
+    <script src="~/js/db-status.js"></script>
 }

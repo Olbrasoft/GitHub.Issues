@@ -4,6 +4,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;
+using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Mediation;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,9 +55,24 @@ builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
 builder.Services.AddHttpClient<AiSummarizationService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
 builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
+builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
+
+// Register Sync services for data import
+builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
+builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
+builder.Services.AddScoped<IIssueSyncBusinessService, IssueSyncBusinessService>();
+builder.Services.AddScoped<ILabelSyncBusinessService, LabelSyncBusinessService>();
+builder.Services.AddScoped<IRepositorySyncBusinessService, RepositorySyncBusinessService>();
+builder.Services.AddScoped<IEventSyncBusinessService, EventSyncBusinessService>();
+builder.Services.AddHttpClient<IRepositorySyncService, RepositorySyncService>();
+builder.Services.AddScoped<ILabelSyncService, LabelSyncService>();
+builder.Services.AddHttpClient<IIssueSyncService, IssueSyncService>();
+builder.Services.AddHttpClient<IEventSyncService, EventSyncService>();
+builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
 
 var app = builder.Build();
 
@@ -86,6 +102,42 @@ app.MapGet("/api/repositories/search", async (string? term, IMediator mediator, 
 
     var results = await query.ToResultAsync(ct);
     return Results.Ok(results);
+});
+
+// Database status and management endpoints
+app.MapGet("/api/database/status", async (IDatabaseStatusService dbStatus, CancellationToken ct) =>
+{
+    var status = await dbStatus.GetStatusAsync(ct);
+    return Results.Ok(status);
+});
+
+app.MapPost("/api/database/migrate", async (IDatabaseStatusService dbStatus, CancellationToken ct) =>
+{
+    var result = await dbStatus.ApplyMigrationsAsync(ct);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/api/data/import", async (
+    IGitHubSyncService syncService,
+    IServiceLifecycleManager lifecycleManager,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    try
+    {
+        // Ensure embedding service is running (for generating embeddings during sync)
+        await lifecycleManager.EnsureRunningAsync(ct);
+
+        logger.LogInformation("Starting data import from GitHub (smart sync mode)");
+        await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, ct);
+
+        return Results.Ok(new { success = true, message = "Import dokončen" });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Import failed");
+        return Results.BadRequest(new { success = false, message = ex.Message });
+    }
 });
 
 app.Run();

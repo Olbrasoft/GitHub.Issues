@@ -393,3 +393,146 @@ footer {
     background-color: #0366d6;
     color: white;
 }
+
+/* Database status banner */
+.db-status-banner {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.db-status-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.db-status-icon {
+    font-size: 1.25rem;
+}
+
+.db-status-message {
+    flex: 1;
+}
+
+.db-status-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+}
+
+.db-status-error {
+    background-color: #f8d7da;
+    border: 1px solid #dc3545;
+    color: #721c24;
+}
+
+.db-status-info {
+    background-color: #d1ecf1;
+    border: 1px solid #17a2b8;
+    color: #0c5460;
+}
+
+.db-status-success {
+    background-color: #d4edda;
+    border: 1px solid #28a745;
+    color: #155724;
+}
+
+.db-action-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    background-color: #0366d6;
+    color: white;
+}
+
+.db-action-btn:hover {
+    background-color: #0256b9;
+}
+
+.db-action-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+.db-dismiss-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0 0.5rem;
+}
+
+.db-dismiss-btn:hover {
+    opacity: 1;
+}
+
+/* Search header with import button */
+.search-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.search-header h1 {
+    margin-bottom: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.import-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #6c5ce7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.import-btn:hover {
+    background-color: #5a4ccc;
+}
+
+.import-btn:disabled {
+    background-color: #a29bfe;
+    cursor: not-allowed;
+}
+
+.import-icon {
+    font-size: 1.1rem;
+    display: inline-block;
+}
+
+.import-icon.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.db-stats {
+    font-size: 0.85rem;
+    color: #666;
+    padding: 0.25rem 0.5rem;
+    background-color: #f6f8fa;
+    border-radius: 4px;
+}
