@@ -55,7 +55,7 @@ public class IssueSearchService
         }
 
         var results = await issuesQuery
-            .OrderBy(i => i.TitleEmbedding.CosineDistance(queryEmbedding))
+            .OrderBy(i => i.Embedding.CosineDistance(queryEmbedding))
             .Take(limit)
             .Select(i => new IssueSearchResult
             {
@@ -64,7 +64,7 @@ public class IssueSearchService
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryName = i.Repository.FullName,
-                Similarity = 1 - i.TitleEmbedding.CosineDistance(queryEmbedding)
+                Similarity = 1 - i.Embedding.CosineDistance(queryEmbedding)
             })
             .ToListAsync(cancellationToken);
 

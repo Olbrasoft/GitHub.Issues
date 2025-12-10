@@ -265,6 +265,9 @@ public class GitHubSyncService : IGitHubSyncService
 
             var issueNumber = ghIssue.GetProperty("number").GetInt32();
             var title = ghIssue.GetProperty("title").GetString() ?? "";
+            var body = ghIssue.TryGetProperty("body", out var bodyElement) && bodyElement.ValueKind == JsonValueKind.String
+                ? bodyElement.GetString()
+                : null;
             var state = ghIssue.GetProperty("state").GetString();
             var htmlUrl = ghIssue.GetProperty("html_url").GetString() ?? "";
             var updatedAt = ghIssue.GetProperty("updated_at").GetDateTimeOffset();
@@ -304,15 +307,16 @@ public class GitHubSyncService : IGitHubSyncService
             issue.GitHubUpdatedAt = updatedAt;
             issue.SyncedAt = syncedAt;
 
-            // Generate embedding for new issues
+            // Generate embedding for new issues (title + body combined)
             if (isNew)
             {
-                var embedding = await _embeddingService.GenerateEmbeddingAsync(title, cancellationToken);
+                var textToEmbed = CreateEmbeddingText(title, body);
+                var embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
                 if (embedding == null)
                 {
                     throw new InvalidOperationException($"Failed to generate embedding for issue #{issueNumber}. Ollama may be unavailable.");
                 }
-                issue.TitleEmbedding = embedding;
+                issue.Embedding = embedding;
             }
 
             // Sync labels
@@ -595,5 +599,117 @@ public class GitHubSyncService : IGitHubSyncService
         {
             _logger.LogInformation("No new issue events to sync (skipped {Skipped})", skippedCount);
         }
+    }
+
+    /// <summary>
+    /// Creates combined text for embedding from title and body.
+    /// Truncates to avoid exceeding token limits (nomic-embed-text max ~8192 tokens).
+    /// </summary>
+    private static string CreateEmbeddingText(string title, string? body)
+    {
+        const int maxLength = 8000; // Conservative limit for embedding model
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return title;
+        }
+
+        var combined = $"{title}\n\n{body}";
+
+        if (combined.Length > maxLength)
+        {
+            return combined[..maxLength];
+        }
+
+        return combined;
+    }
+
+    /// <summary>
+    /// Re-embeds all existing issues with title + body combined.
+    /// Fetches body from GitHub API since it's not stored in database.
+    /// </summary>
+    public async Task ReEmbedAllIssuesAsync(CancellationToken cancellationToken = default)
+    {
+        var issues = await _dbContext.Issues
+            .Include(i => i.Repository)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogInformation("Re-embedding {Count} issues (fetching body from GitHub API)...", issues.Count);
+
+        var processed = 0;
+        var failed = 0;
+
+        // Group by repository for efficient API calls
+        var groupedByRepo = issues.GroupBy(i => i.Repository.FullName);
+
+        foreach (var repoGroup in groupedByRepo)
+        {
+            var repoFullName = repoGroup.Key;
+            var parts = repoFullName.Split('/');
+            if (parts.Length != 2) continue;
+
+            var owner = parts[0];
+            var repo = parts[1];
+
+            _logger.LogInformation("Processing repository: {Repo}", repoFullName);
+
+            foreach (var issue in repoGroup)
+            {
+                try
+                {
+                    // Fetch issue body from GitHub API
+                    var url = $"repos/{owner}/{repo}/issues/{issue.Number}";
+                    var response = await _httpClient.GetAsync(url, cancellationToken);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Failed to fetch issue #{Number} from {Repo}: {Status}",
+                            issue.Number, repoFullName, response.StatusCode);
+                        failed++;
+                        continue;
+                    }
+
+                    var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+
+                    var body = root.TryGetProperty("body", out var bodyElement) && bodyElement.ValueKind == JsonValueKind.String
+                        ? bodyElement.GetString()
+                        : null;
+
+                    var textToEmbed = CreateEmbeddingText(issue.Title, body);
+                    var embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
+
+                    if (embedding == null)
+                    {
+                        _logger.LogWarning("Failed to generate embedding for issue #{Number}", issue.Number);
+                        failed++;
+                        continue;
+                    }
+
+                    issue.Embedding = embedding;
+                    processed++;
+
+                    if (processed % 25 == 0)
+                    {
+                        await _dbContext.SaveChangesAsync(cancellationToken);
+                        _logger.LogInformation("Re-embedded {Count}/{Total} issues (failed: {Failed})...",
+                            processed, issues.Count, failed);
+                    }
+
+                    // Small delay to avoid rate limiting
+                    await Task.Delay(100, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error processing issue #{Number} from {Repo}",
+                        issue.Number, repoFullName);
+                    failed++;
+                }
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Completed re-embedding: {Processed} succeeded, {Failed} failed", processed, failed);
     }
 }

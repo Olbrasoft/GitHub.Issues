@@ -42,6 +42,7 @@ if (args.Length == 0)
     logger.LogInformation("  sync                             - Sync all (config list OR dynamic discovery)");
     logger.LogInformation("  sync owner/repo                  - Sync single repository");
     logger.LogInformation("  sync owner/repo1 owner/repo2 ... - Sync list of repositories");
+    logger.LogInformation("  reembed                          - Re-embed all issues with title+body");
     return;
 }
 
@@ -87,6 +88,12 @@ try
                 }
                 await syncService.SyncRepositoriesAsync(repositories);
             }
+            break;
+
+        case "reembed":
+            // Re-embed all issues with title+body (fetches body from GitHub API)
+            await embeddingService.EnsureOllamaRunningAsync();
+            await syncService.ReEmbedAllIssuesAsync();
             break;
 
         default:

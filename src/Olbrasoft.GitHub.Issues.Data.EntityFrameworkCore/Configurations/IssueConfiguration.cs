@@ -41,8 +41,8 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .HasColumnName("github_updated_at")
             .IsRequired();
 
-        builder.Property(i => i.TitleEmbedding)
-            .HasColumnName("title_embedding")
+        builder.Property(i => i.Embedding)
+            .HasColumnName("embedding")
             .HasColumnType("vector(768)")
             .IsRequired();
 

@@ -18,4 +18,9 @@ public interface IGitHubSyncService
     /// Synchronizes a list of repositories provided as arguments.
     /// </summary>
     Task SyncRepositoriesAsync(IEnumerable<string> repositories, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-embeds all existing issues with title + body combined.
+    /// </summary>
+    Task ReEmbedAllIssuesAsync(CancellationToken cancellationToken = default);
 }

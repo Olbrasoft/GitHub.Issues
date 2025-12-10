@@ -11,7 +11,7 @@ public class Issue
     public bool IsOpen { get; set; } = true;
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
-    public Vector TitleEmbedding { get; set; } = null!;
+    public Vector Embedding { get; set; } = null!;
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;
