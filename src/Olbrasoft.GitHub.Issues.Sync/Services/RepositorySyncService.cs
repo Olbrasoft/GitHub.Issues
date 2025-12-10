@@ -1,0 +1,147 @@
+using System.Net.Http.Headers;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Entities;
+
+namespace Olbrasoft.GitHub.Issues.Sync.Services;
+
+/// <summary>
+/// Service for synchronizing repository information from GitHub.
+/// </summary>
+public class RepositorySyncService : IRepositorySyncService
+{
+    private readonly GitHubDbContext _dbContext;
+    private readonly IGitHubApiClient _gitHubApiClient;
+    private readonly HttpClient _httpClient;
+    private readonly GitHubSettings _settings;
+    private readonly ILogger<RepositorySyncService> _logger;
+
+    public RepositorySyncService(
+        GitHubDbContext dbContext,
+        IGitHubApiClient gitHubApiClient,
+        HttpClient httpClient,
+        IOptions<GitHubSettings> settings,
+        ILogger<RepositorySyncService> logger)
+    {
+        _dbContext = dbContext;
+        _gitHubApiClient = gitHubApiClient;
+        _httpClient = httpClient;
+        _settings = settings.Value;
+        _logger = logger;
+
+        // Configure HttpClient for GitHub API
+        _httpClient.BaseAddress = new Uri("https://api.github.com/");
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+
+        if (!string.IsNullOrEmpty(_settings.Token))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
+        }
+    }
+
+    public async Task<Repository> EnsureRepositoryAsync(
+        string owner,
+        string repo,
+        CancellationToken cancellationToken = default)
+    {
+        var fullName = $"{owner}/{repo}";
+        var repository = await _dbContext.Repositories
+            .FirstOrDefaultAsync(r => r.FullName == fullName, cancellationToken);
+
+        if (repository == null)
+        {
+            var ghRepo = await _gitHubApiClient.GetRepositoryAsync(owner, repo);
+
+            repository = new Repository
+            {
+                GitHubId = ghRepo.Id,
+                FullName = ghRepo.FullName,
+                HtmlUrl = ghRepo.HtmlUrl
+            };
+
+            _dbContext.Repositories.Add(repository);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Created repository: {FullName}", fullName);
+        }
+
+        return repository;
+    }
+
+    public async Task<List<string>> FetchAllRepositoriesForOwnerAsync(CancellationToken cancellationToken = default)
+    {
+        var repositories = new List<string>();
+        var page = 1;
+        var owner = _settings.Owner!;
+
+        while (true)
+        {
+            // Use different API endpoint for users vs organizations
+            var url = _settings.OwnerType.Equals("org", StringComparison.OrdinalIgnoreCase)
+                ? $"orgs/{owner}/repos?per_page=100&page={page}"
+                : $"users/{owner}/repos?per_page=100&type=all&page={page}";
+
+            _logger.LogDebug("Fetching repositories page {Page} for {Owner}", page, owner);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            var pageRepos = doc.RootElement.EnumerateArray().ToList();
+            if (pageRepos.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var repo in pageRepos)
+            {
+                var fullName = repo.GetProperty("full_name").GetString();
+                if (string.IsNullOrEmpty(fullName))
+                {
+                    continue;
+                }
+
+                // Check has_issues - skip repos with issues disabled
+                if (repo.TryGetProperty("has_issues", out var hasIssuesElement) && !hasIssuesElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: has_issues=false", fullName);
+                    continue;
+                }
+
+                // Check archived - skip unless IncludeArchived is true
+                if (!_settings.IncludeArchived &&
+                    repo.TryGetProperty("archived", out var archivedElement) && archivedElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: archived", fullName);
+                    continue;
+                }
+
+                // Check fork - skip unless IncludeForks is true
+                if (!_settings.IncludeForks &&
+                    repo.TryGetProperty("fork", out var forkElement) && forkElement.GetBoolean())
+                {
+                    _logger.LogDebug("Skipping {Repo}: fork", fullName);
+                    continue;
+                }
+
+                repositories.Add(fullName);
+            }
+
+            if (pageRepos.Count < 100)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _logger.LogInformation("Discovered {Count} repositories for {Owner}", repositories.Count, owner);
+        return repositories;
+    }
+}

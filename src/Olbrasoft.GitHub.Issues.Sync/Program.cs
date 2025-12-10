@@ -24,10 +24,18 @@ builder.Services.AddDbContext<GitHubDbContext>(options =>
 builder.Services.Configure<EmbeddingSettings>(builder.Configuration.GetSection("Embeddings"));
 builder.Services.AddHttpClient<IEmbeddingService, OllamaEmbeddingService>();
 
-// Configure GitHub sync service
+// Configure GitHub sync services
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
 builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
-builder.Services.AddHttpClient<IGitHubSyncService, GitHubSyncService>();
+
+// Register specialized sync services (SRP - each has one responsibility)
+builder.Services.AddHttpClient<IRepositorySyncService, RepositorySyncService>();
+builder.Services.AddScoped<ILabelSyncService, LabelSyncService>();
+builder.Services.AddHttpClient<IIssueSyncService, IssueSyncService>();
+builder.Services.AddHttpClient<IEventSyncService, EventSyncService>();
+
+// Register orchestrator (coordinates all sync services)
+builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
 
 var host = builder.Build();
 
