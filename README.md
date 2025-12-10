@@ -1,6 +1,10 @@
 # GitHub.Issues
 
+[![Build and Deploy](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml/badge.svg)](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml)
+
 Semantic search for GitHub issues using vector embeddings (pgvector) and Ollama. Synchronizes issues from multiple GitHub repositories and enables natural language search.
+
+**Live Demo:** https://github-issues.azurewebsites.net
 
 ## Features
 
@@ -349,7 +353,7 @@ dotnet run -- sync --since 2025-12-01T00:00:00Z
 
 ## Testing
 
-The project includes 73+ unit tests using xUnit and Moq.
+The project includes 79+ unit tests using xUnit and Moq.
 
 ```bash
 # Run all tests
@@ -358,6 +362,26 @@ dotnet test
 # Run specific test project
 dotnet test test/Olbrasoft.GitHub.Issues.Business.Tests
 ```
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment to Azure.
+
+### Workflow
+
+1. **Trigger**: Push to `main` branch or manual dispatch
+2. **Build & Test**: Restore, build, and run all tests
+3. **Deploy**: Publish to Azure Web App (only if tests pass)
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | Azure Web App publish profile (download from Azure Portal → Web App → Deployment Center → Manage publish profile) |
+
+### Manual Trigger
+
+You can manually trigger deployment via GitHub Actions → "Build and Deploy" → "Run workflow".
 
 ## Database Schema
 
