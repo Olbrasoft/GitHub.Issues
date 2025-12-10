@@ -1,25 +1,23 @@
-using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
-using Pgvector.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 
 public class IssueSearchService : IIssueSearchService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IVectorSearchRepository _vectorSearchRepository;
     private readonly IEmbeddingService _embeddingService;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ILogger<IssueSearchService> _logger;
 
     public IssueSearchService(
-        GitHubDbContext dbContext,
+        IVectorSearchRepository vectorSearchRepository,
         IEmbeddingService embeddingService,
         IGitHubGraphQLClient graphQLClient,
         ILogger<IssueSearchService> logger)
     {
-        _dbContext = dbContext;
+        _vectorSearchRepository = vectorSearchRepository;
         _embeddingService = embeddingService;
         _graphQLClient = graphQLClient;
         _logger = logger;
@@ -45,51 +43,31 @@ public class IssueSearchService : IIssueSearchService
             return new SearchResultPage();
         }
 
-        var issuesQuery = _dbContext.Issues
-            .Include(i => i.Repository)
-            .Where(i => i.Embedding != null)
-            .AsQueryable();
-
-        if (string.Equals(state, "open", StringComparison.OrdinalIgnoreCase))
-        {
-            issuesQuery = issuesQuery.Where(i => i.IsOpen);
-        }
-        else if (string.Equals(state, "closed", StringComparison.OrdinalIgnoreCase))
-        {
-            issuesQuery = issuesQuery.Where(i => !i.IsOpen);
-        }
-
         // Get total count for pagination
-        var totalCount = await issuesQuery.CountAsync(cancellationToken);
+        var totalCount = await _vectorSearchRepository.GetTotalCountAsync(state, cancellationToken);
 
-        // Get paginated results
+        // Get paginated results using provider-specific vector search
         var skip = (page - 1) * pageSize;
-        var results = await issuesQuery
-            .OrderBy(i => i.Embedding!.CosineDistance(queryEmbedding))
-            .Skip(skip)
-            .Take(pageSize)
-            .Select(i => new IssueSearchResult
-            {
-                Id = i.Id,
-                IssueNumber = i.Number,
-                Title = i.Title,
-                IsOpen = i.IsOpen,
-                Url = i.Url,
-                RepositoryName = i.Repository.FullName,
-                Similarity = 1 - i.Embedding!.CosineDistance(queryEmbedding)
-            })
-            .ToListAsync(cancellationToken);
+        var searchResults = await _vectorSearchRepository.SearchBySimilarityAsync(
+            queryEmbedding, state, skip, pageSize, cancellationToken);
 
-        // Parse Owner/RepoName from FullName and fetch bodies
-        foreach (var result in results)
+        // Map to IssueSearchResult and parse Owner/RepoName
+        var results = searchResults.Select(r =>
         {
-            var parts = result.RepositoryName.Split('/');
-            if (parts.Length == 2)
+            var parts = r.RepositoryFullName.Split('/');
+            return new IssueSearchResult
             {
-                result.Owner = parts[0];
-                result.RepoName = parts[1];
-            }
-        }
+                Id = r.Id,
+                IssueNumber = r.IssueNumber,
+                Title = r.Title,
+                IsOpen = r.IsOpen,
+                Url = r.Url,
+                RepositoryName = r.RepositoryFullName,
+                Owner = parts.Length == 2 ? parts[0] : string.Empty,
+                RepoName = parts.Length == 2 ? parts[1] : string.Empty,
+                Similarity = r.Similarity
+            };
+        }).ToList();
 
         // Fetch issue bodies from GitHub GraphQL API
         await FetchBodiesAsync(results, cancellationToken);

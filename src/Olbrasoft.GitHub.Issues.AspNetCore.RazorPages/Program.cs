@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
@@ -10,7 +9,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddRazorPages();
 
-// Configure DbContext with secrets pattern
+// Configure database provider from settings
+var databaseSettings = builder.Configuration.GetSection("Database").Get<DatabaseSettings>()
+    ?? new DatabaseSettings { Provider = DatabaseProvider.PostgreSQL };
+
+// Build connection string with secrets pattern
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var dbPassword = builder.Configuration["DbPassword"];
 
@@ -19,10 +22,8 @@ if (!string.IsNullOrEmpty(dbPassword))
     connectionString += $";Password={dbPassword}";
 }
 
-builder.Services.AddDbContext<GitHubDbContext>(options =>
-{
-    options.UseNpgsql(connectionString, npgsqlOptions => npgsqlOptions.UseVector());
-});
+// Register DbContext with multi-provider support
+builder.Services.AddGitHubDbContext(connectionString!, databaseSettings.Provider);
 
 // Configure settings
 builder.Services.Configure<EmbeddingSettings>(

@@ -41,9 +41,9 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .HasColumnName("github_updated_at")
             .IsRequired();
 
+        // Embedding column - provider-specific configuration applied in DbContext.OnModelCreating
         builder.Property(i => i.Embedding)
             .HasColumnName("embedding")
-            .HasColumnType("vector(768)")
             .IsRequired();
 
         builder.Property(i => i.SyncedAt)
