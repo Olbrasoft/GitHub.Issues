@@ -17,6 +17,7 @@ public class IssueSyncService : IIssueSyncService
     private readonly GitHubDbContext _dbContext;
     private readonly IEmbeddingService _embeddingService;
     private readonly HttpClient _httpClient;
+    private readonly SyncSettings _syncSettings;
     private readonly ILogger<IssueSyncService> _logger;
 
     public IssueSyncService(
@@ -24,11 +25,13 @@ public class IssueSyncService : IIssueSyncService
         IEmbeddingService embeddingService,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
+        IOptions<SyncSettings> syncSettings,
         ILogger<IssueSyncService> logger)
     {
         _dbContext = dbContext;
         _embeddingService = embeddingService;
         _httpClient = httpClient;
+        _syncSettings = syncSettings.Value;
         _logger = logger;
 
         // Configure HttpClient for GitHub API
@@ -67,7 +70,7 @@ public class IssueSyncService : IIssueSyncService
         // Fetch issues using bulk API with pagination (with optional since parameter)
         while (true)
         {
-            var url = $"repos/{owner}/{repo}/issues?state=all&per_page=100&page={page}{sinceParam}";
+            var url = $"repos/{owner}/{repo}/issues?state=all&per_page={_syncSettings.GitHubApiPageSize}&page={page}{sinceParam}";
             _logger.LogDebug("Fetching issues page {Page}", page);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -90,7 +93,7 @@ public class IssueSyncService : IIssueSyncService
 
             _logger.LogDebug("Fetched {Count} issues on page {Page}", pageIssues.Count, page);
 
-            if (pageIssues.Count < 100)
+            if (pageIssues.Count < _syncSettings.GitHubApiPageSize)
             {
                 break;
             }
@@ -291,12 +294,10 @@ public class IssueSyncService : IIssueSyncService
 
     /// <summary>
     /// Creates combined text for embedding from title and body.
-    /// Truncates to avoid exceeding token limits (nomic-embed-text max ~8192 tokens).
+    /// Truncates to avoid exceeding token limits (configurable via SyncSettings.MaxEmbeddingTextLength).
     /// </summary>
-    private static string CreateEmbeddingText(string title, string? body)
+    private string CreateEmbeddingText(string title, string? body)
     {
-        const int maxLength = 8000; // Conservative limit for embedding model
-
         if (string.IsNullOrWhiteSpace(body))
         {
             return title;
@@ -304,9 +305,9 @@ public class IssueSyncService : IIssueSyncService
 
         var combined = $"{title}\n\n{body}";
 
-        if (combined.Length > maxLength)
+        if (combined.Length > _syncSettings.MaxEmbeddingTextLength)
         {
-            return combined[..maxLength];
+            return combined[.._syncSettings.MaxEmbeddingTextLength];
         }
 
         return combined;

@@ -17,6 +17,7 @@ public class RepositorySyncService : IRepositorySyncService
     private readonly IGitHubApiClient _gitHubApiClient;
     private readonly HttpClient _httpClient;
     private readonly GitHubSettings _settings;
+    private readonly SyncSettings _syncSettings;
     private readonly ILogger<RepositorySyncService> _logger;
 
     public RepositorySyncService(
@@ -24,12 +25,14 @@ public class RepositorySyncService : IRepositorySyncService
         IGitHubApiClient gitHubApiClient,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
+        IOptions<SyncSettings> syncSettings,
         ILogger<RepositorySyncService> logger)
     {
         _dbContext = dbContext;
         _gitHubApiClient = gitHubApiClient;
         _httpClient = httpClient;
         _settings = settings.Value;
+        _syncSettings = syncSettings.Value;
         _logger = logger;
 
         // Configure HttpClient for GitHub API
@@ -82,8 +85,8 @@ public class RepositorySyncService : IRepositorySyncService
         {
             // Use different API endpoint for users vs organizations
             var url = _settings.OwnerType.Equals("org", StringComparison.OrdinalIgnoreCase)
-                ? $"orgs/{owner}/repos?per_page=100&page={page}"
-                : $"users/{owner}/repos?per_page=100&type=all&page={page}";
+                ? $"orgs/{owner}/repos?per_page={_syncSettings.GitHubApiPageSize}&page={page}"
+                : $"users/{owner}/repos?per_page={_syncSettings.GitHubApiPageSize}&type=all&page={page}";
 
             _logger.LogDebug("Fetching repositories page {Page} for {Owner}", page, owner);
 
@@ -133,7 +136,7 @@ public class RepositorySyncService : IRepositorySyncService
                 repositories.Add(fullName);
             }
 
-            if (pageRepos.Count < 100)
+            if (pageRepos.Count < _syncSettings.GitHubApiPageSize)
             {
                 break;
             }

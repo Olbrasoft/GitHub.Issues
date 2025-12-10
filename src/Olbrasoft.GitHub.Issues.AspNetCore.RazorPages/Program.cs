@@ -22,12 +22,19 @@ builder.Services.AddDbContext<GitHubDbContext>(options =>
     options.UseNpgsql(connectionString, npgsqlOptions => npgsqlOptions.UseVector());
 });
 
-// Configure embedding settings
+// Configure settings
 builder.Services.Configure<EmbeddingSettings>(
     builder.Configuration.GetSection("Embeddings"));
+builder.Services.Configure<SearchSettings>(
+    builder.Configuration.GetSection("Search"));
+
+// Register process runner and service manager (required by OllamaEmbeddingService)
+builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
+builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
 
 // Register services
-builder.Services.AddHttpClient<IEmbeddingService, OllamaEmbeddingService>();
+builder.Services.AddHttpClient<OllamaEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 
 var app = builder.Build();

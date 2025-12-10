@@ -27,7 +27,7 @@
 
             <label>Položek na stránku:</label>
             <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
-                @foreach (var size in IndexModel.PageSizeOptions)
+                @foreach (var size in Model.PageSizeOptions)
                 {
                     <option value="@size" selected="@(Model.PageSize == size)">@size</option>
                 }

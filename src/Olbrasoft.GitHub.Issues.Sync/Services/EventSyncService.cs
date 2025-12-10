@@ -15,16 +15,19 @@ public class EventSyncService : IEventSyncService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly HttpClient _httpClient;
+    private readonly SyncSettings _syncSettings;
     private readonly ILogger<EventSyncService> _logger;
 
     public EventSyncService(
         GitHubDbContext dbContext,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
+        IOptions<SyncSettings> syncSettings,
         ILogger<EventSyncService> logger)
     {
         _dbContext = dbContext;
         _httpClient = httpClient;
+        _syncSettings = syncSettings.Value;
         _logger = logger;
 
         // Configure HttpClient for GitHub API
@@ -72,7 +75,7 @@ public class EventSyncService : IEventSyncService
         // For incremental sync, stop when we hit events older than 'since'
         while (true)
         {
-            var url = $"repos/{owner}/{repo}/issues/events?per_page=100&page={page}";
+            var url = $"repos/{owner}/{repo}/issues/events?per_page={_syncSettings.GitHubApiPageSize}&page={page}";
             _logger.LogDebug("Fetching events page {Page}", page);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -106,7 +109,7 @@ public class EventSyncService : IEventSyncService
 
             _logger.LogDebug("Fetched {Count} events on page {Page}", pageEvents.Count, page);
 
-            if (stopEarly || pageEvents.Count < 100)
+            if (stopEarly || pageEvents.Count < _syncSettings.GitHubApiPageSize)
             {
                 break;
             }
@@ -188,8 +191,8 @@ public class EventSyncService : IEventSyncService
             existingEventIds.Add(eventId); // Track to avoid duplicates within same sync
             newEventsCount++;
 
-            // Periodic save every 100 events
-            if (newEventsCount % 100 == 0)
+            // Periodic save every BatchSaveSize events
+            if (newEventsCount % _syncSettings.BatchSaveSize == 0)
             {
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("Saved {Count} events so far...", newEventsCount);

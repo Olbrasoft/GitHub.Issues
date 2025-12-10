@@ -62,18 +62,18 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
         await _serviceManager.StartServiceAsync(OllamaServiceName, cancellationToken);
 
         // Wait for Ollama to be ready (retry loop with HTTP health check)
-        const int maxRetries = 30;
-        for (int i = 0; i < maxRetries; i++)
+        for (int i = 0; i < _settings.MaxStartupRetries; i++)
         {
             if (await IsAvailableAsync(cancellationToken))
             {
                 _logger.LogInformation("Ollama started successfully");
                 return;
             }
-            await Task.Delay(1000, cancellationToken);
+            await Task.Delay(_settings.StartupRetryDelayMs, cancellationToken);
         }
 
-        throw new InvalidOperationException("Failed to start Ollama after 30 seconds");
+        var totalWaitSeconds = _settings.MaxStartupRetries * _settings.StartupRetryDelayMs / 1000;
+        throw new InvalidOperationException($"Failed to start Ollama after {totalWaitSeconds} seconds");
     }
 
     public async Task<Vector?> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)

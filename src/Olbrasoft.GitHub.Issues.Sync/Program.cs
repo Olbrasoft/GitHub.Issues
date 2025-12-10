@@ -32,6 +32,7 @@ builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService
 
 // Configure GitHub sync services
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
+builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
 builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
 
 // Register specialized sync services (SRP - each has one responsibility)
