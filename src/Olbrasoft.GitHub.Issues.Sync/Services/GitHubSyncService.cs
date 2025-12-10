@@ -47,7 +47,7 @@ public class GitHubSyncService : IGitHubSyncService
         }
     }
 
-    public async Task SyncAllRepositoriesAsync(bool fullRefresh = false, CancellationToken cancellationToken = default)
+    public async Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, CancellationToken cancellationToken = default)
     {
         IEnumerable<string> repositories;
 
@@ -69,10 +69,10 @@ public class GitHubSyncService : IGitHubSyncService
             return;
         }
 
-        await SyncRepositoriesAsync(repositories, fullRefresh, cancellationToken);
+        await SyncRepositoriesAsync(repositories, since, cancellationToken);
     }
 
-    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, bool fullRefresh = false, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, CancellationToken cancellationToken = default)
     {
         foreach (var repoFullName in repositories)
         {
@@ -83,7 +83,7 @@ public class GitHubSyncService : IGitHubSyncService
                 continue;
             }
 
-            await SyncRepositoryAsync(parts[0], parts[1], fullRefresh, cancellationToken);
+            await SyncRepositoryAsync(parts[0], parts[1], since, cancellationToken);
         }
     }
 
@@ -164,14 +164,16 @@ public class GitHubSyncService : IGitHubSyncService
         return repositories;
     }
 
-    public async Task SyncRepositoryAsync(string owner, string repo, bool fullRefresh = false, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}",
-            fullRefresh ? "full" : "incremental", owner, repo);
+        _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}{Since}",
+            since.HasValue ? "incremental" : "full",
+            owner, repo,
+            since.HasValue ? $" (since {since.Value:u})" : "");
 
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        await SyncIssuesAsync(repository, owner, repo, fullRefresh, cancellationToken); // Also handles parent-child relationships via parent_issue_url
+        await SyncIssuesAsync(repository, owner, repo, since, cancellationToken); // Also handles parent-child relationships via parent_issue_url
         await SyncEventsAsync(repository, owner, repo, cancellationToken);
 
         // Update last synced timestamp
@@ -213,21 +215,18 @@ public class GitHubSyncService : IGitHubSyncService
         Data.Entities.Repository repository,
         string owner,
         string repo,
-        bool fullRefresh,
+        DateTimeOffset? since,
         CancellationToken cancellationToken)
     {
-        // Determine if we should use incremental sync
-        var lastSyncedAt = repository.LastSyncedAt;
-        var useIncremental = !fullRefresh && lastSyncedAt.HasValue;
         // Use UTC and encode the + sign for URL safety
-        var sinceParam = useIncremental
-            ? $"&since={Uri.EscapeDataString(lastSyncedAt!.Value.UtcDateTime.ToString("O"))}"
+        var sinceParam = since.HasValue
+            ? $"&since={Uri.EscapeDataString(since.Value.UtcDateTime.ToString("O"))}"
             : "";
 
         _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API ({Mode}{Since})",
             owner, repo,
-            useIncremental ? "incremental" : "full",
-            useIncremental ? $", since {lastSyncedAt!.Value:u}" : "");
+            since.HasValue ? "incremental" : "full",
+            since.HasValue ? $", since {since.Value:u}" : "");
 
         var syncedAt = DateTimeOffset.UtcNow;
         var allIssues = new List<JsonElement>();
@@ -269,7 +268,7 @@ public class GitHubSyncService : IGitHubSyncService
 
         _logger.LogInformation("Found {Count} {Mode} issues for {Owner}/{Repo}",
             allIssues.Count,
-            useIncremental ? "changed" : "total",
+            since.HasValue ? "changed" : "total",
             owner, repo);
 
         // Dictionary to track parent_issue_url -> child issue number for later FK update

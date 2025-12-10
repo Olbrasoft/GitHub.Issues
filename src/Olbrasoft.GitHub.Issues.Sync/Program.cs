@@ -39,28 +39,40 @@ var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingServic
 if (args.Length == 0 || args[0].ToLowerInvariant() != "sync")
 {
     logger.LogInformation("Usage:");
-    logger.LogInformation("  sync                                - Sync all repositories (incremental)");
-    logger.LogInformation("  sync --full-refresh                 - Sync all repositories (full)");
-    logger.LogInformation("  sync --repo Owner/Repo              - Sync single repository (incremental)");
-    logger.LogInformation("  sync --repo Owner/Repo --full-refresh - Sync single repository (full)");
+    logger.LogInformation("  sync                                        - Full sync of all repositories");
+    logger.LogInformation("  sync --repo Owner/Repo                      - Full sync of specific repository");
+    logger.LogInformation("  sync --repo X --repo Y                      - Full sync of multiple repositories");
+    logger.LogInformation("  sync --since 2025-12-10T00:00:00Z           - Incremental sync (changes since timestamp)");
+    logger.LogInformation("  sync --since 2025-12-10T00:00:00Z --repo X  - Incremental sync of specific repo");
     logger.LogInformation("");
     logger.LogInformation("Options:");
-    logger.LogInformation("  --repo Owner/Repo  Target a specific repository");
-    logger.LogInformation("  --full-refresh     Ignore last sync timestamp, process all issues");
+    logger.LogInformation("  --repo Owner/Repo     Target specific repository (can be repeated)");
+    logger.LogInformation("  --since TIMESTAMP     Incremental sync: only issues changed since TIMESTAMP (ISO 8601)");
     return;
 }
 
 // Parse flags
-var fullRefresh = args.Contains("--full-refresh", StringComparer.OrdinalIgnoreCase);
-string? targetRepo = null;
+var targetRepos = new List<string>();
+DateTimeOffset? sinceTimestamp = null;
 
-// Find --repo flag and its value
+// Find --repo flags (can be repeated) and --since flag
 for (var i = 0; i < args.Length - 1; i++)
 {
     if (args[i].Equals("--repo", StringComparison.OrdinalIgnoreCase))
     {
-        targetRepo = args[i + 1];
-        break;
+        targetRepos.Add(args[i + 1]);
+    }
+    else if (args[i].Equals("--since", StringComparison.OrdinalIgnoreCase))
+    {
+        if (DateTimeOffset.TryParse(args[i + 1], out var parsedTimestamp))
+        {
+            sinceTimestamp = parsedTimestamp;
+        }
+        else
+        {
+            logger.LogError("Invalid timestamp format: {Timestamp}. Use ISO 8601 format (e.g., 2025-12-10T00:00:00Z)", args[i + 1]);
+            return;
+        }
     }
 }
 
@@ -69,26 +81,34 @@ try
     // Ensure Ollama is running before sync (auto-start if needed)
     await embeddingService.EnsureOllamaRunningAsync();
 
-    if (fullRefresh)
+    if (sinceTimestamp.HasValue)
     {
-        logger.LogInformation("Full refresh mode enabled - ignoring last sync timestamps");
+        logger.LogInformation("Incremental sync mode - only changes since {Timestamp:u}", sinceTimestamp.Value);
+    }
+    else
+    {
+        logger.LogInformation("Full sync mode - processing all issues");
     }
 
-    if (targetRepo != null)
+    if (targetRepos.Count > 0)
     {
-        // Sync single repository
-        var parts = targetRepo.Split('/');
-        if (parts.Length != 2)
+        // Validate all repositories format first
+        foreach (var repo in targetRepos)
         {
-            logger.LogError("Invalid repository format: {Repo}. Expected 'Owner/Repo'", targetRepo);
-            return;
+            var parts = repo.Split('/');
+            if (parts.Length != 2)
+            {
+                logger.LogError("Invalid repository format: {Repo}. Expected 'Owner/Repo'", repo);
+                return;
+            }
         }
-        await syncService.SyncRepositoryAsync(parts[0], parts[1], fullRefresh);
+        // Sync specified repositories
+        await syncService.SyncRepositoriesAsync(targetRepos, sinceTimestamp);
     }
     else
     {
         // Sync all repositories (from config or dynamic discovery)
-        await syncService.SyncAllRepositoriesAsync(fullRefresh);
+        await syncService.SyncAllRepositoriesAsync(sinceTimestamp);
     }
 }
 catch (Exception ex)
