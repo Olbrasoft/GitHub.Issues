@@ -11,11 +11,13 @@ namespace Olbrasoft.GitHub.Issues.Tests.Services;
 public class OllamaEmbeddingServiceTests
 {
     private readonly Mock<ILogger<OllamaEmbeddingService>> _loggerMock;
+    private readonly Mock<IServiceManager> _serviceManagerMock;
     private readonly EmbeddingSettings _settings;
 
     public OllamaEmbeddingServiceTests()
     {
         _loggerMock = new Mock<ILogger<OllamaEmbeddingService>>();
+        _serviceManagerMock = new Mock<IServiceManager>();
         _settings = new EmbeddingSettings
         {
             BaseUrl = "http://localhost:11434",
@@ -27,7 +29,7 @@ public class OllamaEmbeddingServiceTests
     {
         var httpClient = new HttpClient(handler);
         var options = Options.Create(_settings);
-        return new OllamaEmbeddingService(httpClient, options, _loggerMock.Object);
+        return new OllamaEmbeddingService(httpClient, _serviceManagerMock.Object, options, _loggerMock.Object);
     }
 
     private Mock<HttpMessageHandler> CreateMockHandler(HttpResponseMessage response)

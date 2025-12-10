@@ -20,6 +20,10 @@ builder.Services.AddDbContext<GitHubDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         o => o.UseVector()));
 
+// Configure process runner and service manager (DIP - abstractions for testability)
+builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
+builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
+
 // Configure embedding service (ISP - separate interfaces for different responsibilities)
 builder.Services.Configure<EmbeddingSettings>(builder.Configuration.GetSection("Embeddings"));
 builder.Services.AddHttpClient<OllamaEmbeddingService>();

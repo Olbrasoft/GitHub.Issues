@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -10,19 +9,25 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 /// <summary>
 /// Ollama-based embedding service implementation.
 /// Implements both IEmbeddingService (core functionality) and IServiceLifecycleManager (Ollama startup).
+/// Uses IServiceManager for testable service management (no direct Process.Start calls).
 /// </summary>
 public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManager
 {
     private readonly HttpClient _httpClient;
+    private readonly IServiceManager _serviceManager;
     private readonly EmbeddingSettings _settings;
     private readonly ILogger<OllamaEmbeddingService> _logger;
 
+    private const string OllamaServiceName = "ollama";
+
     public OllamaEmbeddingService(
         HttpClient httpClient,
+        IServiceManager serviceManager,
         IOptions<EmbeddingSettings> settings,
         ILogger<OllamaEmbeddingService> logger)
     {
         _httpClient = httpClient;
+        _serviceManager = serviceManager;
         _settings = settings.Value;
         _logger = logger;
 
@@ -54,21 +59,9 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
 
         _logger.LogInformation("Ollama is not running. Starting Ollama service...");
 
-        var process = Process.Start(new ProcessStartInfo
-        {
-            FileName = "systemctl",
-            Arguments = "--user start ollama",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false
-        });
+        await _serviceManager.StartServiceAsync(OllamaServiceName, cancellationToken);
 
-        if (process != null)
-        {
-            await process.WaitForExitAsync(cancellationToken);
-        }
-
-        // Wait for Ollama to be ready (retry loop)
+        // Wait for Ollama to be ready (retry loop with HTTP health check)
         const int maxRetries = 30;
         for (int i = 0; i < maxRetries; i++)
         {
