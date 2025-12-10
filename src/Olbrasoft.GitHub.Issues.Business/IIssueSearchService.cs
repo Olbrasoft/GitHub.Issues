@@ -1,6 +1,6 @@
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+using Olbrasoft.GitHub.Issues.Business.Models;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Business;
 
 /// <summary>
 /// Service for searching issues using semantic search.

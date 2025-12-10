@@ -1,24 +1,28 @@
+using Microsoft.Extensions.Logging;
 using Olbrasoft.Data.Cqrs;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+using Olbrasoft.GitHub.Issues.Business.Models;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
+using Olbrasoft.Mediation;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Business.Services;
 
-public class IssueSearchService : IIssueSearchService
+/// <summary>
+/// Service for searching issues using semantic vector search.
+/// </summary>
+public class IssueSearchService : Service, IIssueSearchService
 {
-    private readonly IQueryProcessor _queryProcessor;
     private readonly IEmbeddingService _embeddingService;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ILogger<IssueSearchService> _logger;
 
     public IssueSearchService(
-        IQueryProcessor queryProcessor,
+        IMediator mediator,
         IEmbeddingService embeddingService,
         IGitHubGraphQLClient graphQLClient,
         ILogger<IssueSearchService> logger)
+        : base(mediator)
     {
-        _queryProcessor = queryProcessor;
         _embeddingService = embeddingService;
         _graphQLClient = graphQLClient;
         _logger = logger;
@@ -44,8 +48,8 @@ public class IssueSearchService : IIssueSearchService
             return new SearchResultPage();
         }
 
-        // Execute CQRS query for vector search
-        var searchQuery = new IssueSearchQuery(_queryProcessor)
+        // Execute CQRS query for vector search using Mediator
+        var searchQuery = new IssueSearchQuery(Mediator)
         {
             QueryEmbedding = queryEmbedding,
             State = state,

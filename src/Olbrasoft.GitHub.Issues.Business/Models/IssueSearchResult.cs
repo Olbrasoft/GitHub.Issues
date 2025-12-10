@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+namespace Olbrasoft.GitHub.Issues.Business.Models;
 
 /// <summary>
 /// Individual search result representing a GitHub issue.

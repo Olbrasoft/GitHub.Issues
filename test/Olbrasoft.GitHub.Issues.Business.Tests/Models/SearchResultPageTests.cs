@@ -1,6 +1,6 @@
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+using Olbrasoft.GitHub.Issues.Business.Models;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests.Models;
+namespace Olbrasoft.GitHub.Issues.Business.Tests.Models;
 
 public class SearchResultPageTests
 {

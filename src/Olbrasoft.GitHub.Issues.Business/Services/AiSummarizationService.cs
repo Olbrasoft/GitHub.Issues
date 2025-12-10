@@ -2,20 +2,21 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// AI summarization service with 3-level rotation: Provider → Key → Model.
 /// Rotation order cycles through all combinations to maximize free tier usage.
 /// </summary>
-public class RotatingAiSummarizationService : IAiSummarizationService
+public class AiSummarizationService : IAiSummarizationService
 {
     private readonly HttpClient _httpClient;
     private readonly AiProvidersSettings _providers;
     private readonly SummarizationSettings _summarization;
-    private readonly ILogger<RotatingAiSummarizationService> _logger;
+    private readonly ILogger<AiSummarizationService> _logger;
 
     // Static rotation state - survives across requests, resets on app restart
     private static int _rotationIndex;
@@ -24,11 +25,11 @@ public class RotatingAiSummarizationService : IAiSummarizationService
     // Pre-built list of all provider/key/model combinations
     private readonly List<ProviderKeyModel> _combinations;
 
-    public RotatingAiSummarizationService(
+    public AiSummarizationService(
         HttpClient httpClient,
         IOptions<AiProvidersSettings> providers,
         IOptions<SummarizationSettings> summarization,
-        ILogger<RotatingAiSummarizationService> logger)
+        ILogger<AiSummarizationService> logger)
     {
         _httpClient = httpClient;
         _providers = providers.Value;
@@ -76,7 +77,7 @@ public class RotatingAiSummarizationService : IAiSummarizationService
                         "Groq",
                         _providers.Groq.Endpoint,
                         groqKeys[keyIndex],
-                        groqModels[modelIndex]));
+                        groqModels[keyIndex]));
                 }
             }
         }

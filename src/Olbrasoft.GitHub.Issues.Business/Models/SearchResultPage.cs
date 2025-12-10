@@ -1,4 +1,4 @@
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
+namespace Olbrasoft.GitHub.Issues.Business.Models;
 
 /// <summary>
 /// Paginated search results for GitHub issues.

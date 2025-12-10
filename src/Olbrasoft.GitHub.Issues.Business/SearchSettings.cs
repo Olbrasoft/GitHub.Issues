@@ -1,4 +1,4 @@
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+namespace Olbrasoft.GitHub.Issues.Business;
 
 /// <summary>
 /// Configuration for search UI.

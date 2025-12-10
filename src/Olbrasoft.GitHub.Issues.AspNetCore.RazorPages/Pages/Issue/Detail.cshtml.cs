@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages.Issue;

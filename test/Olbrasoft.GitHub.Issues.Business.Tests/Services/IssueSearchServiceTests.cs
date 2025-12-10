@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+using Olbrasoft.GitHub.Issues.Business.Models;
+using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Pgvector;
 
-namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests.Services;
+namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 
 public class IssueSearchServiceTests
 {

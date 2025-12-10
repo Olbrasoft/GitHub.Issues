@@ -1,8 +1,8 @@
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
-
-// Settings classes: GitHubSettings, BodyPreviewSettings, SearchSettings are in Services namespace
+using Olbrasoft.Mediation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,13 +43,17 @@ builder.Services.Configure<SummarizationSettings>(
 builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
 builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
 
+// Register Mediator and CQRS handlers
+builder.Services.AddMediation(typeof(Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries.IssueSearchQuery).Assembly)
+    .UseRequestHandlerMediator();
+
 // Register services
 builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
-builder.Services.AddHttpClient<RotatingAiSummarizationService>();
+builder.Services.AddHttpClient<AiSummarizationService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
-builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<RotatingAiSummarizationService>());
+builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 
 var app = builder.Build();
