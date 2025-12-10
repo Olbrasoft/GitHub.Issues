@@ -20,9 +20,11 @@ builder.Services.AddDbContext<GitHubDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         o => o.UseVector()));
 
-// Configure embedding service
+// Configure embedding service (ISP - separate interfaces for different responsibilities)
 builder.Services.Configure<EmbeddingSettings>(builder.Configuration.GetSection("Embeddings"));
-builder.Services.AddHttpClient<IEmbeddingService, OllamaEmbeddingService>();
+builder.Services.AddHttpClient<OllamaEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 
 // Configure GitHub sync services
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
@@ -42,7 +44,7 @@ var host = builder.Build();
 using var scope = host.Services.CreateScope();
 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>();
-var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
+var lifecycleManager = scope.ServiceProvider.GetRequiredService<IServiceLifecycleManager>();
 
 // Parse command line arguments
 if (args.Length == 0 || args[0].ToLowerInvariant() != "sync")
@@ -98,8 +100,8 @@ if (smartMode && sinceTimestamp.HasValue)
 
 try
 {
-    // Ensure Ollama is running before sync (auto-start if needed)
-    await embeddingService.EnsureOllamaRunningAsync();
+    // Ensure embedding service is running before sync (auto-start if needed)
+    await lifecycleManager.EnsureRunningAsync();
 
     if (smartMode)
     {

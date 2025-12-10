@@ -7,7 +7,11 @@ using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
-public class OllamaEmbeddingService : IEmbeddingService
+/// <summary>
+/// Ollama-based embedding service implementation.
+/// Implements both IEmbeddingService (core functionality) and IServiceLifecycleManager (Ollama startup).
+/// </summary>
+public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManager
 {
     private readonly HttpClient _httpClient;
     private readonly EmbeddingSettings _settings;
@@ -40,7 +44,7 @@ public class OllamaEmbeddingService : IEmbeddingService
         }
     }
 
-    public async Task EnsureOllamaRunningAsync(CancellationToken cancellationToken = default)
+    public async Task EnsureRunningAsync(CancellationToken cancellationToken = default)
     {
         if (await IsAvailableAsync(cancellationToken))
         {

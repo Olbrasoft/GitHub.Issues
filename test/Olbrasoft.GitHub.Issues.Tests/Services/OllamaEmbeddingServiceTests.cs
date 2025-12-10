@@ -206,4 +206,41 @@ public class OllamaEmbeddingServiceTests
         // Assert
         Assert.Null(result);
     }
+
+    [Fact]
+    public void OllamaEmbeddingService_ImplementsIEmbeddingService()
+    {
+        // Verify implementation follows ISP - implements core embedding interface
+        Assert.True(typeof(IEmbeddingService).IsAssignableFrom(typeof(OllamaEmbeddingService)));
+    }
+
+    [Fact]
+    public void OllamaEmbeddingService_ImplementsIServiceLifecycleManager()
+    {
+        // Verify implementation follows ISP - implements lifecycle management interface
+        Assert.True(typeof(IServiceLifecycleManager).IsAssignableFrom(typeof(OllamaEmbeddingService)));
+    }
+
+    [Fact]
+    public void IServiceLifecycleManager_CanBeMocked()
+    {
+        // Verify interface can be mocked independently
+        var mock = new Mock<IServiceLifecycleManager>();
+        Assert.NotNull(mock.Object);
+    }
+
+    [Fact]
+    public async Task IServiceLifecycleManager_EnsureRunningAsync_CanBeMocked()
+    {
+        // Arrange
+        var mock = new Mock<IServiceLifecycleManager>();
+        mock.Setup(x => x.EnsureRunningAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await mock.Object.EnsureRunningAsync();
+
+        // Assert
+        mock.Verify(x => x.EnsureRunningAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
