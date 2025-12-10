@@ -184,11 +184,47 @@ public class RotatingAiSummarizationService : IAiSummarizationService
             return SummarizationResult.Fail("Empty response from API");
         }
 
+        // Strip <think>...</think> tags from chain-of-thought models (e.g., qwen-3)
+        summary = StripThinkingTags(summary);
+
+        // If stripping resulted in empty content, model was truncated mid-thinking
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            _logger.LogWarning("Summary empty after stripping think tags - response was likely truncated");
+            return SummarizationResult.Fail("Response truncated (increase MaxTokens)");
+        }
+
         _logger.LogInformation("Summarization successful with {Provider}/{Model}", combo.ProviderName, combo.Model);
         return SummarizationResult.Ok(summary, combo.ProviderName, combo.Model);
     }
 
     private record ProviderKeyModel(string ProviderName, string Endpoint, string ApiKey, string Model);
+
+    /// <summary>
+    /// Strips &lt;think&gt;...&lt;/think&gt; tags from chain-of-thought model outputs.
+    /// Also handles truncated think blocks that never close.
+    /// </summary>
+    private static string StripThinkingTags(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return content;
+
+        // Remove complete <think>...</think> blocks (including multiline)
+        var result = System.Text.RegularExpressions.Regex.Replace(
+            content,
+            @"<think>[\s\S]*?</think>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Handle truncated think block (starts with <think> but never closes)
+        // If content still starts with <think> (truncated response), return empty string
+        if (result.TrimStart().StartsWith("<think>", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return result.Trim();
+    }
 }
 
 // OpenAI-compatible API models with source generation for AOT compatibility
