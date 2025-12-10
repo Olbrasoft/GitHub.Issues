@@ -19,7 +19,7 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
     protected override async Task<IssueSearchPageDto> GetResultToHandleAsync(
         IssueSearchQuery query, CancellationToken token)
     {
-        var baseQuery = BuildBaseQuery(query.State);
+        var baseQuery = BuildBaseQuery(query.State, query.RepositoryIds);
 
         // Get total count for pagination
         var totalCount = await baseQuery.CountAsync(token);
@@ -54,7 +54,7 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
         };
     }
 
-    private IQueryable<Issue> BuildBaseQuery(string state)
+    private IQueryable<Issue> BuildBaseQuery(string state, IReadOnlyList<int>? repositoryIds)
     {
         var query = Entities
             .Include(i => i.Repository)
@@ -68,6 +68,12 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
         else if (string.Equals(state, "closed", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(i => !i.IsOpen);
+        }
+
+        // Filter by repository IDs if provided
+        if (repositoryIds is { Count: > 0 })
+        {
+            query = query.Where(i => repositoryIds.Contains(i.RepositoryId));
         }
 
         return query;

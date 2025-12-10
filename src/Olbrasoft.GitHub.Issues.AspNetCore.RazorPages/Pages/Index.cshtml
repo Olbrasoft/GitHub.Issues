@@ -17,6 +17,19 @@
             <button type="submit" class="search-button">Hledat</button>
         </div>
 
+        <div class="repo-filter-row">
+            <label>Repozitáře:</label>
+            <div class="tag-input-container" id="tagInputContainer">
+                <div class="tags" id="selectedTags"></div>
+                <input type="text"
+                       id="repoSearchInput"
+                       placeholder="Zadejte název repozitáře..."
+                       autocomplete="off" />
+                <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+            </div>
+            <input type="hidden" name="Repos" id="reposHidden" value="@Model.Repos" />
+        </div>
+
         <div class="filter-row">
             <label>Stav:</label>
             <select name="State" class="state-select">
@@ -89,17 +102,26 @@
                 <div class="pagination">
                     @if (Model.PageNumber > 1)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize" class="page-link">« Předchozí</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
                     }
 
                     <span class="page-info">Stránka @Model.PageNumber z @Model.SearchResult.TotalPages</span>
 
                     @if (Model.PageNumber < Model.SearchResult.TotalPages)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize" class="page-link">Další »</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
                     }
                 </div>
             }
         }
     </div>
+}
+
+@section Scripts {
+    <script>
+        // Initialize selected repositories from server
+        window.initialSelectedRepos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.SelectedRepositories.Select(r => new { id = r.Id, fullName = r.FullName })));
+    </script>
+    <script src="~/js/repo-filter.js"></script>
 }

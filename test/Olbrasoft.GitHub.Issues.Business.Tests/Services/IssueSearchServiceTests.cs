@@ -29,7 +29,7 @@ public class IssueSearchServiceTests
         // Note: We can't easily test with real DbContext due to pgvector dependency
         // This test verifies the interface contract exists
         var service = new Mock<IIssueSearchService>();
-        service.Setup(x => x.SearchAsync("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        service.Setup(x => x.SearchAsync("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IReadOnlyList<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SearchResultPage());
 
         // Act
@@ -45,7 +45,7 @@ public class IssueSearchServiceTests
     {
         // Arrange
         var service = new Mock<IIssueSearchService>();
-        service.Setup(x => x.SearchAsync("   ", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        service.Setup(x => x.SearchAsync("   ", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IReadOnlyList<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SearchResultPage());
 
         // Act
@@ -81,6 +81,7 @@ public class IssueSearchServiceTests
                 It.IsAny<string>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<IReadOnlyList<int>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SearchResultPage
             {

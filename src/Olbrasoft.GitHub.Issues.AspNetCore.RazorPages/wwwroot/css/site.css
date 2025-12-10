@@ -287,3 +287,109 @@ footer {
 .github-link:hover {
     background-color: #eaeef2;
 }
+
+/* Repository filter - Tag input */
+.repo-filter-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.repo-filter-row label {
+    font-weight: 500;
+}
+
+.tag-input-container {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    min-height: 42px;
+}
+
+.tag-input-container:focus-within {
+    border-color: #0366d6;
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background-color: #0366d6;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.tag-remove {
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 0.25rem;
+    opacity: 0.8;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+#repoSearchInput {
+    flex: 1;
+    min-width: 150px;
+    border: none;
+    outline: none;
+    padding: 0.25rem;
+    font-size: 1rem;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: none;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.autocomplete-dropdown.show {
+    display: block;
+}
+
+.autocomplete-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background-color: #f6f8fa;
+}
+
+.autocomplete-item.selected {
+    background-color: #0366d6;
+    color: white;
+}

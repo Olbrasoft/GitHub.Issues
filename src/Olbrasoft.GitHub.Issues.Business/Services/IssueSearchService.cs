@@ -33,6 +33,7 @@ public class IssueSearchService : Service, IIssueSearchService
         string state = "all",
         int page = 1,
         int pageSize = 10,
+        IReadOnlyList<int>? repositoryIds = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -54,7 +55,8 @@ public class IssueSearchService : Service, IIssueSearchService
             QueryEmbedding = queryEmbedding,
             State = state,
             Page = page,
-            PageSize = pageSize
+            PageSize = pageSize,
+            RepositoryIds = repositoryIds
         };
 
         var searchPage = await searchQuery.ToResultAsync(cancellationToken);

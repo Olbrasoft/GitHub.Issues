@@ -1,7 +1,9 @@
+using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
+using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;
 using Olbrasoft.Mediation;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,5 +69,23 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseRouting();
 app.MapRazorPages();
+
+// API endpoints
+app.MapGet("/api/repositories/search", async (string? term, IMediator mediator, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(term))
+    {
+        return Results.Ok(Array.Empty<object>());
+    }
+
+    var query = new RepositoriesSearchQuery(mediator)
+    {
+        Term = term,
+        MaxResults = 15
+    };
+
+    var results = await query.ToResultAsync(ct);
+    return Results.Ok(results);
+});
 
 app.Run();

@@ -22,6 +22,9 @@ public class IssueSearchQuery : BaseQuery<IssueSearchPageDto>
     /// <summary>Number of results per page.</summary>
     public int PageSize { get; set; } = 10;
 
+    /// <summary>Optional list of repository IDs to filter results.</summary>
+    public IReadOnlyList<int>? RepositoryIds { get; set; }
+
     public IssueSearchQuery(IQueryProcessor processor) : base(processor)
     {
     }

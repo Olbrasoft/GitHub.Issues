@@ -14,6 +14,7 @@ public interface IIssueSearchService
     /// <param name="state">Filter by issue state: "all", "open", or "closed".</param>
     /// <param name="page">Page number (1-based).</param>
     /// <param name="pageSize">Number of results per page.</param>
+    /// <param name="repositoryIds">Optional list of repository IDs to filter results.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Paginated search results.</returns>
     Task<SearchResultPage> SearchAsync(
@@ -21,5 +22,6 @@ public interface IIssueSearchService
         string state = "all",
         int page = 1,
         int pageSize = 10,
+        IReadOnlyList<int>? repositoryIds = null,
         CancellationToken cancellationToken = default);
 }
