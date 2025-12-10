@@ -246,3 +246,44 @@ footer {
     color: #666;
     font-size: 0.875rem;
 }
+
+/* Body preview */
+.result-body-preview {
+    margin: 0.5rem 0;
+    color: #586069;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Result actions */
+.result-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.detail-link, .github-link {
+    font-size: 0.85rem;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.detail-link {
+    background-color: #0366d6;
+    color: white;
+}
+
+.detail-link:hover {
+    background-color: #0256b9;
+}
+
+.github-link {
+    background-color: #f6f8fa;
+    color: #24292e;
+    border: 1px solid #d0d7de;
+}
+
+.github-link:hover {
+    background-color: #eaeef2;
+}

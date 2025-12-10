@@ -3,6 +3,8 @@ using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
+// Settings classes: GitHubSettings, BodyPreviewSettings, SearchSettings are in Services namespace
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
@@ -27,6 +29,10 @@ builder.Services.Configure<EmbeddingSettings>(
     builder.Configuration.GetSection("Embeddings"));
 builder.Services.Configure<SearchSettings>(
     builder.Configuration.GetSection("Search"));
+builder.Services.Configure<GitHubSettings>(
+    builder.Configuration.GetSection("GitHub"));
+builder.Services.Configure<BodyPreviewSettings>(
+    builder.Configuration.GetSection("BodyPreview"));
 
 // Register process runner and service manager (required by OllamaEmbeddingService)
 builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
@@ -34,7 +40,9 @@ builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
 
 // Register services
 builder.Services.AddHttpClient<OllamaEmbeddingService>();
+builder.Services.AddHttpClient<GitHubGraphQLClient>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 
 var app = builder.Build();
