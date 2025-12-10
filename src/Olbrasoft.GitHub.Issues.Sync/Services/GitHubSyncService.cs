@@ -174,7 +174,7 @@ public class GitHubSyncService : IGitHubSyncService
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
         await SyncIssuesAsync(repository, owner, repo, since, cancellationToken); // Also handles parent-child relationships via parent_issue_url
-        await SyncEventsAsync(repository, owner, repo, cancellationToken);
+        await SyncEventsAsync(repository, owner, repo, since, cancellationToken);
 
         // Update last synced timestamp
         repository.LastSyncedAt = DateTimeOffset.UtcNow;
@@ -481,9 +481,11 @@ public class GitHubSyncService : IGitHubSyncService
         Data.Entities.Repository repository,
         string owner,
         string repo,
+        DateTimeOffset? since,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Syncing issue events for {Owner}/{Repo} using bulk API", owner, repo);
+        _logger.LogInformation("Syncing issue events for {Owner}/{Repo} using bulk API ({Mode})",
+            owner, repo, since.HasValue ? "incremental" : "full");
 
         // Cache event types for faster lookup
         var eventTypes = await _dbContext.EventTypes.ToDictionaryAsync(et => et.Name, cancellationToken);
@@ -501,8 +503,11 @@ public class GitHubSyncService : IGitHubSyncService
 
         var allEvents = new List<JsonElement>();
         var page = 1;
+        var stopEarly = false;
 
-        // Fetch all events using bulk repo events endpoint with pagination
+        // Fetch events using bulk repo events endpoint with pagination
+        // GitHub returns events in descending order (newest first)
+        // For incremental sync, stop when we hit events older than 'since'
         while (true)
         {
             var url = $"repos/{owner}/{repo}/issues/events?per_page=100&page={page}";
@@ -520,15 +525,26 @@ public class GitHubSyncService : IGitHubSyncService
                 break;
             }
 
-            // Clone elements since JsonDocument will be disposed
+            // Clone elements and check for early termination
             foreach (var evt in pageEvents)
             {
+                // Check if event is older than 'since' timestamp - if so, stop
+                if (since.HasValue)
+                {
+                    var createdAt = evt.GetProperty("created_at").GetDateTimeOffset();
+                    if (createdAt < since.Value)
+                    {
+                        stopEarly = true;
+                        _logger.LogDebug("Stopping events fetch - hit event from {CreatedAt} (before {Since})", createdAt, since.Value);
+                        break;
+                    }
+                }
                 allEvents.Add(evt.Clone());
             }
 
             _logger.LogDebug("Fetched {Count} events on page {Page}", pageEvents.Count, page);
 
-            if (pageEvents.Count < 100)
+            if (stopEarly || pageEvents.Count < 100)
             {
                 break;
             }
