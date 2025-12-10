@@ -32,6 +32,18 @@ public class IndexModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        // Ensure valid page number
+        if (PageNumber < 1)
+        {
+            PageNumber = 1;
+        }
+
+        // Ensure valid page size
+        if (!PageSizeOptions.Contains(PageSize))
+        {
+            PageSize = 10;
+        }
+
         if (!string.IsNullOrWhiteSpace(Query))
         {
             SearchResult = await _searchService.SearchAsync(Query, State, PageNumber, PageSize, cancellationToken);
