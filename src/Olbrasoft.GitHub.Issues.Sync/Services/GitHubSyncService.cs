@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Octokit;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
@@ -14,7 +13,7 @@ public class GitHubSyncService : IGitHubSyncService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly IEmbeddingService _embeddingService;
-    private readonly GitHubClient _gitHubClient;
+    private readonly IGitHubApiClient _gitHubApiClient;
     private readonly HttpClient _httpClient;
     private readonly GitHubSettings _settings;
     private readonly ILogger<GitHubSyncService> _logger;
@@ -22,17 +21,17 @@ public class GitHubSyncService : IGitHubSyncService
     public GitHubSyncService(
         GitHubDbContext dbContext,
         IEmbeddingService embeddingService,
+        IGitHubApiClient gitHubApiClient,
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
         ILogger<GitHubSyncService> logger)
     {
         _dbContext = dbContext;
         _embeddingService = embeddingService;
+        _gitHubApiClient = gitHubApiClient;
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
-
-        _gitHubClient = new GitHubClient(new Octokit.ProductHeaderValue("Olbrasoft-GitHub-Issues-Sync"));
 
         // Configure HttpClient for GitHub API
         _httpClient.BaseAddress = new Uri("https://api.github.com/");
@@ -42,7 +41,6 @@ public class GitHubSyncService : IGitHubSyncService
 
         if (!string.IsNullOrEmpty(_settings.Token))
         {
-            _gitHubClient.Credentials = new Credentials(_settings.Token);
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
         }
     }
@@ -214,7 +212,7 @@ public class GitHubSyncService : IGitHubSyncService
 
         if (repository == null)
         {
-            var ghRepo = await _gitHubClient.Repository.Get(owner, repo);
+            var ghRepo = await _gitHubApiClient.GetRepositoryAsync(owner, repo);
 
             repository = new Data.Entities.Repository
             {
@@ -474,7 +472,7 @@ public class GitHubSyncService : IGitHubSyncService
         string repo,
         CancellationToken cancellationToken)
     {
-        var ghLabels = await _gitHubClient.Issue.Labels.GetAllForRepository(owner, repo);
+        var ghLabels = await _gitHubApiClient.GetLabelsForRepositoryAsync(owner, repo);
 
         foreach (var ghLabel in ghLabels)
         {

@@ -26,6 +26,7 @@ builder.Services.AddHttpClient<IEmbeddingService, OllamaEmbeddingService>();
 
 // Configure GitHub sync service
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
+builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
 builder.Services.AddHttpClient<IGitHubSyncService, GitHubSyncService>();
 
 var host = builder.Build();
