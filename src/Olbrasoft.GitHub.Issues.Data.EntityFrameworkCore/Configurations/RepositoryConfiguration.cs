@@ -34,5 +34,8 @@ public class RepositoryConfiguration : IEntityTypeConfiguration<Repository>
 
         builder.HasIndex(r => r.FullName)
             .IsUnique();
+
+        builder.Property(r => r.LastSyncedAt)
+            .HasColumnName("last_synced_at");
     }
 }

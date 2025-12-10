@@ -47,7 +47,7 @@ public class GitHubSyncService : IGitHubSyncService
         }
     }
 
-    public async Task SyncAllRepositoriesAsync(CancellationToken cancellationToken = default)
+    public async Task SyncAllRepositoriesAsync(bool fullRefresh = false, CancellationToken cancellationToken = default)
     {
         IEnumerable<string> repositories;
 
@@ -69,10 +69,10 @@ public class GitHubSyncService : IGitHubSyncService
             return;
         }
 
-        await SyncRepositoriesAsync(repositories, cancellationToken);
+        await SyncRepositoriesAsync(repositories, fullRefresh, cancellationToken);
     }
 
-    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, bool fullRefresh = false, CancellationToken cancellationToken = default)
     {
         foreach (var repoFullName in repositories)
         {
@@ -83,7 +83,7 @@ public class GitHubSyncService : IGitHubSyncService
                 continue;
             }
 
-            await SyncRepositoryAsync(parts[0], parts[1], cancellationToken);
+            await SyncRepositoryAsync(parts[0], parts[1], fullRefresh, cancellationToken);
         }
     }
 
@@ -164,14 +164,19 @@ public class GitHubSyncService : IGitHubSyncService
         return repositories;
     }
 
-    public async Task SyncRepositoryAsync(string owner, string repo, CancellationToken cancellationToken = default)
+    public async Task SyncRepositoryAsync(string owner, string repo, bool fullRefresh = false, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting sync for {Owner}/{Repo}", owner, repo);
+        _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}",
+            fullRefresh ? "full" : "incremental", owner, repo);
 
         var repository = await EnsureRepositoryAsync(owner, repo, cancellationToken);
         await SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        await SyncIssuesAsync(repository, owner, repo, cancellationToken); // Also handles parent-child relationships via parent_issue_url
+        await SyncIssuesAsync(repository, owner, repo, fullRefresh, cancellationToken); // Also handles parent-child relationships via parent_issue_url
         await SyncEventsAsync(repository, owner, repo, cancellationToken);
+
+        // Update last synced timestamp
+        repository.LastSyncedAt = DateTimeOffset.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
     }
@@ -208,18 +213,29 @@ public class GitHubSyncService : IGitHubSyncService
         Data.Entities.Repository repository,
         string owner,
         string repo,
+        bool fullRefresh,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API", owner, repo);
+        // Determine if we should use incremental sync
+        var lastSyncedAt = repository.LastSyncedAt;
+        var useIncremental = !fullRefresh && lastSyncedAt.HasValue;
+        var sinceParam = useIncremental
+            ? $"&since={lastSyncedAt!.Value:O}"
+            : "";
+
+        _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API ({Mode}{Since})",
+            owner, repo,
+            useIncremental ? "incremental" : "full",
+            useIncremental ? $", since {lastSyncedAt!.Value:u}" : "");
 
         var syncedAt = DateTimeOffset.UtcNow;
         var allIssues = new List<JsonElement>();
         var page = 1;
 
-        // Fetch all issues using bulk API with pagination
+        // Fetch issues using bulk API with pagination (with optional since parameter)
         while (true)
         {
-            var url = $"repos/{owner}/{repo}/issues?state=all&per_page=100&page={page}";
+            var url = $"repos/{owner}/{repo}/issues?state=all&per_page=100&page={page}{sinceParam}";
             _logger.LogDebug("Fetching issues page {Page}", page);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -250,7 +266,10 @@ public class GitHubSyncService : IGitHubSyncService
             page++;
         }
 
-        _logger.LogInformation("Found {Count} issues to sync for {Owner}/{Repo}", allIssues.Count, owner, repo);
+        _logger.LogInformation("Found {Count} {Mode} issues for {Owner}/{Repo}",
+            allIssues.Count,
+            useIncremental ? "changed" : "total",
+            owner, repo);
 
         // Dictionary to track parent_issue_url -> child issue number for later FK update
         var parentChildRelationships = new Dictionary<int, string>(); // childNumber -> parentIssueUrl
@@ -301,14 +320,18 @@ public class GitHubSyncService : IGitHubSyncService
                 _dbContext.Issues.Add(issue);
             }
 
+            // Detect if issue has changed (compare GitHubUpdatedAt)
+            var hasChanged = !isNew && issue!.GitHubUpdatedAt < updatedAt;
+
             issue!.Title = title;
             issue.IsOpen = state == "open";
             issue.Url = htmlUrl;
             issue.GitHubUpdatedAt = updatedAt;
             issue.SyncedAt = syncedAt;
 
-            // Generate embedding for new issues (title + body combined)
-            if (isNew)
+            // Generate embedding for new issues OR re-embed if issue has changed
+            var needsReEmbed = isNew || hasChanged;
+            if (needsReEmbed)
             {
                 var textToEmbed = CreateEmbeddingText(title, body);
                 var embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, cancellationToken);
@@ -317,6 +340,11 @@ public class GitHubSyncService : IGitHubSyncService
                     throw new InvalidOperationException($"Failed to generate embedding for issue #{issueNumber}. Ollama may be unavailable.");
                 }
                 issue.Embedding = embedding;
+
+                if (hasChanged)
+                {
+                    _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", issueNumber, title);
+                }
             }
 
             // Sync labels

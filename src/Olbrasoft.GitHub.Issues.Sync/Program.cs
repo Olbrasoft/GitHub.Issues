@@ -39,14 +39,21 @@ var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingServic
 if (args.Length == 0)
 {
     logger.LogInformation("Usage:");
-    logger.LogInformation("  sync                             - Sync all (config list OR dynamic discovery)");
-    logger.LogInformation("  sync owner/repo                  - Sync single repository");
-    logger.LogInformation("  sync owner/repo1 owner/repo2 ... - Sync list of repositories");
-    logger.LogInformation("  reembed                          - Re-embed all issues with title+body");
+    logger.LogInformation("  sync [--full-refresh]                             - Sync all (incremental by default)");
+    logger.LogInformation("  sync owner/repo [--full-refresh]                  - Sync single repository");
+    logger.LogInformation("  sync owner/repo1 owner/repo2 ... [--full-refresh] - Sync list of repositories");
+    logger.LogInformation("  reembed                                           - Re-embed all issues with title+body");
+    logger.LogInformation("");
+    logger.LogInformation("Options:");
+    logger.LogInformation("  --full-refresh  Ignore last sync timestamp and re-sync everything");
     return;
 }
 
 var command = args[0].ToLowerInvariant();
+
+// Check for --full-refresh flag
+var fullRefresh = args.Contains("--full-refresh", StringComparer.OrdinalIgnoreCase);
+var repoArgs = args.Where(a => !a.StartsWith("--") && a != command).ToList();
 
 try
 {
@@ -56,37 +63,42 @@ try
             // Ensure Ollama is running before sync (auto-start if needed)
             await embeddingService.EnsureOllamaRunningAsync();
 
-            if (args.Length == 1)
+            if (fullRefresh)
+            {
+                logger.LogInformation("Full refresh mode enabled - ignoring last sync timestamps");
+            }
+
+            if (repoArgs.Count == 0)
             {
                 // sync - use config list or dynamic discovery
-                await syncService.SyncAllRepositoriesAsync();
+                await syncService.SyncAllRepositoriesAsync(fullRefresh);
             }
-            else if (args.Length == 2)
+            else if (repoArgs.Count == 1)
             {
                 // sync owner/repo - single repository
-                var parts = args[1].Split('/');
+                var parts = repoArgs[0].Split('/');
                 if (parts.Length != 2)
                 {
-                    logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", args[1]);
+                    logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", repoArgs[0]);
                     return;
                 }
-                await syncService.SyncRepositoryAsync(parts[0], parts[1]);
+                await syncService.SyncRepositoryAsync(parts[0], parts[1], fullRefresh);
             }
             else
             {
                 // sync owner/repo1 owner/repo2 ... - multiple repositories
                 var repositories = new List<string>();
-                for (var i = 1; i < args.Length; i++)
+                foreach (var repoArg in repoArgs)
                 {
-                    var parts = args[i].Split('/');
+                    var parts = repoArg.Split('/');
                     if (parts.Length != 2)
                     {
-                        logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", args[i]);
+                        logger.LogError("Invalid repository format: {Repo}. Expected 'owner/repo'", repoArg);
                         return;
                     }
-                    repositories.Add(args[i]);
+                    repositories.Add(repoArg);
                 }
-                await syncService.SyncRepositoriesAsync(repositories);
+                await syncService.SyncRepositoriesAsync(repositories, fullRefresh);
             }
             break;
 
