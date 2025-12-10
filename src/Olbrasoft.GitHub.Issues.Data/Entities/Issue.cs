@@ -2,6 +2,21 @@ using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.Entities;
 
+/// <summary>
+/// Issue entity with vector embedding for semantic search.
+/// </summary>
+/// <remarks>
+/// ARCHITECTURAL DECISION: Vector type from Pgvector package is used directly in entity.
+///
+/// Alternatives considered (see issue #56):
+/// - float[] with EF value conversion: Won't work - CosineDistance() extension requires Vector type
+/// - Separate domain/persistence entities: Over-engineered for this use case
+///
+/// Trade-off: Accept infrastructure dependency in Data layer for:
+/// - Full LINQ support with CosineDistance(), L2Distance(), etc.
+/// - Type safety and proper vector dimension handling
+/// - Minimal package footprint (~100KB, no external dependencies)
+/// </remarks>
 public class Issue
 {
     public int Id { get; set; }
