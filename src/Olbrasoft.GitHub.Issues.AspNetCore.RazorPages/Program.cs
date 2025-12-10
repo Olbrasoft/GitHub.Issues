@@ -33,6 +33,10 @@ builder.Services.Configure<GitHubSettings>(
     builder.Configuration.GetSection("GitHub"));
 builder.Services.Configure<BodyPreviewSettings>(
     builder.Configuration.GetSection("BodyPreview"));
+builder.Services.Configure<AiProvidersSettings>(
+    builder.Configuration.GetSection("AiProviders"));
+builder.Services.Configure<SummarizationSettings>(
+    builder.Configuration.GetSection("Summarization"));
 
 // Register process runner and service manager (required by OllamaEmbeddingService)
 builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
@@ -41,8 +45,10 @@ builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
 // Register services
 builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
+builder.Services.AddHttpClient<RotatingAiSummarizationService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
+builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<RotatingAiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 
 var app = builder.Build();

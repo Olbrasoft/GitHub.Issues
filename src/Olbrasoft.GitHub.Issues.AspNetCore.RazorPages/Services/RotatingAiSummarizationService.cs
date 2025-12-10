@@ -1,0 +1,235 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
+
+namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
+
+/// <summary>
+/// AI summarization service with 3-level rotation: Provider → Key → Model.
+/// Rotation order cycles through all combinations to maximize free tier usage.
+/// </summary>
+public class RotatingAiSummarizationService : IAiSummarizationService
+{
+    private readonly HttpClient _httpClient;
+    private readonly AiProvidersSettings _providers;
+    private readonly SummarizationSettings _summarization;
+    private readonly ILogger<RotatingAiSummarizationService> _logger;
+
+    // Static rotation state - survives across requests, resets on app restart
+    private static int _rotationIndex;
+    private static readonly object _lock = new();
+
+    // Pre-built list of all provider/key/model combinations
+    private readonly List<ProviderKeyModel> _combinations;
+
+    public RotatingAiSummarizationService(
+        HttpClient httpClient,
+        IOptions<AiProvidersSettings> providers,
+        IOptions<SummarizationSettings> summarization,
+        ILogger<RotatingAiSummarizationService> logger)
+    {
+        _httpClient = httpClient;
+        _providers = providers.Value;
+        _summarization = summarization.Value;
+        _logger = logger;
+
+        _combinations = BuildCombinations();
+    }
+
+    /// <summary>
+    /// Builds all provider/key/model combinations in rotation order.
+    /// Order: For each model level, cycle through (Cerebras+Key1, Groq+Key1, Cerebras+Key2, Groq+Key2).
+    /// </summary>
+    private List<ProviderKeyModel> BuildCombinations()
+    {
+        var combinations = new List<ProviderKeyModel>();
+
+        var cerebrasKeys = _providers.Cerebras.Keys.Where(k => !string.IsNullOrEmpty(k)).ToList();
+        var groqKeys = _providers.Groq.Keys.Where(k => !string.IsNullOrEmpty(k)).ToList();
+        var cerebrasModels = _providers.Cerebras.Models;
+        var groqModels = _providers.Groq.Models;
+
+        var maxModelIndex = Math.Max(cerebrasModels.Length, groqModels.Length);
+
+        for (var modelIndex = 0; modelIndex < maxModelIndex; modelIndex++)
+        {
+            var maxKeyIndex = Math.Max(cerebrasKeys.Count, groqKeys.Count);
+
+            for (var keyIndex = 0; keyIndex < maxKeyIndex; keyIndex++)
+            {
+                // Cerebras with current key and model
+                if (keyIndex < cerebrasKeys.Count && modelIndex < cerebrasModels.Length)
+                {
+                    combinations.Add(new ProviderKeyModel(
+                        "Cerebras",
+                        _providers.Cerebras.Endpoint,
+                        cerebrasKeys[keyIndex],
+                        cerebrasModels[modelIndex]));
+                }
+
+                // Groq with current key and model
+                if (keyIndex < groqKeys.Count && modelIndex < groqModels.Length)
+                {
+                    combinations.Add(new ProviderKeyModel(
+                        "Groq",
+                        _providers.Groq.Endpoint,
+                        groqKeys[keyIndex],
+                        groqModels[modelIndex]));
+                }
+            }
+        }
+
+        _logger.LogInformation("Built {Count} provider/key/model combinations for rotation", combinations.Count);
+        return combinations;
+    }
+
+    public async Task<SummarizationResult> SummarizeAsync(string content, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return SummarizationResult.Fail("No content to summarize");
+        }
+
+        if (_combinations.Count == 0)
+        {
+            _logger.LogWarning("No AI providers configured for summarization");
+            return SummarizationResult.Fail("No AI providers configured");
+        }
+
+        // Try each combination starting from current rotation index
+        var startIndex = GetAndAdvanceRotationIndex();
+        var triedCount = 0;
+
+        while (triedCount < _combinations.Count)
+        {
+            var index = (startIndex + triedCount) % _combinations.Count;
+            var combo = _combinations[index];
+
+            try
+            {
+                var result = await TrySummarizeAsync(combo, content, cancellationToken);
+                if (result.Success)
+                {
+                    return result;
+                }
+
+                _logger.LogWarning("Summarization failed with {Provider}/{Model}: {Error}",
+                    combo.ProviderName, combo.Model, result.Error);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Exception during summarization with {Provider}/{Model}",
+                    combo.ProviderName, combo.Model);
+            }
+
+            triedCount++;
+        }
+
+        return SummarizationResult.Fail("All providers failed");
+    }
+
+    private int GetAndAdvanceRotationIndex()
+    {
+        lock (_lock)
+        {
+            var current = _rotationIndex;
+            _rotationIndex = (_rotationIndex + 1) % Math.Max(1, _combinations.Count);
+            return current;
+        }
+    }
+
+    private async Task<SummarizationResult> TrySummarizeAsync(
+        ProviderKeyModel combo,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        var request = new OpenAiRequest
+        {
+            Model = combo.Model,
+            Messages =
+            [
+                new OpenAiMessage { Role = "system", Content = _summarization.SystemPrompt },
+                new OpenAiMessage { Role = "user", Content = $"Summarize this GitHub issue:\n\n{content}" }
+            ],
+            MaxTokens = _summarization.MaxTokens,
+            Temperature = _summarization.Temperature
+        };
+
+        var json = JsonSerializer.Serialize(request, JsonContext.Default.OpenAiRequest);
+        var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, combo.Endpoint + "chat/completions");
+        httpRequest.Content = httpContent;
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", combo.ApiKey);
+
+        _logger.LogDebug("Trying summarization with {Provider}/{Model}", combo.ProviderName, combo.Model);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            return SummarizationResult.Fail($"HTTP {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        var openAiResponse = JsonSerializer.Deserialize(responseBody, JsonContext.Default.OpenAiResponse);
+
+        var summary = openAiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+
+        if (string.IsNullOrEmpty(summary))
+        {
+            return SummarizationResult.Fail("Empty response from API");
+        }
+
+        _logger.LogInformation("Summarization successful with {Provider}/{Model}", combo.ProviderName, combo.Model);
+        return SummarizationResult.Ok(summary, combo.ProviderName, combo.Model);
+    }
+
+    private record ProviderKeyModel(string ProviderName, string Endpoint, string ApiKey, string Model);
+}
+
+// OpenAI-compatible API models with source generation for AOT compatibility
+internal class OpenAiRequest
+{
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    [JsonPropertyName("messages")]
+    public OpenAiMessage[] Messages { get; set; } = [];
+
+    [JsonPropertyName("max_tokens")]
+    public int MaxTokens { get; set; }
+
+    [JsonPropertyName("temperature")]
+    public double Temperature { get; set; }
+}
+
+internal class OpenAiMessage
+{
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = string.Empty;
+
+    [JsonPropertyName("content")]
+    public string Content { get; set; } = string.Empty;
+}
+
+internal class OpenAiResponse
+{
+    [JsonPropertyName("choices")]
+    public OpenAiChoice[]? Choices { get; set; }
+}
+
+internal class OpenAiChoice
+{
+    [JsonPropertyName("message")]
+    public OpenAiMessage? Message { get; set; }
+}
+
+[JsonSerializable(typeof(OpenAiRequest))]
+[JsonSerializable(typeof(OpenAiResponse))]
+internal partial class JsonContext : JsonSerializerContext
+{
+}

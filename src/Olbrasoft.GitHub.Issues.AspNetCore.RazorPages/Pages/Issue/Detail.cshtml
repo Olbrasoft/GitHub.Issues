@@ -29,6 +29,31 @@
                 <span class="issue-number">Issue #@Model.Issue.IssueNumber</span>
             </div>
 
+            @if (!string.IsNullOrEmpty(Model.Summary))
+            {
+                <div class="ai-summary">
+                    <div class="ai-summary-header">
+                        <span class="ai-icon">🤖</span>
+                        <span class="ai-label">AI Summary</span>
+                        @if (!string.IsNullOrEmpty(Model.SummaryProvider))
+                        {
+                            <span class="ai-provider">@Model.SummaryProvider</span>
+                        }
+                    </div>
+                    <p class="ai-summary-text">@Model.Summary</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.SummaryError))
+            {
+                <div class="ai-summary ai-summary-error">
+                    <div class="ai-summary-header">
+                        <span class="ai-icon">⚠️</span>
+                        <span class="ai-label">AI Summary unavailable</span>
+                    </div>
+                    <p class="ai-summary-text">@Model.SummaryError</p>
+                </div>
+            }
+
             <hr />
 
             <div class="issue-body">
@@ -208,5 +233,57 @@
         border: none;
         border-top: 1px solid #d0d7de;
         margin: 24px 0;
+    }
+
+    /* AI Summary */
+    .ai-summary {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #0ea5e9;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .ai-summary-error {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-color: #f59e0b;
+    }
+
+    .ai-summary-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .ai-icon {
+        font-size: 1.2em;
+    }
+
+    .ai-label {
+        font-weight: 600;
+        color: #0369a1;
+    }
+
+    .ai-summary-error .ai-label {
+        color: #b45309;
+    }
+
+    .ai-provider {
+        font-size: 0.75em;
+        color: #64748b;
+        background-color: rgba(255, 255, 255, 0.5);
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+
+    .ai-summary-text {
+        margin: 0;
+        color: #1e3a5f;
+        line-height: 1.6;
+    }
+
+    .ai-summary-error .ai-summary-text {
+        color: #78350f;
     }
 </style>

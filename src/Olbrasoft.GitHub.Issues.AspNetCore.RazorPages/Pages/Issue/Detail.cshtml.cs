@@ -11,21 +11,30 @@ public class DetailModel : PageModel
 {
     private readonly GitHubDbContext _dbContext;
     private readonly IGitHubGraphQLClient _graphQLClient;
+    private readonly IAiSummarizationService _summarizationService;
     private readonly ILogger<DetailModel> _logger;
 
     public DetailModel(
         GitHubDbContext dbContext,
         IGitHubGraphQLClient graphQLClient,
+        IAiSummarizationService summarizationService,
         ILogger<DetailModel> logger)
     {
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
+        _summarizationService = summarizationService;
         _logger = logger;
     }
 
     public IssueDetail? Issue { get; set; }
 
     public string? ErrorMessage { get; set; }
+
+    public string? Summary { get; set; }
+
+    public string? SummaryError { get; set; }
+
+    public string? SummaryProvider { get; set; }
 
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken cancellationToken)
     {
@@ -65,6 +74,22 @@ public class DetailModel : PageModel
             if (bodies.TryGetValue(key, out var body))
             {
                 Issue.Body = body;
+
+                // Generate AI summary
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    var result = await _summarizationService.SummarizeAsync(body, cancellationToken);
+                    if (result.Success)
+                    {
+                        Summary = result.Summary;
+                        SummaryProvider = $"{result.Provider}/{result.Model}";
+                    }
+                    else
+                    {
+                        SummaryError = result.Error;
+                        _logger.LogWarning("Failed to summarize issue {Id}: {Error}", id, result.Error);
+                    }
+                }
             }
         }
 
