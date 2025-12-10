@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
         // Register the settings as singleton for injection
         services.AddSingleton(new DatabaseSettings { Provider = provider });
 
-        // Register DbContext with provider-specific options
+        // Register DbContext with provider-specific options and migrations assembly
         services.AddDbContext<GitHubDbContext>((serviceProvider, options) =>
         {
             switch (provider)
@@ -33,11 +33,15 @@ public static class ServiceCollectionExtensions
                     options.UseNpgsql(connectionString, npgsqlOptions =>
                     {
                         npgsqlOptions.UseVector();
+                        npgsqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.PostgreSQL");
                     });
                     break;
 
                 case DatabaseProvider.SqlServer:
-                    options.UseSqlServer(connectionString);
+                    options.UseSqlServer(connectionString, sqlOptions =>
+                    {
+                        sqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.SqlServer");
+                    });
                     break;
 
                 default:

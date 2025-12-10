@@ -9,10 +9,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.44.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

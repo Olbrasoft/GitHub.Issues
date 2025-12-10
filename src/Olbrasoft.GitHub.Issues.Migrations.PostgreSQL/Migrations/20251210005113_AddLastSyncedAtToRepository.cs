@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     /// <inheritdoc />
     public partial class AddLastSyncedAtToRepository : Migration

@@ -9,7 +9,7 @@ using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     [DbContext(typeof(GitHubDbContext))]
     partial class GitHubDbContextModelSnapshot : ModelSnapshot

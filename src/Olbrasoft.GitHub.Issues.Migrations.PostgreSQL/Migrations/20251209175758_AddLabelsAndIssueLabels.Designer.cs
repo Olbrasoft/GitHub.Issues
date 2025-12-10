@@ -10,7 +10,7 @@ using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     [DbContext(typeof(GitHubDbContext))]
     [Migration("20251209175758_AddLabelsAndIssueLabels")]

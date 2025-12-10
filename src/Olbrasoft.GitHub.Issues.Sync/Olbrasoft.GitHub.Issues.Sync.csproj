@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

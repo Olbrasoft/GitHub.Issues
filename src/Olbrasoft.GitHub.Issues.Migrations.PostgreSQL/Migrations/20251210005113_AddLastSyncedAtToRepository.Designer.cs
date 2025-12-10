@@ -10,11 +10,11 @@ using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     [DbContext(typeof(GitHubDbContext))]
-    [Migration("20251209194513_EmbeddingNotNullAndLabelRepositoryScope")]
-    partial class EmbeddingNotNullAndLabelRepositoryScope
+    [Migration("20251210005113_AddLastSyncedAtToRepository")]
+    partial class AddLastSyncedAtToRepository
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -271,6 +271,11 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<Vector>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("vector(768)")
+                        .HasColumnName("embedding");
+
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("github_updated_at");
@@ -300,11 +305,6 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("title");
-
-                    b.Property<Vector>("TitleEmbedding")
-                        .IsRequired()
-                        .HasColumnType("vector(1536)")
-                        .HasColumnName("title_embedding");
 
                     b.Property<string>("Url")
                         .IsRequired()
@@ -444,6 +444,10 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("html_url");
+
+                    b.Property<DateTimeOffset?>("LastSyncedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_synced_at");
 
                     b.HasKey("Id");
 

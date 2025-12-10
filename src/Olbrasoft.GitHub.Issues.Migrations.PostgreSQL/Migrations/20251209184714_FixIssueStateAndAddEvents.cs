@@ -6,7 +6,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     /// <inheritdoc />
     public partial class FixIssueStateAndAddEvents : Migration

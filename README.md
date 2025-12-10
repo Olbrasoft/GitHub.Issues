@@ -75,6 +75,76 @@ User Request → Business Service → Command/Query → Handler → DbContext �
             Auto-routes to Handler
 ```
 
+## Multi-Provider Support
+
+The project supports both **PostgreSQL** and **SQL Server** databases with separate migration assemblies.
+
+### Database Providers
+
+| Provider | Use Case | Vector Storage | Migration Project |
+|----------|----------|----------------|-------------------|
+| PostgreSQL | Development | `vector(768)` (pgvector) | `Migrations.PostgreSQL` |
+| SQL Server | Production (Azure) | `varbinary(max)` | `Migrations.SqlServer` |
+
+### Configuration
+
+Configure the provider in `appsettings.json`:
+
+```json
+{
+  "Database": {
+    "Provider": "PostgreSQL"  // or "SqlServer"
+  },
+  "ConnectionStrings": {
+    "PostgreSQLConnection": "Host=localhost;Database=github_issues;...",
+    "SqlServerConnection": "Server=localhost;Database=GitHubIssues;..."
+  }
+}
+```
+
+### EF Core Migrations
+
+#### Adding a New Migration
+
+```bash
+# PostgreSQL
+dotnet ef migrations add MigrationName \
+  --startup-project ./src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages \
+  --project ./src/Olbrasoft.GitHub.Issues.Migrations.PostgreSQL \
+  -- --provider PostgreSQL
+
+# SQL Server
+dotnet ef migrations add MigrationName \
+  --startup-project ./src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages \
+  --project ./src/Olbrasoft.GitHub.Issues.Migrations.SqlServer \
+  -- --provider SqlServer
+```
+
+#### Applying Migrations
+
+```bash
+# PostgreSQL (development)
+dotnet ef database update \
+  --startup-project ./src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages \
+  --project ./src/Olbrasoft.GitHub.Issues.Migrations.PostgreSQL \
+  -- --provider PostgreSQL
+
+# SQL Server (production)
+dotnet ef database update \
+  --startup-project ./src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages \
+  --project ./src/Olbrasoft.GitHub.Issues.Migrations.SqlServer \
+  -- --provider SqlServer
+```
+
+#### Removing Last Migration
+
+```bash
+dotnet ef migrations remove \
+  --startup-project ./src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages \
+  --project ./src/Olbrasoft.GitHub.Issues.Migrations.PostgreSQL \
+  -- --provider PostgreSQL
+```
+
 ## Project Structure
 
 ```
@@ -113,6 +183,12 @@ GitHub.Issues/
 │   │   └── Services/
 │   │       ├── OllamaEmbeddingService.cs   # Embedding generation
 │   │       └── SystemdServiceManager.cs    # Service management
+│   │
+│   ├── Olbrasoft.GitHub.Issues.Migrations.PostgreSQL/    # PostgreSQL Migrations
+│   │   └── Migrations/                     # PostgreSQL-specific migrations
+│   │
+│   ├── Olbrasoft.GitHub.Issues.Migrations.SqlServer/     # SQL Server Migrations
+│   │   └── Migrations/                     # SQL Server-specific migrations
 │   │
 │   ├── Olbrasoft.GitHub.Issues.Business/                 # Business Layer
 │   │   ├── Services/
