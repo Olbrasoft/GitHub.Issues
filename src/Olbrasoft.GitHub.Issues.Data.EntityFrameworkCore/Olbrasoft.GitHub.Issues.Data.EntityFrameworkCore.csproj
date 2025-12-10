@@ -25,9 +25,11 @@
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data\Olbrasoft.GitHub.Issues.Data.csproj" />
   </ItemGroup>
 
+  <!-- appsettings.json is only for design-time (EF migrations), not copied to output/publish -->
   <ItemGroup>
     <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 
