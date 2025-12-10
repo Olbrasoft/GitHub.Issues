@@ -2,7 +2,7 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 
-namespace Olbrasoft.GitHub.Issues.Tests.Services;
+namespace Olbrasoft.GitHub.Issues.Sync.Tests.Services;
 
 public class RepositorySyncServiceTests
 {

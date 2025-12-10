@@ -21,9 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.AspNetCore.RazorPages\Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Sync\Olbrasoft.GitHub.Issues.Sync.csproj" />
   </ItemGroup>
 
 </Project>

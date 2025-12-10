@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Moq;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Models;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Pgvector;
 
-namespace Olbrasoft.GitHub.Issues.Tests.Services;
+namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests.Services;
 
 public class IssueSearchServiceTests
 {
@@ -30,7 +30,7 @@ public class IssueSearchServiceTests
         // This test verifies the interface contract exists
         var service = new Mock<IIssueSearchService>();
         service.Setup(x => x.SearchAsync("", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AspNetCore.RazorPages.Models.SearchResultPage());
+            .ReturnsAsync(new SearchResultPage());
 
         // Act
         var result = await service.Object.SearchAsync("");
@@ -46,7 +46,7 @@ public class IssueSearchServiceTests
         // Arrange
         var service = new Mock<IIssueSearchService>();
         service.Setup(x => x.SearchAsync("   ", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AspNetCore.RazorPages.Models.SearchResultPage());
+            .ReturnsAsync(new SearchResultPage());
 
         // Act
         var result = await service.Object.SearchAsync("   ");
@@ -82,7 +82,7 @@ public class IssueSearchServiceTests
                 It.IsAny<int>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AspNetCore.RazorPages.Models.SearchResultPage
+            .ReturnsAsync(new SearchResultPage
             {
                 Page = 2,
                 PageSize = 25,

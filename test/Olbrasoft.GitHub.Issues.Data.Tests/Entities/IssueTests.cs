@@ -1,6 +1,6 @@
 using Olbrasoft.GitHub.Issues.Data.Entities;
 
-namespace Olbrasoft.GitHub.Issues.Tests.Entities;
+namespace Olbrasoft.GitHub.Issues.Data.Tests.Entities;
 
 public class IssueTests
 {

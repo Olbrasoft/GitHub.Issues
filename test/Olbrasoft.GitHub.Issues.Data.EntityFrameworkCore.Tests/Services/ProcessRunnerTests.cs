@@ -1,7 +1,7 @@
 using Moq;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
-namespace Olbrasoft.GitHub.Issues.Tests.Services;
+namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.Services;
 
 public class ProcessRunnerTests
 {

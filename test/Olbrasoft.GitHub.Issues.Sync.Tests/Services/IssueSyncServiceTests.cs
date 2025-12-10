@@ -2,34 +2,34 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 
-namespace Olbrasoft.GitHub.Issues.Tests.Services;
+namespace Olbrasoft.GitHub.Issues.Sync.Tests.Services;
 
-public class EventSyncServiceTests
+public class IssueSyncServiceTests
 {
     [Fact]
-    public void IEventSyncService_InterfaceExists()
+    public void IIssueSyncService_InterfaceExists()
     {
         // Verify interface can be mocked
-        var mock = new Mock<IEventSyncService>();
+        var mock = new Mock<IIssueSyncService>();
         Assert.NotNull(mock.Object);
     }
 
     [Fact]
-    public void EventSyncService_ImplementsInterface()
+    public void IssueSyncService_ImplementsInterface()
     {
         // Verify implementation exists
-        Assert.True(typeof(IEventSyncService).IsAssignableFrom(typeof(EventSyncService)));
+        Assert.True(typeof(IIssueSyncService).IsAssignableFrom(typeof(IssueSyncService)));
     }
 
     [Fact]
-    public async Task IEventSyncService_SyncEventsAsync_CanBeMocked()
+    public async Task IIssueSyncService_SyncIssuesAsync_CanBeMocked()
     {
         // Arrange
-        var mock = new Mock<IEventSyncService>();
+        var mock = new Mock<IIssueSyncService>();
         var repository = new Repository { Id = 1, FullName = "owner/repo" };
         var since = DateTimeOffset.UtcNow.AddDays(-7);
 
-        mock.Setup(x => x.SyncEventsAsync(
+        mock.Setup(x => x.SyncIssuesAsync(
                 It.IsAny<Repository>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -38,20 +38,20 @@ public class EventSyncServiceTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await mock.Object.SyncEventsAsync(repository, "owner", "repo", since);
+        await mock.Object.SyncIssuesAsync(repository, "owner", "repo", since);
 
         // Assert
-        mock.Verify(x => x.SyncEventsAsync(repository, "owner", "repo", since, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", since, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task IEventSyncService_SyncEventsAsync_WithoutSince_CanBeMocked()
+    public async Task IIssueSyncService_SyncIssuesAsync_FullSync_CanBeMocked()
     {
         // Arrange
-        var mock = new Mock<IEventSyncService>();
+        var mock = new Mock<IIssueSyncService>();
         var repository = new Repository { Id = 1, FullName = "owner/repo" };
 
-        mock.Setup(x => x.SyncEventsAsync(
+        mock.Setup(x => x.SyncIssuesAsync(
                 It.IsAny<Repository>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -60,9 +60,9 @@ public class EventSyncServiceTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await mock.Object.SyncEventsAsync(repository, "owner", "repo");
+        await mock.Object.SyncIssuesAsync(repository, "owner", "repo");
 
         // Assert
-        mock.Verify(x => x.SyncEventsAsync(repository, "owner", "repo", null, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 }
