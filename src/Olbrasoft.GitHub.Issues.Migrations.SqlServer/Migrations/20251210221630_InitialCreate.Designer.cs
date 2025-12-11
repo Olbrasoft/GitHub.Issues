@@ -12,7 +12,7 @@ using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
-    [Migration("20251210202713_InitialCreate")]
+    [Migration("20251210221630_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -506,7 +506,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Label", "Label")
                         .WithMany("IssueLabels")
                         .HasForeignKey("LabelId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Issue");

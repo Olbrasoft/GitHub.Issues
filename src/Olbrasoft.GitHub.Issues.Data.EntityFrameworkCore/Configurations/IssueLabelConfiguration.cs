@@ -23,9 +23,11 @@ public class IssueLabelConfiguration : IEntityTypeConfiguration<IssueLabel>
             .HasForeignKey(il => il.IssueId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // NoAction for Label FK to avoid SQL Server cascade delete cycle error
+        // (SQL Server doesn't allow multiple cascade paths to the same table)
         builder.HasOne(il => il.Label)
             .WithMany(l => l.IssueLabels)
             .HasForeignKey(il => il.LabelId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

@@ -503,7 +503,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Label", "Label")
                         .WithMany("IssueLabels")
                         .HasForeignKey("LabelId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Issue");

@@ -146,8 +146,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         name: "FK_issue_labels_labels_label_id",
                         column: x => x.label_id,
                         principalTable: "labels",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "id");
                 });
 
             migrationBuilder.InsertData(
