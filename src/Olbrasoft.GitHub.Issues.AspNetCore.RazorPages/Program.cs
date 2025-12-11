@@ -31,6 +31,8 @@ if (!string.IsNullOrEmpty(dbPassword))
 builder.Services.AddGitHubDbContext(connectionString!, databaseSettings.Provider);
 
 // Configure settings
+builder.Services.Configure<DatabaseSettings>(
+    builder.Configuration.GetSection("Database"));
 builder.Services.Configure<EmbeddingSettings>(
     builder.Configuration.GetSection("Embeddings"));
 builder.Services.Configure<SearchSettings>(

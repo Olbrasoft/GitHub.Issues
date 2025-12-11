@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
@@ -8,26 +9,38 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.QueryHandlers.IssueQu
 
 /// <summary>
 /// Handles issue search queries using vector similarity.
-/// PostgreSQL implementation using pgvector CosineDistance().
+/// Supports both PostgreSQL (pgvector CosineDistance) and SQL Server (VECTOR_DISTANCE raw SQL).
 /// </summary>
 public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQuery, IssueSearchPageDto>
 {
-    public IssueSearchQueryHandler(GitHubDbContext context) : base(context)
+    private readonly DatabaseSettings _settings;
+
+    public IssueSearchQueryHandler(GitHubDbContext context, IOptions<DatabaseSettings> settings) : base(context)
     {
+        _settings = settings.Value;
     }
 
     protected override async Task<IssueSearchPageDto> GetResultToHandleAsync(
         IssueSearchQuery query, CancellationToken token)
     {
+        return _settings.Provider switch
+        {
+            DatabaseProvider.SqlServer => await ExecuteSqlServerSearchAsync(query, token),
+            _ => await ExecutePostgreSqlSearchAsync(query, token)
+        };
+    }
+
+    /// <summary>
+    /// PostgreSQL implementation using pgvector CosineDistance().
+    /// </summary>
+    private async Task<IssueSearchPageDto> ExecutePostgreSqlSearchAsync(
+        IssueSearchQuery query, CancellationToken token)
+    {
         var baseQuery = BuildBaseQuery(query.State, query.RepositoryIds);
 
-        // Get total count for pagination
         var totalCount = await baseQuery.CountAsync(token);
-
-        // Calculate skip and take
         var skip = (query.Page - 1) * query.PageSize;
 
-        // Execute vector similarity search
         var results = await baseQuery
             .OrderBy(i => i.Embedding!.CosineDistance(query.QueryEmbedding))
             .Skip(skip)
@@ -54,6 +67,103 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
         };
     }
 
+    /// <summary>
+    /// SQL Server implementation using VECTOR_DISTANCE() with raw SQL.
+    /// Embeddings are stored as varbinary(max) and cast to VECTOR for distance calculation.
+    /// </summary>
+    private async Task<IssueSearchPageDto> ExecuteSqlServerSearchAsync(
+        IssueSearchQuery query, CancellationToken token)
+    {
+        // Build WHERE clause conditions
+        var stateFilter = query.State?.ToLowerInvariant() switch
+        {
+            "open" => "AND i.IsOpen = 1",
+            "closed" => "AND i.IsOpen = 0",
+            _ => ""
+        };
+
+        var repoFilter = "";
+        if (query.RepositoryIds is { Count: > 0 })
+        {
+            var repoIds = string.Join(",", query.RepositoryIds);
+            repoFilter = $"AND i.RepositoryId IN ({repoIds})";
+        }
+
+        // Convert query embedding to binary format for SQL Server
+        var queryEmbeddingBytes = VectorToBytes(query.QueryEmbedding.ToArray());
+        var dimensions = query.QueryEmbedding.ToArray().Length;
+
+        var skip = (query.Page - 1) * query.PageSize;
+
+        // Get total count first
+        var countSql = $@"
+            SELECT COUNT(*)
+            FROM Issues i
+            WHERE i.Embedding IS NOT NULL
+            {stateFilter}
+            {repoFilter}";
+
+        var totalCount = await Context.Database.ExecuteSqlRawAsync(countSql, token);
+
+        // Use FormattableString for parameterized query
+        var searchSql = $@"
+            SELECT
+                i.Id,
+                i.Number AS IssueNumber,
+                i.Title,
+                i.IsOpen,
+                i.Url,
+                r.FullName AS RepositoryFullName,
+                1.0 - VECTOR_DISTANCE('cosine', CAST(i.Embedding AS VECTOR({dimensions})), CAST(@p0 AS VECTOR({dimensions}))) AS Similarity
+            FROM Issues i
+            INNER JOIN Repositories r ON i.RepositoryId = r.Id
+            WHERE i.Embedding IS NOT NULL
+            {stateFilter}
+            {repoFilter}
+            ORDER BY VECTOR_DISTANCE('cosine', CAST(i.Embedding AS VECTOR({dimensions})), CAST(@p0 AS VECTOR({dimensions}))) ASC
+            OFFSET {skip} ROWS FETCH NEXT {query.PageSize} ROWS ONLY";
+
+        var results = await Context.Database
+            .SqlQueryRaw<IssueSearchResultDto>(searchSql, queryEmbeddingBytes)
+            .ToListAsync(token);
+
+        // Get actual count with a simpler query
+        var countQuery = Context.Issues
+            .Where(i => i.Embedding != null);
+
+        if (query.State?.ToLowerInvariant() == "open")
+            countQuery = countQuery.Where(i => i.IsOpen);
+        else if (query.State?.ToLowerInvariant() == "closed")
+            countQuery = countQuery.Where(i => !i.IsOpen);
+
+        if (query.RepositoryIds is { Count: > 0 })
+            countQuery = countQuery.Where(i => query.RepositoryIds.Contains(i.RepositoryId));
+
+        var actualCount = await countQuery.CountAsync(token);
+
+        return new IssueSearchPageDto
+        {
+            Results = results,
+            TotalCount = actualCount,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalPages = (int)Math.Ceiling((double)actualCount / query.PageSize)
+        };
+    }
+
+    /// <summary>
+    /// Converts float array to binary format for SQL Server VECTOR type.
+    /// </summary>
+    private static byte[] VectorToBytes(float[] vector)
+    {
+        var bytes = new byte[vector.Length * sizeof(float)];
+        for (int i = 0; i < vector.Length; i++)
+        {
+            BitConverter.GetBytes(vector[i]).CopyTo(bytes, i * sizeof(float));
+        }
+        return bytes;
+    }
+
     private IQueryable<Issue> BuildBaseQuery(string state, IReadOnlyList<int>? repositoryIds)
     {
         var query = Entities
@@ -70,7 +180,6 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
             query = query.Where(i => !i.IsOpen);
         }
 
-        // Filter by repository IDs if provided
         if (repositoryIds is { Count: > 0 })
         {
             query = query.Where(i => repositoryIds.Contains(i.RepositoryId));
