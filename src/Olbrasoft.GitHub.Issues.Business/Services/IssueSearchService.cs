@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business.Models;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 using Olbrasoft.Mediation;
@@ -36,30 +37,46 @@ public class IssueSearchService : Service, IIssueSearchService
         IReadOnlyList<int>? repositoryIds = null,
         CancellationToken cancellationToken = default)
     {
+        IssueSearchPageDto searchPage;
+
         if (string.IsNullOrWhiteSpace(query))
         {
-            return new SearchResultPage();
+            // Empty query - list issues from selected repositories (no semantic search)
+            if (repositoryIds is not { Count: > 0 })
+            {
+                return new SearchResultPage();
+            }
+
+            var listQuery = new IssueListQuery(Mediator)
+            {
+                State = state,
+                Page = page,
+                PageSize = pageSize,
+                RepositoryIds = repositoryIds
+            };
+            searchPage = await listQuery.ToResultAsync(cancellationToken);
         }
-
-        var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, EmbeddingInputType.Query, cancellationToken);
-
-        if (queryEmbedding == null)
+        else
         {
-            _logger.LogWarning("Failed to generate embedding for query: {Query}", query);
-            return new SearchResultPage();
+            // Has query - use semantic vector search
+            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, EmbeddingInputType.Query, cancellationToken);
+
+            if (queryEmbedding == null)
+            {
+                _logger.LogWarning("Failed to generate embedding for query: {Query}", query);
+                return new SearchResultPage();
+            }
+
+            var searchQuery = new IssueSearchQuery(Mediator)
+            {
+                QueryEmbedding = queryEmbedding,
+                State = state,
+                Page = page,
+                PageSize = pageSize,
+                RepositoryIds = repositoryIds
+            };
+            searchPage = await searchQuery.ToResultAsync(cancellationToken);
         }
-
-        // Execute CQRS query for vector search using Mediator
-        var searchQuery = new IssueSearchQuery(Mediator)
-        {
-            QueryEmbedding = queryEmbedding,
-            State = state,
-            Page = page,
-            PageSize = pageSize,
-            RepositoryIds = repositoryIds
-        };
-
-        var searchPage = await searchQuery.ToResultAsync(cancellationToken);
 
         // Map DTOs to presentation models
         var results = searchPage.Results.Select(dto =>

@@ -69,7 +69,7 @@
     </form>
 </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.Query))
+@if (Model.HasSearchCriteria)
 {
     <div class="results-container">
         <div class="results-header">
@@ -93,7 +93,7 @@
                 {
                     <li class="result-item">
                         <div class="result-header">
-                            <a href="@result.Url" target="_blank" class="result-title">@result.Title</a>
+                            <a href="/Issue/Detail/@result.Id" class="result-title">#@result.IssueNumber @result.Title</a>
                             <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
                                 @result.StateCzech
                             </span>

@@ -23,7 +23,7 @@ public class IndexModelTests
 
         // Assert
         Assert.Null(model.Query);
-        Assert.Equal("all", model.State);
+        Assert.Equal("open", model.State); // Default changed to "open" in Issue #105
         Assert.Equal(1, model.PageNumber);
     }
 
@@ -53,7 +53,7 @@ public class IndexModelTests
         var searchServiceMock = new Mock<IIssueSearchService>();
         var mediatorMock = new Mock<IMediator>();
         searchServiceMock
-            .Setup(x => x.SearchAsync("test", "all", 1, 10, It.IsAny<IReadOnlyList<int>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.SearchAsync("test", "open", 1, 10, It.IsAny<IReadOnlyList<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
         var searchSettings = Options.Create(new SearchSettings { DefaultPageSize = 10, PageSizeOptions = [10, 25, 50] });

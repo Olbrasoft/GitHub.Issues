@@ -28,7 +28,7 @@ public class IndexModel : PageModel
     public string? Query { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string State { get; set; } = "all";
+    public string State { get; set; } = "open";
 
     [BindProperty(SupportsGet = true, Name = "PageNum")]
     public int PageNumber { get; set; } = 1;
@@ -40,6 +40,11 @@ public class IndexModel : PageModel
     public string? Repos { get; set; }
 
     public SearchResultPage SearchResult { get; set; } = new();
+
+    /// <summary>
+    /// Indicates whether a search was performed (Query has value OR repos are selected).
+    /// </summary>
+    public bool HasSearchCriteria { get; set; }
 
     public int[] PageSizeOptions => _searchSettings.PageSizeOptions;
 
@@ -75,10 +80,17 @@ public class IndexModel : PageModel
             SelectedRepositories = await repoQuery.ToResultAsync(cancellationToken);
         }
 
-        if (!string.IsNullOrWhiteSpace(Query))
+        // Search criteria: has query OR has selected repositories
+        var hasQuery = !string.IsNullOrWhiteSpace(Query);
+        var hasRepos = repositoryIds.Count > 0;
+        HasSearchCriteria = hasQuery || hasRepos;
+
+        if (HasSearchCriteria)
         {
-            var repoIdsForSearch = repositoryIds.Count > 0 ? repositoryIds : null;
-            SearchResult = await _searchService.SearchAsync(Query, State, PageNumber, PageSize, repoIdsForSearch, cancellationToken);
+            var repoIdsForSearch = hasRepos ? repositoryIds : null;
+            // Use empty string as query if no query provided (will search all in selected repos)
+            var searchQuery = hasQuery ? Query! : "";
+            SearchResult = await _searchService.SearchAsync(searchQuery, State, PageNumber, PageSize, repoIdsForSearch, cancellationToken);
         }
     }
 
