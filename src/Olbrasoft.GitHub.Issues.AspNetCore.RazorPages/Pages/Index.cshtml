@@ -68,15 +68,6 @@
                 @if (Model.State == "closed") { <option value="closed" selected>Zavřený</option> } else { <option value="closed">Zavřený</option> }
             </select>
 
-            <label class="translate-checkbox-label">
-                <input type="checkbox"
-                       name="TranslateToCzech"
-                       id="translateToCzechCheckbox"
-                       class="translate-checkbox"
-                       @(Model.TranslateToCzech ? "checked" : "") />
-                Přeložit do češtiny
-            </label>
-
             <label>Položek na stránku:</label>
             <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
                 @foreach (var size in Model.PageSizeOptions)
@@ -91,6 +82,18 @@
                     }
                 }
             </select>
+
+            @* Hidden field ensures "false" is sent when checkbox is unchecked *@
+            <input type="hidden" name="TranslateToCzech" value="false" />
+            <label class="translate-checkbox-label">
+                <input type="checkbox"
+                       name="TranslateToCzech"
+                       id="translateToCzechCheckbox"
+                       class="translate-checkbox"
+                       value="true"
+                       @(Model.TranslateToCzech ? "checked" : "") />
+                Přeložit do češtiny
+            </label>
         </div>
         <input type="hidden" name="PageNum" value="1" />
     </form>

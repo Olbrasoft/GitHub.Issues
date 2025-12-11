@@ -4,13 +4,15 @@
 
     let connection = null;
     let subscribedIssueIds = [];
-
-    // Get translation preference from checkbox (default: true = translate to Czech)
-    const translateCheckbox = document.getElementById('translateToCzechCheckbox');
-    const translateToCzech = translateCheckbox ? translateCheckbox.checked : true;
+    let translateToCzech = true; // Will be read from checkbox after DOM is ready
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
+        // Read translation preference from checkbox AFTER DOM is ready
+        const translateCheckbox = document.getElementById('translateToCzechCheckbox');
+        translateToCzech = translateCheckbox ? translateCheckbox.checked : true;
+        console.log('[issue-updates] Translation preference:', translateToCzech);
+
         initializeSignalR();
     });
 
