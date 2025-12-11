@@ -84,7 +84,22 @@ builder.Services.AddScoped<IIssueSyncBusinessService, IssueSyncBusinessService>(
 builder.Services.AddScoped<ILabelSyncBusinessService, LabelSyncBusinessService>();
 builder.Services.AddScoped<IRepositorySyncBusinessService, RepositorySyncBusinessService>();
 builder.Services.AddScoped<IEventSyncBusinessService, EventSyncBusinessService>();
-builder.Services.AddHttpClient<IRepositorySyncService, RepositorySyncService>();
+// Repository sync - refactored with SRP
+builder.Services.AddHttpClient<IGitHubRepositoryApiClient, GitHubRepositoryApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+}).ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+builder.Services.AddScoped<IRepositorySyncService, RepositorySyncService>();
 builder.Services.AddScoped<ILabelSyncService, LabelSyncService>();
 // Issue sync - refactored with SRP
 builder.Services.AddHttpClient<IGitHubIssueApiClient, GitHubIssueApiClient>(client =>
@@ -107,7 +122,22 @@ builder.Services.AddSingleton<IEmbeddingTextBuilder>(sp =>
     return new EmbeddingTextBuilder(syncSettings.Value.MaxEmbeddingTextLength);
 });
 builder.Services.AddScoped<IIssueSyncService, IssueSyncService>();
-builder.Services.AddHttpClient<IEventSyncService, EventSyncService>();
+// Event sync - refactored with SRP (shares GitHub API config with issue client)
+builder.Services.AddHttpClient<IGitHubEventApiClient, GitHubEventApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+}).ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+builder.Services.AddScoped<IEventSyncService, EventSyncService>();
 builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
 
 var app = builder.Build();
