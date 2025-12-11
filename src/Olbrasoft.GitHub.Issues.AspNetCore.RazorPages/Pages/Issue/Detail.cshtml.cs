@@ -10,6 +10,7 @@ namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages.Issue;
 /// </summary>
 public class DetailModel : PageModel
 {
+    private const string SessionKeyTranslateToCzech = "Search.TranslateToCzech";
     private readonly IIssueDetailService _issueDetailService;
 
     public DetailModel(IIssueDetailService issueDetailService)
@@ -45,8 +46,19 @@ public class DetailModel : PageModel
     /// </summary>
     public string SafeReturnUrl => string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : ReturnUrl;
 
+    /// <summary>
+    /// Language preference for summaries: "both" (default, when TranslateToCzech=true) or "en" (when false).
+    /// Read from session, set by Index page checkbox.
+    /// </summary>
+    public string SummaryLanguage { get; private set; } = "both";
+
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken cancellationToken)
     {
+        // Read TranslateToCzech preference from session (default: true = "both")
+        var translateToCzechValue = HttpContext.Session.GetInt32(SessionKeyTranslateToCzech);
+        var translateToCzech = translateToCzechValue == null || translateToCzechValue.Value == 1;
+        SummaryLanguage = translateToCzech ? "both" : "en";
+
         var result = await _issueDetailService.GetIssueDetailAsync(id, cancellationToken);
 
         if (!result.Found)

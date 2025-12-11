@@ -68,12 +68,14 @@
                 @if (Model.State == "closed") { <option value="closed" selected>Zavřený</option> } else { <option value="closed">Zavřený</option> }
             </select>
 
-            <label>Jazyk shrnutí:</label>
-            <select name="SummaryLanguage" class="language-select">
-                @if (Model.SummaryLanguage == "en") { <option value="en" selected>English</option> } else { <option value="en">English</option> }
-                @if (Model.SummaryLanguage == "cs") { <option value="cs" selected>Česky</option> } else { <option value="cs">Česky</option> }
-                @if (Model.SummaryLanguage == "both") { <option value="both" selected>Obojí</option> } else { <option value="both">Obojí</option> }
-            </select>
+            <label class="translate-checkbox-label">
+                <input type="checkbox"
+                       name="TranslateToCzech"
+                       id="translateToCzechCheckbox"
+                       class="translate-checkbox"
+                       @(Model.TranslateToCzech ? "checked" : "") />
+                Přeložit do češtiny
+            </label>
 
             <label>Položek na stránku:</label>
             <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
@@ -96,7 +98,7 @@
 
 @if (Model.HasSearchCriteria)
 {
-    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&SummaryLanguage={Model.SummaryLanguage}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
+    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&TranslateToCzech={Model.TranslateToCzech}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
                      (string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}");
     var returnUrlEncoded = Uri.EscapeDataString(currentUrl);
 
@@ -168,14 +170,14 @@
                 <div class="pagination">
                     @if (Model.PageNumber > 1)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&SummaryLanguage=@Model.SummaryLanguage&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&TranslateToCzech=@Model.TranslateToCzech&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
                     }
 
                     <span class="page-info">Stránka @Model.PageNumber z @Model.SearchResult.TotalPages</span>
 
                     @if (Model.PageNumber < Model.SearchResult.TotalPages)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&SummaryLanguage=@Model.SummaryLanguage&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&TranslateToCzech=@Model.TranslateToCzech&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
                     }
                 </div>
             }

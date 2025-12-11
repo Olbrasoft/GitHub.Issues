@@ -4,6 +4,7 @@
 
     let connection = null;
     let issueId = null;
+    let summaryLanguage = 'both'; // default: English + Czech
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -20,8 +21,9 @@
 
         issueId = parseInt(container.dataset.issueId, 10);
         const summaryPending = container.dataset.summaryPending === 'true';
+        summaryLanguage = container.dataset.summaryLanguage || 'both';
 
-        console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending);
+        console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending, 'Language:', summaryLanguage);
 
         if (!issueId || isNaN(issueId)) {
             console.log('[detail-updates] Invalid issue ID');
@@ -100,7 +102,8 @@
         }
 
         // Fire-and-forget API call to trigger summary generation
-        fetch(`/api/issues/${issueId}/generate-summary`, {
+        // Pass language preference: "en" (English only) or "both" (English + Czech)
+        fetch(`/api/issues/${issueId}/generate-summary?language=${summaryLanguage}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -108,7 +111,7 @@
         })
         .then(response => {
             if (response.ok) {
-                console.log('Summary generation triggered for issue', issueId);
+                console.log('Summary generation triggered for issue', issueId, 'language:', summaryLanguage);
             } else {
                 console.error('Failed to trigger summary generation:', response.status);
             }
