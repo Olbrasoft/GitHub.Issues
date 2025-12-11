@@ -19,9 +19,6 @@ public class IssueDetailService : IIssueDetailService
     private readonly ISummaryNotifier _summaryNotifier;
     private readonly ILogger<IssueDetailService> _logger;
 
-    // Cache validity period - regenerate summary if issue was updated after cache
-    private static readonly TimeSpan CacheValidityPeriod = TimeSpan.FromDays(7);
-
     public IssueDetailService(
         GitHubDbContext dbContext,
         IGitHubGraphQLClient graphQLClient,
@@ -89,57 +86,21 @@ public class IssueDetailService : IIssueDetailService
             }
         }
 
-        // Check for cached summary - don't generate here, just return what we have
-        string? summary = null;
-        string? summaryProvider = null;
-        var summaryPending = false;
-
-        var isCacheValid = issue.SummaryCachedAt.HasValue &&
-                          issue.SummaryCachedAt.Value > issue.GitHubUpdatedAt &&
-                          issue.SummaryCachedAt.Value > DateTimeOffset.UtcNow.Subtract(CacheValidityPeriod);
-
-        if (isCacheValid && !string.IsNullOrWhiteSpace(issue.CzechSummary))
+        // Summary always generated on-demand via SignalR (no caching)
+        var summaryPending = !string.IsNullOrWhiteSpace(body);
+        if (summaryPending)
         {
-            _logger.LogDebug("Using cached Czech summary for issue {Id}", issueId);
-            summary = issue.CzechSummary;
-            summaryProvider = issue.SummaryProvider;
-        }
-        else if (!string.IsNullOrWhiteSpace(body))
-        {
-            // Summary not cached but body exists - mark as pending for progressive loading
-            summaryPending = true;
             _logger.LogDebug("Summary pending for issue {Id} - will be generated via SignalR", issueId);
         }
 
         return new IssueDetailResult(
             Found: true,
             Issue: issueDto,
-            Summary: summary,
-            SummaryProvider: summaryProvider,
+            Summary: null,
+            SummaryProvider: null,
             SummaryError: null,
             ErrorMessage: null,
             SummaryPending: summaryPending);
-    }
-
-    private async Task CacheSummaryAsync(int issueId, string czechSummary, string provider, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var issue = await _dbContext.Issues.FindAsync(new object[] { issueId }, cancellationToken);
-            if (issue != null)
-            {
-                issue.CzechSummary = czechSummary;
-                issue.SummaryProvider = provider;
-                issue.SummaryCachedAt = DateTimeOffset.UtcNow;
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                _logger.LogDebug("Cached Czech summary for issue {Id}", issueId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to cache summary for issue {Id}", issueId);
-            // Don't fail the request if caching fails
-        }
     }
 
     private static (string Owner, string RepoName) ParseRepositoryFullName(string fullName)
@@ -220,10 +181,9 @@ public class IssueDetailService : IIssueDetailService
                 cancellationToken);
         }
 
-        // If only English requested, cache and finish
+        // If only English requested, finish
         if (language == "en")
         {
-            await CacheSummaryAsync(issueId, summarizeResult.Summary, enProvider + " (EN)", cancellationToken);
             _logger.LogInformation("[GenerateSummary] COMPLETE (EN only) for issue {Id}", issueId);
             return;
         }
@@ -243,8 +203,6 @@ public class IssueDetailService : IIssueDetailService
                 new SummaryNotificationDto(issueId, translateResult.Translation, csProvider, "cs"),
                 cancellationToken);
 
-            // Cache Czech version (primary)
-            await CacheSummaryAsync(issueId, translateResult.Translation, csProvider, cancellationToken);
             _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via {Provider}", issueId, csProvider);
         }
         else
@@ -260,7 +218,6 @@ public class IssueDetailService : IIssueDetailService
                     cancellationToken);
             }
 
-            await CacheSummaryAsync(issueId, summarizeResult.Summary, enProvider + " (EN)", cancellationToken);
             _logger.LogInformation("[GenerateSummary] COMPLETE (EN fallback) for issue {Id}", issueId);
         }
     }

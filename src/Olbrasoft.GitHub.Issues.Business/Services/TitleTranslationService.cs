@@ -15,9 +15,6 @@ public class TitleTranslationService : ITitleTranslationService
     private readonly ITitleTranslationNotifier _notifier;
     private readonly ILogger<TitleTranslationService> _logger;
 
-    // Cache validity period - regenerate translation if issue was updated after cache
-    private static readonly TimeSpan CacheValidityPeriod = TimeSpan.FromDays(30);
-
     public TitleTranslationService(
         GitHubDbContext dbContext,
         IAiTranslationService translationService,
@@ -42,36 +39,10 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
-        // Check if we have a valid cached translation
-        var isCacheValid = issue.CzechTitleCachedAt.HasValue &&
-                          issue.CzechTitleCachedAt.Value > issue.GitHubUpdatedAt &&
-                          issue.CzechTitleCachedAt.Value > DateTimeOffset.UtcNow.Subtract(CacheValidityPeriod);
-
-        if (isCacheValid && !string.IsNullOrWhiteSpace(issue.CzechTitle))
-        {
-            _logger.LogInformation("[TitleTranslation] Using cached translation for issue {Id}", issueId);
-
-            // Send cached translation via SignalR
-            await _notifier.NotifyTitleTranslatedAsync(
-                new TitleTranslationNotificationDto(
-                    issueId,
-                    issue.CzechTitle,
-                    issue.TitleTranslationProvider ?? "cache"),
-                cancellationToken);
-
-            return;
-        }
-
         // Check if title is already in Czech (contains Czech-specific characters)
         if (LooksLikeCzech(issue.Title))
         {
             _logger.LogInformation("[TitleTranslation] Title already looks Czech for issue {Id}, using as-is", issueId);
-
-            // Cache it as-is
-            issue.CzechTitle = issue.Title;
-            issue.TitleTranslationProvider = "original";
-            issue.CzechTitleCachedAt = DateTimeOffset.UtcNow;
-            await _dbContext.SaveChangesAsync(cancellationToken);
 
             await _notifier.NotifyTitleTranslatedAsync(
                 new TitleTranslationNotificationDto(issueId, issue.Title, "original"),
@@ -94,12 +65,6 @@ public class TitleTranslationService : ITitleTranslationService
         var provider = $"{result.Provider}/{result.Model}";
         _logger.LogInformation("[TitleTranslation] Translation succeeded via {Provider}: '{Translation}'",
             provider, result.Translation);
-
-        // Cache the translation
-        issue.CzechTitle = result.Translation;
-        issue.TitleTranslationProvider = provider;
-        issue.CzechTitleCachedAt = DateTimeOffset.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Send notification via SignalR
         await _notifier.NotifyTitleTranslatedAsync(

@@ -263,15 +263,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CzechSummary")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CzechTitle")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset?>("CzechTitleCachedAt")
-                        .HasColumnType("datetimeoffset");
-
                     b.PrimitiveCollection<string>("Embedding")
                         .IsRequired()
                         .HasColumnType("vector(1024)");
@@ -291,12 +282,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.Property<int>("RepositoryId")
                         .HasColumnType("int");
 
-                    b.Property<DateTimeOffset?>("SummaryCachedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("SummaryProvider")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTimeOffset>("SyncedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -304,9 +289,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
-
-                    b.Property<string>("TitleTranslationProvider")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Url")
                         .IsRequired()

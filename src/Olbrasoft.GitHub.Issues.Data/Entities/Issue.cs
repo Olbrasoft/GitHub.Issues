@@ -25,16 +25,6 @@ public class Issue
     public float[]? Embedding { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
 
-    // Cached AI-generated Czech summary
-    public string? CzechSummary { get; set; }
-    public string? SummaryProvider { get; set; }
-    public DateTimeOffset? SummaryCachedAt { get; set; }
-
-    // Cached AI-generated Czech title translation
-    public string? CzechTitle { get; set; }
-    public string? TitleTranslationProvider { get; set; }
-    public DateTimeOffset? CzechTitleCachedAt { get; set; }
-
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
     public ICollection<IssueEvent> Events { get; set; } = new List<IssueEvent>();
