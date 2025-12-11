@@ -68,6 +68,13 @@
                 @if (Model.State == "closed") { <option value="closed" selected>Zavřený</option> } else { <option value="closed">Zavřený</option> }
             </select>
 
+            <label>Jazyk shrnutí:</label>
+            <select name="SummaryLanguage" class="language-select">
+                <option value="en" @(Model.SummaryLanguage == "en" ? "selected" : "")>English</option>
+                <option value="cs" @(Model.SummaryLanguage == "cs" ? "selected" : "")>Česky</option>
+                <option value="both" @(Model.SummaryLanguage == "both" ? "selected" : "")>Obojí</option>
+            </select>
+
             <label>Položek na stránku:</label>
             <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
                 @foreach (var size in Model.PageSizeOptions)
@@ -89,7 +96,7 @@
 
 @if (Model.HasSearchCriteria)
 {
-    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
+    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&SummaryLanguage={Model.SummaryLanguage}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
                      (string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}");
     var returnUrlEncoded = Uri.EscapeDataString(currentUrl);
 
@@ -154,14 +161,14 @@
                 <div class="pagination">
                     @if (Model.PageNumber > 1)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&SummaryLanguage=@Model.SummaryLanguage&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
                     }
 
                     <span class="page-info">Stránka @Model.PageNumber z @Model.SearchResult.TotalPages</span>
 
                     @if (Model.PageNumber < Model.SearchResult.TotalPages)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&SummaryLanguage=@Model.SummaryLanguage&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
                     }
                 </div>
             }

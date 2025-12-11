@@ -15,6 +15,7 @@ public class IndexModel : PageModel
 {
     private readonly IIssueSearchService _searchService;
     private readonly SearchSettings _searchSettings;
+    private readonly AiSummarySettings _aiSummarySettings;
     private readonly IMediator _mediator;
 
     // Session keys for search state persistence
@@ -22,11 +23,13 @@ public class IndexModel : PageModel
     private const string SessionKeyRepos = "Search.Repos";
     private const string SessionKeyState = "Search.State";
     private const string SessionKeyPageSize = "Search.PageSize";
+    private const string SessionKeySummaryLanguage = "Search.SummaryLanguage";
 
-    public IndexModel(IIssueSearchService searchService, IOptions<SearchSettings> searchSettings, IMediator mediator)
+    public IndexModel(IIssueSearchService searchService, IOptions<SearchSettings> searchSettings, IOptions<AiSummarySettings> aiSummarySettings, IMediator mediator)
     {
         _searchService = searchService;
         _searchSettings = searchSettings.Value;
+        _aiSummarySettings = aiSummarySettings.Value;
         _mediator = mediator;
     }
 
@@ -44,6 +47,9 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public string? Repos { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string SummaryLanguage { get; set; } = "en";
 
     public SearchResultPage SearchResult { get; set; } = new();
 
@@ -81,6 +87,12 @@ public class IndexModel : PageModel
         if (PageSize == 0)
         {
             PageSize = _searchSettings.DefaultPageSize;
+        }
+
+        // Set default summary language from settings if not specified
+        if (string.IsNullOrEmpty(SummaryLanguage))
+        {
+            SummaryLanguage = _aiSummarySettings.DefaultLanguage;
         }
 
         // Ensure valid page number (always start at page 1 for new searches)
@@ -126,6 +138,7 @@ public class IndexModel : PageModel
         HttpContext.Session.Remove(SessionKeyRepos);
         HttpContext.Session.Remove(SessionKeyState);
         HttpContext.Session.Remove(SessionKeyPageSize);
+        HttpContext.Session.Remove(SessionKeySummaryLanguage);
 
         return RedirectToPage();
     }
@@ -138,7 +151,8 @@ public class IndexModel : PageModel
         return request.Query.ContainsKey("Query") ||
                request.Query.ContainsKey("Repos") ||
                request.Query.ContainsKey("State") ||
-               request.Query.ContainsKey("PageSize");
+               request.Query.ContainsKey("PageSize") ||
+               request.Query.ContainsKey("SummaryLanguage");
     }
 
     private void SaveSearchStateToSession()
@@ -161,6 +175,9 @@ public class IndexModel : PageModel
 
         if (PageSize > 0)
             session.SetInt32(SessionKeyPageSize, PageSize);
+
+        if (!string.IsNullOrEmpty(SummaryLanguage))
+            session.SetString(SessionKeySummaryLanguage, SummaryLanguage);
     }
 
     private void LoadSearchStateFromSession()
@@ -183,6 +200,10 @@ public class IndexModel : PageModel
         var savedPageSize = session.GetInt32(SessionKeyPageSize);
         if (savedPageSize.HasValue && savedPageSize.Value > 0)
             PageSize = savedPageSize.Value;
+
+        var savedSummaryLanguage = session.GetString(SessionKeySummaryLanguage);
+        if (!string.IsNullOrEmpty(savedSummaryLanguage))
+            SummaryLanguage = savedSummaryLanguage;
     }
 
     private static IReadOnlyList<int> ParseRepositoryIds(string? repos)

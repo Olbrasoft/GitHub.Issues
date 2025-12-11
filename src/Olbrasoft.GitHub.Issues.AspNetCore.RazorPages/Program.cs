@@ -101,6 +101,8 @@ builder.Services.Configure<SummarizationSettings>(
     builder.Configuration.GetSection("Summarization"));
 builder.Services.Configure<TranslationSettings>(
     builder.Configuration.GetSection("Translation"));
+builder.Services.Configure<AiSummarySettings>(
+    builder.Configuration.GetSection("AiSummary"));
 
 // Get embedding settings to determine provider
 var embeddingSettings = builder.Configuration.GetSection("Embeddings").Get<EmbeddingSettings>() ?? new EmbeddingSettings();
