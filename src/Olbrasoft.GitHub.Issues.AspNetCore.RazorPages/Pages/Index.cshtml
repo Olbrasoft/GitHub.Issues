@@ -18,13 +18,25 @@
     <div class="search-header">
         <h1>Hledat GitHub issues</h1>
         <div class="header-actions">
-            <button id="importBtn" class="import-btn" title="Importovat data z GitHubu">
-                <span class="import-icon">&#8635;</span>
-                <span class="import-text">Importovat data</span>
-            </button>
+            <div class="sync-controls">
+                <button id="importBtn" class="import-btn" title="Synchronizovat data z GitHubu">
+                    <span class="import-icon">&#8635;</span>
+                    <span class="import-text">Importovat data</span>
+                </button>
+                <div class="sync-options hidden">
+                    <select id="repoSelect" class="repo-select">
+                        <option value="">Všechny repozitáře</option>
+                    </select>
+                    <label class="full-refresh-label">
+                        <input type="checkbox" id="fullRefreshCheckbox" />
+                        Plný refresh
+                    </label>
+                </div>
+            </div>
             <span id="dbStats" class="db-stats"></span>
         </div>
     </div>
+    <div id="syncStatusContainer" class="sync-status-container"></div>
 
     <form method="get" class="search-form" id="searchForm">
         <div class="search-row">

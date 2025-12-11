@@ -1,5 +1,5 @@
 /**
- * Database status checker and import functionality
+ * Database status checker and intelligent sync functionality
  */
 (function() {
     'use strict';
@@ -10,7 +10,11 @@
     const actionBtn = document.getElementById('dbActionBtn');
     const dismissBtn = document.getElementById('dbDismissBtn');
     const importBtn = document.getElementById('importBtn');
+    const importBtnText = importBtn?.querySelector('.import-text');
     const dbStats = document.getElementById('dbStats');
+    const repoSelect = document.getElementById('repoSelect');
+    const fullRefreshCheckbox = document.getElementById('fullRefreshCheckbox');
+    const syncStatusContainer = document.getElementById('syncStatusContainer');
 
     // Status codes from server
     const StatusCode = {
@@ -22,6 +26,7 @@
     };
 
     let currentStatus = null;
+    let repositorySyncStatus = [];
 
     async function checkDatabaseStatus() {
         try {
@@ -31,10 +36,102 @@
             const status = await response.json();
             currentStatus = status;
             updateUI(status);
+
+            // Load repository sync status if we have data
+            if (status.statusCode === StatusCode.Healthy) {
+                await loadRepositorySyncStatus();
+            }
         } catch (error) {
             console.error('Error checking database status:', error);
             showBanner('error', '⚠️', 'Chyba při kontrole databáze', null);
         }
+    }
+
+    async function loadRepositorySyncStatus() {
+        try {
+            const response = await fetch('/api/repositories/sync-status');
+            if (!response.ok) throw new Error('Failed to fetch sync status');
+
+            repositorySyncStatus = await response.json();
+            populateRepoDropdown();
+            updateSyncStatusDisplay();
+        } catch (error) {
+            console.error('Error loading repository sync status:', error);
+        }
+    }
+
+    function populateRepoDropdown() {
+        if (!repoSelect) return;
+
+        // Clear existing options (except first)
+        while (repoSelect.options.length > 1) {
+            repoSelect.remove(1);
+        }
+
+        // Add repositories
+        repositorySyncStatus.forEach(repo => {
+            const option = document.createElement('option');
+            option.value = repo.fullName;
+            option.textContent = `${repo.fullName} (${repo.issueCount} issues)`;
+            repoSelect.appendChild(option);
+        });
+
+        // Show dropdown if we have repositories
+        if (repositorySyncStatus.length > 0) {
+            repoSelect.closest('.sync-options')?.classList.remove('hidden');
+        }
+    }
+
+    function updateSyncStatusDisplay() {
+        if (!syncStatusContainer) return;
+
+        if (repositorySyncStatus.length === 0) {
+            syncStatusContainer.innerHTML = '';
+            return;
+        }
+
+        const html = `
+            <details class="sync-status-details">
+                <summary>Stav synchronizace repozitářů</summary>
+                <table class="sync-status-table">
+                    <thead>
+                        <tr>
+                            <th>Repozitář</th>
+                            <th>Issues</th>
+                            <th>Poslední sync</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${repositorySyncStatus.map(repo => `
+                            <tr>
+                                <td>${repo.fullName}</td>
+                                <td>${repo.issueCount}</td>
+                                <td>${formatLastSync(repo.lastSyncedAt)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </details>
+        `;
+        syncStatusContainer.innerHTML = html;
+    }
+
+    function formatLastSync(timestamp) {
+        if (!timestamp) return '<span class="never-synced">nikdy</span>';
+
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'právě teď';
+        if (diffMins < 60) return `před ${diffMins} min`;
+        if (diffHours < 24) return `před ${diffHours} hod`;
+        if (diffDays < 7) return `před ${diffDays} dny`;
+
+        return date.toLocaleDateString('cs-CZ');
     }
 
     function updateUI(status) {
@@ -42,11 +139,14 @@
         if (status.statusCode === StatusCode.Healthy) {
             dbStats.textContent = `${status.issueCount} issues | ${status.repositoryCount} repozitářů`;
             dbStats.style.display = 'inline';
+            updateButtonForSync();
         } else if (status.statusCode === StatusCode.NoData) {
             dbStats.textContent = 'Žádná data';
             dbStats.style.display = 'inline';
+            updateButtonForImport();
         } else {
             dbStats.style.display = 'none';
+            updateButtonForImport();
         }
 
         // Show appropriate banner based on status
@@ -68,7 +168,7 @@
             case StatusCode.NoData:
                 showBanner('info', 'ℹ️', status.statusMessage, {
                     text: 'Importovat data',
-                    action: importData
+                    action: syncData
                 });
                 break;
 
@@ -81,6 +181,22 @@
                 hideBanner();
                 break;
         }
+    }
+
+    function updateButtonForImport() {
+        if (importBtnText) {
+            importBtnText.textContent = 'Importovat data';
+        }
+        // Hide sync options when importing
+        document.querySelector('.sync-options')?.classList.add('hidden');
+    }
+
+    function updateButtonForSync() {
+        if (importBtnText) {
+            importBtnText.textContent = 'Synchronizovat';
+        }
+        // Show sync options when syncing
+        document.querySelector('.sync-options')?.classList.remove('hidden');
     }
 
     function showBanner(type, icon, message, action) {
@@ -125,22 +241,39 @@
         }
     }
 
-    async function importData() {
+    async function syncData() {
         const btn = importBtn || actionBtn;
-        const originalText = btn.innerHTML;
+        const originalHtml = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<span class="import-icon spinning">&#8635;</span> Importuji...';
+        btn.innerHTML = '<span class="import-icon spinning">&#8635;</span> Synchronizuji...';
 
         // Hide action button in banner if it exists
         if (actionBtn) {
             actionBtn.style.display = 'none';
         }
 
+        // Get sync options
+        const selectedRepo = repoSelect?.value || '';
+        const fullRefresh = fullRefreshCheckbox?.checked || false;
+
+        // Determine progress message
+        const repoLabel = selectedRepo || 'všechny repozitáře';
+        const refreshLabel = fullRefresh ? ' (plný refresh)' : '';
+
         // Show progress banner
-        showBanner('info', '⏳', 'Probíhá import dat z GitHubu...', null);
+        showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}...`, null);
 
         try {
-            const response = await fetch('/api/data/import', { method: 'POST' });
+            const response = await fetch('/api/data/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    repositoryFullName: selectedRepo || null,
+                    fullRefresh: fullRefresh
+                })
+            });
             const result = await response.json();
 
             if (result.success) {
@@ -149,19 +282,19 @@
                     checkDatabaseStatus();
                 }, 2000);
             } else {
-                showBanner('error', '❌', `Chyba importu: ${result.message}`, null);
+                showBanner('error', '❌', `Chyba synchronizace: ${result.message}`, null);
             }
         } catch (error) {
             showBanner('error', '❌', `Chyba: ${error.message}`, null);
         } finally {
             btn.disabled = false;
-            btn.innerHTML = originalText;
+            btn.innerHTML = originalHtml;
         }
     }
 
     // Event listeners
     dismissBtn?.addEventListener('click', hideBanner);
-    importBtn?.addEventListener('click', importData);
+    importBtn?.addEventListener('click', syncData);
 
     // Check status on page load
     document.addEventListener('DOMContentLoaded', checkDatabaseStatus);

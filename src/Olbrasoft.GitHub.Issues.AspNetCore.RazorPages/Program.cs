@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;
+using System.Text.Json;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Mediation;
@@ -201,6 +202,78 @@ app.MapPost("/api/data/import", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "Import failed");
+        return Results.BadRequest(new { success = false, message = ex.Message });
+    }
+});
+
+// Get all repositories with sync status
+app.MapGet("/api/repositories/sync-status", async (IMediator mediator, CancellationToken ct) =>
+{
+    var query = new RepositoriesSyncStatusQuery(mediator);
+    var results = await query.ToResultAsync(ct);
+    return Results.Ok(results);
+});
+
+// Sync specific repository or all repositories
+app.MapPost("/api/data/sync", async (
+    HttpRequest request,
+    IGitHubSyncService syncService,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    try
+    {
+        // Parse request body
+        string? repositoryFullName = null;
+        bool fullRefresh = false;
+
+        if (request.ContentLength > 0)
+        {
+            using var reader = new StreamReader(request.Body);
+            var body = await reader.ReadToEndAsync(ct);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                var json = JsonDocument.Parse(body);
+                if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+                {
+                    repositoryFullName = repoElement.GetString();
+                }
+                if (json.RootElement.TryGetProperty("fullRefresh", out var refreshElement))
+                {
+                    fullRefresh = refreshElement.GetBoolean();
+                }
+            }
+        }
+
+        // Determine sync mode
+        var smartMode = !fullRefresh;
+
+        if (!string.IsNullOrWhiteSpace(repositoryFullName))
+        {
+            // Sync specific repository
+            var parts = repositoryFullName.Split('/');
+            if (parts.Length != 2)
+            {
+                return Results.BadRequest(new { success = false, message = "Invalid repository format. Expected: owner/repo" });
+            }
+
+            logger.LogInformation("Starting sync for {Repository} (smartMode: {SmartMode})", repositoryFullName, smartMode);
+            await syncService.SyncRepositoryAsync(parts[0], parts[1], since: null, smartMode: smartMode, ct);
+
+            return Results.Ok(new { success = true, message = $"Synchronizace {repositoryFullName} dokončena" });
+        }
+        else
+        {
+            // Sync all repositories
+            logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode})", smartMode);
+            await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+
+            return Results.Ok(new { success = true, message = "Synchronizace všech repozitářů dokončena" });
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Sync failed");
         return Results.BadRequest(new { success = false, message = ex.Message });
     }
 });
