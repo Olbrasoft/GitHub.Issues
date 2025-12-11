@@ -1,48 +1,35 @@
-using System.Net.Http.Headers;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
+using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 
 /// <summary>
-/// Service for synchronizing issues from GitHub.
+/// Orchestrates issue synchronization from GitHub.
+/// Single responsibility: Coordinate sync workflow between API client, embedding, and business services.
 /// </summary>
 public class IssueSyncService : IIssueSyncService
 {
+    private readonly IGitHubIssueApiClient _apiClient;
     private readonly IIssueSyncBusinessService _issueSyncBusiness;
     private readonly IEmbeddingService _embeddingService;
-    private readonly HttpClient _httpClient;
-    private readonly SyncSettings _syncSettings;
+    private readonly IEmbeddingTextBuilder _textBuilder;
     private readonly ILogger<IssueSyncService> _logger;
 
     public IssueSyncService(
+        IGitHubIssueApiClient apiClient,
         IIssueSyncBusinessService issueSyncBusiness,
         IEmbeddingService embeddingService,
-        HttpClient httpClient,
-        IOptions<GitHubSettings> settings,
-        IOptions<SyncSettings> syncSettings,
+        IEmbeddingTextBuilder textBuilder,
         ILogger<IssueSyncService> logger)
     {
+        _apiClient = apiClient;
         _issueSyncBusiness = issueSyncBusiness;
         _embeddingService = embeddingService;
-        _httpClient = httpClient;
-        _syncSettings = syncSettings.Value;
+        _textBuilder = textBuilder;
         _logger = logger;
-
-        // Configure HttpClient for GitHub API
-        _httpClient.BaseAddress = new Uri("https://api.github.com/");
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
-
-        if (!string.IsNullOrEmpty(settings.Value.Token))
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.Value.Token);
-        }
     }
 
     public async Task SyncIssuesAsync(
@@ -52,161 +39,98 @@ public class IssueSyncService : IIssueSyncService
         DateTimeOffset? since = null,
         CancellationToken cancellationToken = default)
     {
-        // Use UTC and encode the + sign for URL safety
-        var sinceParam = since.HasValue
-            ? $"&since={Uri.EscapeDataString(since.Value.UtcDateTime.ToString("O"))}"
-            : "";
+        // Fetch issues from GitHub API
+        var allIssues = await _apiClient.FetchIssuesAsync(owner, repo, since, cancellationToken);
 
-        _logger.LogInformation("Syncing issues for {Owner}/{Repo} using bulk API ({Mode}{Since})",
-            owner, repo,
-            since.HasValue ? "incremental" : "full",
-            since.HasValue ? $", since {since.Value:u}" : "");
-
-        var syncedAt = DateTimeOffset.UtcNow;
-        var allIssues = new List<JsonElement>();
-        var page = 1;
-
-        // Fetch issues using bulk API with pagination (with optional since parameter)
-        while (true)
-        {
-            var url = $"repos/{owner}/{repo}/issues?state=all&per_page={_syncSettings.GitHubApiPageSize}&page={page}{sinceParam}";
-            _logger.LogDebug("Fetching issues page {Page}", page);
-
-            var response = await _httpClient.GetAsync(url, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var doc = JsonDocument.Parse(json);
-
-            var pageIssues = doc.RootElement.EnumerateArray().ToList();
-            if (pageIssues.Count == 0)
-            {
-                break;
-            }
-
-            // Clone elements since JsonDocument will be disposed
-            foreach (var issue in pageIssues)
-            {
-                allIssues.Add(issue.Clone());
-            }
-
-            _logger.LogDebug("Fetched {Count} issues on page {Page}", pageIssues.Count, page);
-
-            if (pageIssues.Count < _syncSettings.GitHubApiPageSize)
-            {
-                break;
-            }
-
-            page++;
-        }
-
-        _logger.LogInformation("Found {Count} {Mode} issues for {Owner}/{Repo}",
-            allIssues.Count,
-            since.HasValue ? "changed" : "total",
-            owner, repo);
-
-        // Get existing issues for this repository to detect changes
+        // Get existing issues for change detection
         var existingIssues = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
 
-        // Dictionary to track parent_issue_url -> child issue number for later FK update
-        var parentChildRelationships = new Dictionary<int, string>(); // childNumber -> parentIssueUrl
+        var syncedAt = DateTimeOffset.UtcNow;
+        var parentChildRelationships = new Dictionary<int, string>();
 
         foreach (var ghIssue in allIssues)
         {
-            // Skip pull requests (they have pull_request property)
-            if (ghIssue.TryGetProperty("pull_request", out _))
+            // Skip pull requests
+            if (ghIssue.IsPullRequest)
             {
                 continue;
             }
 
-            var issueNumber = ghIssue.GetProperty("number").GetInt32();
-            var title = ghIssue.GetProperty("title").GetString() ?? "";
-            var body = ghIssue.TryGetProperty("body", out var bodyElement) && bodyElement.ValueKind == JsonValueKind.String
-                ? bodyElement.GetString()
-                : null;
-            var state = ghIssue.GetProperty("state").GetString();
-            var htmlUrl = ghIssue.GetProperty("html_url").GetString() ?? "";
-            var updatedAt = ghIssue.GetProperty("updated_at").GetDateTimeOffset();
-
-            // Extract parent_issue_url if present
-            if (ghIssue.TryGetProperty("parent_issue_url", out var parentUrlElement) &&
-                parentUrlElement.ValueKind == JsonValueKind.String)
+            // Track parent-child relationships for later
+            if (!string.IsNullOrEmpty(ghIssue.ParentIssueUrl))
             {
-                var parentUrl = parentUrlElement.GetString();
-                if (!string.IsNullOrEmpty(parentUrl))
-                {
-                    parentChildRelationships[issueNumber] = parentUrl;
-                }
+                parentChildRelationships[ghIssue.Number] = ghIssue.ParentIssueUrl;
             }
 
             // Check if issue exists and has changed
-            var existingIssue = existingIssues.GetValueOrDefault(issueNumber);
+            var existingIssue = existingIssues.GetValueOrDefault(ghIssue.Number);
             var isNew = existingIssue == null;
-            var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < updatedAt;
+            var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < ghIssue.UpdatedAt;
 
-            // Generate embedding for new issues OR re-embed if issue has changed
-            // Embedding is REQUIRED - issues without embeddings are useless for semantic search
-            Pgvector.Vector? embedding = null;
-            if (isNew || hasChanged)
+            // Generate embedding for new/changed issues
+            var embedding = await GetEmbeddingAsync(ghIssue, existingIssue, isNew, hasChanged, cancellationToken);
+            if (embedding == null)
             {
-                var textToEmbed = CreateEmbeddingText(title, body);
-                embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, EmbeddingInputType.Document, cancellationToken);
-                if (embedding == null)
-                {
-                    _logger.LogWarning(
-                        "SKIPPED issue #{Number} ({Title}): Could not generate embedding. " +
-                        "Embedding service may be unavailable or rate-limited.",
-                        issueNumber, title);
-                    continue; // Skip this issue - don't save without embedding
-                }
-
-                if (hasChanged)
-                {
-                    _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", issueNumber, title);
-                }
-            }
-            else
-            {
-                // Unchanged existing issue - keep existing embedding
-                embedding = existingIssue!.Embedding;
+                _logger.LogWarning(
+                    "SKIPPED issue #{Number} ({Title}): Could not generate embedding.",
+                    ghIssue.Number, ghIssue.Title);
+                continue;
             }
 
-            // Save issue (creates or updates)
+            // Save issue
             var savedIssue = await _issueSyncBusiness.SaveIssueAsync(
                 repository.Id,
-                issueNumber,
-                title,
-                state == "open",
-                htmlUrl,
-                updatedAt,
+                ghIssue.Number,
+                ghIssue.Title,
+                ghIssue.State == "open",
+                ghIssue.HtmlUrl,
+                ghIssue.UpdatedAt,
                 syncedAt,
                 embedding,
                 cancellationToken);
 
             // Sync labels
-            if (ghIssue.TryGetProperty("labels", out var labelsElement))
+            if (ghIssue.LabelNames.Count > 0)
             {
-                var labelNames = new List<string>();
-                foreach (var labelElement in labelsElement.EnumerateArray())
-                {
-                    if (labelElement.TryGetProperty("name", out var nameElement))
-                    {
-                        var name = nameElement.GetString();
-                        if (!string.IsNullOrEmpty(name))
-                        {
-                            labelNames.Add(name);
-                        }
-                    }
-                }
-
-                await _issueSyncBusiness.SyncLabelsAsync(savedIssue.Id, repository.Id, labelNames, cancellationToken);
+                await _issueSyncBusiness.SyncLabelsAsync(
+                    savedIssue.Id,
+                    repository.Id,
+                    ghIssue.LabelNames.ToList(),
+                    cancellationToken);
             }
 
-            _logger.LogDebug("Synced issue #{Number}: {Title}", issueNumber, title);
+            _logger.LogDebug("Synced issue #{Number}: {Title}", ghIssue.Number, ghIssue.Title);
         }
 
-        // Update parent-child relationships after all issues are synced
+        // Update parent-child relationships
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
+    }
+
+    private async Task<Pgvector.Vector?> GetEmbeddingAsync(
+        GitHubIssueDto ghIssue,
+        Issue? existingIssue,
+        bool isNew,
+        bool hasChanged,
+        CancellationToken cancellationToken)
+    {
+        if (isNew || hasChanged)
+        {
+            var textToEmbed = _textBuilder.CreateEmbeddingText(ghIssue.Title, ghIssue.Body);
+            var embedding = await _embeddingService.GenerateEmbeddingAsync(
+                textToEmbed,
+                EmbeddingInputType.Document,
+                cancellationToken);
+
+            if (hasChanged && embedding != null)
+            {
+                _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", ghIssue.Number, ghIssue.Title);
+            }
+
+            return embedding;
+        }
+
+        // Unchanged - keep existing embedding
+        return existingIssue!.Embedding;
     }
 
     private async Task UpdateParentChildRelationshipsAsync(
@@ -221,11 +145,9 @@ public class IssueSyncService : IIssueSyncService
 
         _logger.LogInformation("Updating {Count} parent-child relationships", parentChildRelationships.Count);
 
-        // Get all issues for this repository
         var issuesByNumber = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repositoryId, cancellationToken);
-
-        // Build childId -> parentId map
         var childToParentMap = new Dictionary<int, int?>();
+
         foreach (var (childNumber, parentUrl) in parentChildRelationships)
         {
             var parentNumber = ExtractIssueNumberFromUrl(parentUrl);
@@ -248,9 +170,6 @@ public class IssueSyncService : IIssueSyncService
         }
     }
 
-    /// <summary>
-    /// Extracts issue number from GitHub API URL (e.g., https://api.github.com/repos/owner/repo/issues/123)
-    /// </summary>
     private static int? ExtractIssueNumberFromUrl(string url)
     {
         if (string.IsNullOrEmpty(url))
@@ -258,7 +177,6 @@ public class IssueSyncService : IIssueSyncService
             return null;
         }
 
-        // URL format: https://api.github.com/repos/{owner}/{repo}/issues/{number}
         var lastSlashIndex = url.LastIndexOf('/');
         if (lastSlashIndex >= 0 && lastSlashIndex < url.Length - 1)
         {
@@ -270,26 +188,5 @@ public class IssueSyncService : IIssueSyncService
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Creates combined text for embedding from title and body.
-    /// Truncates to avoid exceeding token limits (configurable via SyncSettings.MaxEmbeddingTextLength).
-    /// </summary>
-    private string CreateEmbeddingText(string title, string? body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return title;
-        }
-
-        var combined = $"{title}\n\n{body}";
-
-        if (combined.Length > _syncSettings.MaxEmbeddingTextLength)
-        {
-            return combined[.._syncSettings.MaxEmbeddingTextLength];
-        }
-
-        return combined;
     }
 }

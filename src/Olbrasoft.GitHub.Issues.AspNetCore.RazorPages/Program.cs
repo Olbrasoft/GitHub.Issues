@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;
+using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Mediation;
 
@@ -84,7 +86,27 @@ builder.Services.AddScoped<IRepositorySyncBusinessService, RepositorySyncBusines
 builder.Services.AddScoped<IEventSyncBusinessService, EventSyncBusinessService>();
 builder.Services.AddHttpClient<IRepositorySyncService, RepositorySyncService>();
 builder.Services.AddScoped<ILabelSyncService, LabelSyncService>();
-builder.Services.AddHttpClient<IIssueSyncService, IssueSyncService>();
+// Issue sync - refactored with SRP
+builder.Services.AddHttpClient<IGitHubIssueApiClient, GitHubIssueApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+}).ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+builder.Services.AddSingleton<IEmbeddingTextBuilder>(sp =>
+{
+    var syncSettings = sp.GetRequiredService<IOptions<SyncSettings>>();
+    return new EmbeddingTextBuilder(syncSettings.Value.MaxEmbeddingTextLength);
+});
+builder.Services.AddScoped<IIssueSyncService, IssueSyncService>();
 builder.Services.AddHttpClient<IEventSyncService, EventSyncService>();
 builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
 
