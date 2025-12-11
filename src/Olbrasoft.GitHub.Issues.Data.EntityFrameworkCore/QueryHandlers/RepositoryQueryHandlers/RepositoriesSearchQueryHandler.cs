@@ -25,8 +25,10 @@ public class RepositoriesSearchQueryHandler
             return Enumerable.Empty<RepositorySearchResultDto>();
         }
 
+        // Use portable case-insensitive search (works with both PostgreSQL and SQL Server)
+        var termLower = term.ToLower();
         return await Entities
-            .Where(r => EF.Functions.ILike(r.FullName, $"%{term}%"))
+            .Where(r => r.FullName.ToLower().Contains(termLower))
             .OrderBy(r => r.FullName)
             .Take(query.MaxResults)
             .Select(r => new RepositorySearchResultDto
