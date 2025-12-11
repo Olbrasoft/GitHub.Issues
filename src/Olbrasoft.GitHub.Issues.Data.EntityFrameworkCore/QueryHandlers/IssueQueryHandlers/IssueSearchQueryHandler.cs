@@ -74,7 +74,11 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
     private async Task<IssueSearchPageDto> ExecuteSqlServerSearchAsync(
         IssueSearchQuery query, CancellationToken token)
     {
-        // Build WHERE clause conditions
+        // Get total count using LINQ (works with any provider)
+        var countQuery = BuildBaseQuery(query.State, query.RepositoryIds);
+        var totalCount = await countQuery.CountAsync(token);
+
+        // Build WHERE clause conditions for raw SQL
         var stateFilter = query.State?.ToLowerInvariant() switch
         {
             "open" => "AND i.IsOpen = 1",
@@ -95,17 +99,7 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
 
         var skip = (query.Page - 1) * query.PageSize;
 
-        // Get total count first
-        var countSql = $@"
-            SELECT COUNT(*)
-            FROM Issues i
-            WHERE i.Embedding IS NOT NULL
-            {stateFilter}
-            {repoFilter}";
-
-        var totalCount = await Context.Database.ExecuteSqlRawAsync(countSql, token);
-
-        // Use FormattableString for parameterized query
+        // Execute vector search with raw SQL using VECTOR_DISTANCE
         var searchSql = $@"
             SELECT
                 i.Id,
@@ -127,27 +121,13 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
             .SqlQueryRaw<IssueSearchResultDto>(searchSql, queryEmbeddingBytes)
             .ToListAsync(token);
 
-        // Get actual count with a simpler query
-        var countQuery = Context.Issues
-            .Where(i => i.Embedding != null);
-
-        if (query.State?.ToLowerInvariant() == "open")
-            countQuery = countQuery.Where(i => i.IsOpen);
-        else if (query.State?.ToLowerInvariant() == "closed")
-            countQuery = countQuery.Where(i => !i.IsOpen);
-
-        if (query.RepositoryIds is { Count: > 0 })
-            countQuery = countQuery.Where(i => query.RepositoryIds.Contains(i.RepositoryId));
-
-        var actualCount = await countQuery.CountAsync(token);
-
         return new IssueSearchPageDto
         {
             Results = results,
-            TotalCount = actualCount,
+            TotalCount = totalCount,
             Page = query.Page,
             PageSize = query.PageSize,
-            TotalPages = (int)Math.Ceiling((double)actualCount / query.PageSize)
+            TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
         };
     }
 
