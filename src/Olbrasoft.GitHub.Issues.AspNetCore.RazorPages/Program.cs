@@ -99,6 +99,8 @@ builder.Services.Configure<AiProvidersSettings>(
     builder.Configuration.GetSection("AiProviders"));
 builder.Services.Configure<SummarizationSettings>(
     builder.Configuration.GetSection("Summarization"));
+builder.Services.Configure<TranslationSettings>(
+    builder.Configuration.GetSection("Translation"));
 
 // Get embedding settings to determine provider
 var embeddingSettings = builder.Configuration.GetSection("Embeddings").Get<EmbeddingSettings>() ?? new EmbeddingSettings();
@@ -127,9 +129,11 @@ else
 // Register services
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
 builder.Services.AddHttpClient<AiSummarizationService>();
+builder.Services.AddHttpClient<AiTranslationService>();
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
 // Singleton - rotation state must persist across requests
 builder.Services.AddSingleton<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
+builder.Services.AddSingleton<IAiTranslationService>(sp => sp.GetRequiredService<AiTranslationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 builder.Services.AddScoped<IIssueDetailService, IssueDetailService>();
 builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
