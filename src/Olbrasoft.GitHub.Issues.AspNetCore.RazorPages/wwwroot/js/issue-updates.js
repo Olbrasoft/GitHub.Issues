@@ -1,9 +1,13 @@
-// SignalR client for real-time issue updates and progressive Czech translations
+// SignalR client for real-time issue updates, progressive Czech translations, and AI summaries
 (function () {
     'use strict';
 
     let connection = null;
     let subscribedIssueIds = [];
+    
+    // Get summary language preference from page (default: 'en')
+    const summaryLanguageSelect = document.querySelector('.language-select[name="SummaryLanguage"]');
+    const summaryLanguage = summaryLanguageSelect ? summaryLanguageSelect.value : 'en';
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -31,6 +35,9 @@
 
         // Handle incoming Czech title translations
         connection.on('TitleTranslated', handleTitleTranslated);
+        
+        // Handle incoming AI summaries (progressive loading Phase 2)
+        connection.on('SummaryReceived', handleSummaryReceived);
 
         // Handle connection state changes
         connection.onreconnecting(function (error) {
@@ -160,6 +167,76 @@
         }, 2000);
 
         console.log('[issue-updates] Title updated for issue', data.issueId, ':', data.czechTitle);
+    }
+
+    function handleSummaryReceived(data) {
+        console.log('[issue-updates] SummaryReceived:', data);
+
+        // Find the ai-summary-container for this issue
+        const container = document.querySelector(`.ai-summary-container[data-issue-id="${data.issueId}"]`);
+        if (!container) {
+            console.log('[issue-updates] AI summary container not found for issue:', data.issueId);
+            return;
+        }
+
+        const bodyPreview = container.querySelector('.body-preview');
+        const summaryEnDiv = container.querySelector('.ai-summary-en');
+        const summaryCsDiv = container.querySelector('.ai-summary-cs');
+
+        // Determine language from provider or default to 'en'
+        // Provider format might include language info, or we detect from content
+        const isEnglish = !data.provider || !data.provider.toLowerCase().includes('cs');
+
+        if (isEnglish && summaryEnDiv) {
+            // English summary received
+            summaryEnDiv.textContent = data.summary;
+            
+            // Show based on language preference
+            if (summaryLanguage === 'en' || summaryLanguage === 'both') {
+                summaryEnDiv.style.display = 'block';
+                // Hide body preview when we have AI summary
+                if (bodyPreview) {
+                    bodyPreview.style.display = 'none';
+                }
+            }
+            
+            // Add animation
+            summaryEnDiv.classList.add('summary-received');
+            setTimeout(function() {
+                summaryEnDiv.classList.remove('summary-received');
+            }, 2000);
+            
+            console.log('[issue-updates] English summary set for issue', data.issueId);
+        } else if (!isEnglish && summaryCsDiv) {
+            // Czech summary/translation received
+            summaryCsDiv.textContent = data.summary;
+            
+            // Show based on language preference
+            if (summaryLanguage === 'cs') {
+                // Czech only - show Czech, hide English
+                summaryCsDiv.style.display = 'block';
+                if (summaryEnDiv) {
+                    summaryEnDiv.style.display = 'none';
+                }
+                if (bodyPreview) {
+                    bodyPreview.style.display = 'none';
+                }
+            } else if (summaryLanguage === 'both') {
+                // Both - show both
+                summaryCsDiv.style.display = 'block';
+                if (bodyPreview) {
+                    bodyPreview.style.display = 'none';
+                }
+            }
+            
+            // Add animation
+            summaryCsDiv.classList.add('summary-received');
+            setTimeout(function() {
+                summaryCsDiv.classList.remove('summary-received');
+            }, 2000);
+            
+            console.log('[issue-updates] Czech summary set for issue', data.issueId);
+        }
     }
 
     function handleIssueUpdate(update) {

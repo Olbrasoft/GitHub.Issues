@@ -895,6 +895,53 @@ footer {
     }
 }
 
+/* AI Summary container and progressive loading */
+.ai-summary-container {
+    margin-top: 0.5rem;
+}
+
+.ai-summary-container .body-preview {
+    color: #586069;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.ai-summary-container .ai-summary-en,
+.ai-summary-container .ai-summary-cs {
+    color: #24292e;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding: 0.5rem;
+    background-color: #f6f8fa;
+    border-left: 3px solid #0366d6;
+    border-radius: 0 4px 4px 0;
+    margin-top: 0.25rem;
+}
+
+.ai-summary-container .ai-summary-cs {
+    border-left-color: #28a745;
+}
+
+/* AI Summary received animation */
+.ai-summary-en.summary-received,
+.ai-summary-cs.summary-received {
+    animation: summary-highlight 2s ease-out;
+}
+
+@keyframes summary-highlight {
+    0% {
+        background-color: #cce5ff;
+        box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+    }
+    50% {
+        background-color: #e3f2fd;
+    }
+    100% {
+        background-color: #f6f8fa;
+        box-shadow: none;
+    }
+}
+
 /* Issue labels (GitHub-style badges) */
 .label-badge {
     display: inline-block;
