@@ -5,6 +5,8 @@
     let connection = null;
     let issueId = null;
     let summaryLanguage = 'both'; // default: English + Czech
+    let englishReceived = false;  // Track if English summary already received
+    let czechReceived = false;    // Track if Czech translation already received
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -136,12 +138,28 @@
             return;
         }
 
+        // Determine if this is English or Czech summary
+        const isEnglish = data.language === 'en' || (!data.language);
+        const isCzech = data.language === 'cs';
+
+        console.log('[detail-updates] Language:', data.language, 'isEnglish:', isEnglish, 'isCzech:', isCzech);
+
+        if (isEnglish) {
+            englishReceived = true;
+            console.log('[detail-updates] English summary received');
+        }
+        if (isCzech) {
+            czechReceived = true;
+            console.log('[detail-updates] Czech summary received');
+        }
+
         // Replace loading indicator with actual summary
+        const langLabel = isCzech ? 'AI Shrnutí (česky)' : 'AI Summary';
         container.innerHTML = `
             <div class="ai-summary">
                 <div class="ai-summary-header">
                     <span class="ai-icon">🤖</span>
-                    <span class="ai-label">AI Shrnutí</span>
+                    <span class="ai-label">${langLabel}</span>
                     <span class="ai-provider">${escapeHtml(data.provider)}</span>
                 </div>
                 <p class="ai-summary-text">${escapeHtml(data.summary)}</p>
@@ -154,10 +172,34 @@
             container.querySelector('.ai-summary')?.classList.remove('ai-summary-received');
         }, 2000);
 
-        // Disconnect SignalR - no longer needed
-        if (connection) {
+        // Only disconnect when we've received all expected summaries
+        const shouldDisconnect = shouldDisconnectSignalR();
+        console.log('[detail-updates] Should disconnect:', shouldDisconnect,
+            'summaryLanguage:', summaryLanguage,
+            'englishReceived:', englishReceived,
+            'czechReceived:', czechReceived);
+
+        if (shouldDisconnect && connection) {
+            console.log('[detail-updates] All expected summaries received, disconnecting SignalR');
             connection.stop();
         }
+    }
+
+    function shouldDisconnectSignalR() {
+        // If language is 'en' only, disconnect after English
+        if (summaryLanguage === 'en') {
+            return englishReceived;
+        }
+        // If language is 'both', wait for both English and Czech
+        if (summaryLanguage === 'both') {
+            return englishReceived && czechReceived;
+        }
+        // If language is 'cs' only (unlikely but possible), disconnect after Czech
+        if (summaryLanguage === 'cs') {
+            return czechReceived;
+        }
+        // Default: disconnect after any summary
+        return true;
     }
 
     function escapeHtml(text) {
