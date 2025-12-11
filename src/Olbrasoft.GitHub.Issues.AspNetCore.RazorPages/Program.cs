@@ -326,15 +326,25 @@ app.MapGet("/api/repositories/sync-status", async (IMediator mediator, Cancellat
 });
 
 // Generate AI summary for issue (progressive loading via SignalR)
+// Supports language preference via query string: ?language=en|cs|both (default: both)
 app.MapPost("/api/issues/{id:int}/generate-summary", (
     int id,
+    HttpRequest request,
     IServiceScopeFactory scopeFactory,
     ILogger<Program> logger) =>
 {
-    logger.LogInformation("API: Starting summary generation for issue {Id}", id);
+    // Get language preference from query string (default: "both")
+    var language = request.Query["language"].FirstOrDefault() ?? "both";
+    if (language is not ("en" or "cs" or "both"))
+    {
+        language = "both";
+    }
+
+    logger.LogInformation("API: Starting summary generation for issue {Id}, language={Language}", id, language);
 
     // Fire and forget - run summary generation in background with its own DI scope
     // IMPORTANT: Scoped services (DbContext, etc.) need their own scope in background tasks
+    var capturedLanguage = language;
     _ = Task.Run(async () =>
     {
         try
@@ -343,8 +353,8 @@ app.MapPost("/api/issues/{id:int}/generate-summary", (
             await using var scope = scopeFactory.CreateAsyncScope();
             var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
 
-            logger.LogInformation("Background task: Calling GenerateSummaryAsync for issue {Id}", id);
-            await issueDetailService.GenerateSummaryAsync(id, CancellationToken.None);
+            logger.LogInformation("Background task: Calling GenerateSummaryAsync for issue {Id}, language={Language}", id, capturedLanguage);
+            await issueDetailService.GenerateSummaryAsync(id, capturedLanguage, CancellationToken.None);
             logger.LogInformation("Background task: GenerateSummaryAsync completed for issue {Id}", id);
         }
         catch (Exception ex)

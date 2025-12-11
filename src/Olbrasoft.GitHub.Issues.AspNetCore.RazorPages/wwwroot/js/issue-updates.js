@@ -4,10 +4,10 @@
 
     let connection = null;
     let subscribedIssueIds = [];
-    
-    // Get summary language preference from page (default: 'en')
-    const summaryLanguageSelect = document.querySelector('.language-select[name="SummaryLanguage"]');
-    const summaryLanguage = summaryLanguageSelect ? summaryLanguageSelect.value : 'en';
+
+    // Get translation preference from checkbox (default: true = translate to Czech)
+    const translateCheckbox = document.getElementById('translateToCzechCheckbox');
+    const translateToCzech = translateCheckbox ? translateCheckbox.checked : true;
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -63,8 +63,12 @@
             await connection.start();
             console.log('[issue-updates] SignalR connected');
             await subscribeToVisibleIssues();
-            // Trigger title translations after subscribing
-            triggerTitleTranslations();
+            // Trigger title translations only if checkbox is checked
+            if (translateToCzech) {
+                triggerTitleTranslations();
+            } else {
+                console.log('[issue-updates] Skipping title translations (checkbox unchecked)');
+            }
         } catch (err) {
             console.error('[issue-updates] SignalR connection error:', err);
             // Retry connection after 5 seconds
@@ -183,58 +187,46 @@
         const summaryEnDiv = container.querySelector('.ai-summary-en');
         const summaryCsDiv = container.querySelector('.ai-summary-cs');
 
-        // Determine language from provider or default to 'en'
-        // Provider format might include language info, or we detect from content
-        const isEnglish = !data.provider || !data.provider.toLowerCase().includes('cs');
+        // Determine language from data.language field or provider
+        // Backend sends language: "en" or "cs"
+        const isEnglish = data.language === 'en' || (!data.language && (!data.provider || !data.provider.toLowerCase().includes('cs')));
 
         if (isEnglish && summaryEnDiv) {
-            // English summary received
+            // English summary received - always show it (Phase 2)
             summaryEnDiv.textContent = data.summary;
-            
-            // Show based on language preference
-            if (summaryLanguage === 'en' || summaryLanguage === 'both') {
-                summaryEnDiv.style.display = 'block';
-                // Hide body preview when we have AI summary
-                if (bodyPreview) {
-                    bodyPreview.style.display = 'none';
-                }
+            summaryEnDiv.style.display = 'block';
+
+            // Hide body preview when we have AI summary
+            if (bodyPreview) {
+                bodyPreview.style.display = 'none';
             }
-            
+
             // Add animation
             summaryEnDiv.classList.add('summary-received');
             setTimeout(function() {
                 summaryEnDiv.classList.remove('summary-received');
             }, 2000);
-            
+
             console.log('[issue-updates] English summary set for issue', data.issueId);
-        } else if (!isEnglish && summaryCsDiv) {
-            // Czech summary/translation received
+        } else if (!isEnglish && summaryCsDiv && translateToCzech) {
+            // Czech translation received (Phase 3) - only show if checkbox is checked
             summaryCsDiv.textContent = data.summary;
-            
-            // Show based on language preference
-            if (summaryLanguage === 'cs') {
-                // Czech only - show Czech, hide English
-                summaryCsDiv.style.display = 'block';
-                if (summaryEnDiv) {
-                    summaryEnDiv.style.display = 'none';
-                }
-                if (bodyPreview) {
-                    bodyPreview.style.display = 'none';
-                }
-            } else if (summaryLanguage === 'both') {
-                // Both - show both
-                summaryCsDiv.style.display = 'block';
-                if (bodyPreview) {
-                    bodyPreview.style.display = 'none';
-                }
+            summaryCsDiv.style.display = 'block';
+
+            // Hide English summary when Czech arrives (replace, don't stack)
+            if (summaryEnDiv) {
+                summaryEnDiv.style.display = 'none';
             }
-            
+            if (bodyPreview) {
+                bodyPreview.style.display = 'none';
+            }
+
             // Add animation
             summaryCsDiv.classList.add('summary-received');
             setTimeout(function() {
                 summaryCsDiv.classList.remove('summary-received');
             }, 2000);
-            
+
             console.log('[issue-updates] Czech summary set for issue', data.issueId);
         }
     }
