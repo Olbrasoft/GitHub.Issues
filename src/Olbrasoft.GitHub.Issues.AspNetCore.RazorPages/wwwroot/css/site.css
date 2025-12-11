@@ -354,7 +354,8 @@ footer {
     opacity: 1;
 }
 
-#repoSearchInput {
+#repoSearchInput,
+#syncRepoSearchInput {
     flex: 1;
     min-width: 150px;
     border: none;
