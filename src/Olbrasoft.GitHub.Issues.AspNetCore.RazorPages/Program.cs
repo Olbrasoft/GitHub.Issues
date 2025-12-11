@@ -75,6 +75,7 @@ builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<Git
 // Singleton - rotation state must persist across requests
 builder.Services.AddSingleton<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
+builder.Services.AddScoped<IIssueDetailService, IssueDetailService>();
 builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
 // Register Sync services for data import

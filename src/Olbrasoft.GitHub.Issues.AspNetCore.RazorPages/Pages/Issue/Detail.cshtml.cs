@@ -1,32 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Business.Services;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages.Issue;
 
+/// <summary>
+/// Page model for issue detail page.
+/// Single responsibility: Handle HTTP requests and map to view properties.
+/// </summary>
 public class DetailModel : PageModel
 {
-    private readonly GitHubDbContext _dbContext;
-    private readonly IGitHubGraphQLClient _graphQLClient;
-    private readonly IAiSummarizationService _summarizationService;
-    private readonly ILogger<DetailModel> _logger;
+    private readonly IIssueDetailService _issueDetailService;
 
-    public DetailModel(
-        GitHubDbContext dbContext,
-        IGitHubGraphQLClient graphQLClient,
-        IAiSummarizationService summarizationService,
-        ILogger<DetailModel> logger)
+    public DetailModel(IIssueDetailService issueDetailService)
     {
-        _dbContext = dbContext;
-        _graphQLClient = graphQLClient;
-        _summarizationService = summarizationService;
-        _logger = logger;
+        _issueDetailService = issueDetailService;
     }
 
-    public IssueDetail? Issue { get; set; }
+    public IssueDetailDto? Issue { get; set; }
 
     public string? ErrorMessage { get; set; }
 
@@ -38,79 +29,19 @@ public class DetailModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken cancellationToken)
     {
-        var issue = await _dbContext.Issues
-            .Include(i => i.Repository)
-            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+        var result = await _issueDetailService.GetIssueDetailAsync(id, cancellationToken);
 
-        if (issue == null)
+        if (!result.Found)
         {
-            ErrorMessage = "Issue nenalezeno.";
+            ErrorMessage = result.ErrorMessage;
             return Page();
         }
 
-        var parts = issue.Repository.FullName.Split('/');
-        var owner = parts.Length == 2 ? parts[0] : string.Empty;
-        var repoName = parts.Length == 2 ? parts[1] : string.Empty;
-
-        Issue = new IssueDetail
-        {
-            Id = issue.Id,
-            IssueNumber = issue.Number,
-            Title = issue.Title,
-            IsOpen = issue.IsOpen,
-            Url = issue.Url,
-            Owner = owner,
-            RepoName = repoName,
-            RepositoryName = issue.Repository.FullName
-        };
-
-        // Fetch body from GitHub GraphQL API
-        if (!string.IsNullOrEmpty(owner) && !string.IsNullOrEmpty(repoName))
-        {
-            var requests = new[] { new IssueBodyRequest(owner, repoName, issue.Number) };
-            var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
-
-            var key = (owner, repoName, issue.Number);
-            if (bodies.TryGetValue(key, out var body))
-            {
-                Issue.Body = body;
-
-                // Generate AI summary
-                if (!string.IsNullOrWhiteSpace(body))
-                {
-                    var result = await _summarizationService.SummarizeAsync(body, cancellationToken);
-                    if (result.Success)
-                    {
-                        Summary = result.Summary;
-                        SummaryProvider = $"{result.Provider}/{result.Model}";
-                    }
-                    else
-                    {
-                        SummaryError = result.Error;
-                        _logger.LogWarning("Failed to summarize issue {Id}: {Error}", id, result.Error);
-                    }
-                }
-            }
-        }
+        Issue = result.Issue;
+        Summary = result.Summary;
+        SummaryProvider = result.SummaryProvider;
+        SummaryError = result.SummaryError;
 
         return Page();
     }
-}
-
-/// <summary>
-/// Issue detail model for the detail page.
-/// </summary>
-public class IssueDetail
-{
-    public int Id { get; set; }
-    public int IssueNumber { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public bool IsOpen { get; set; }
-    public string Url { get; set; } = string.Empty;
-    public string Owner { get; set; } = string.Empty;
-    public string RepoName { get; set; } = string.Empty;
-    public string RepositoryName { get; set; } = string.Empty;
-    public string? Body { get; set; }
-
-    public string StateCzech => IsOpen ? "Otevřený" : "Zavřený";
 }
