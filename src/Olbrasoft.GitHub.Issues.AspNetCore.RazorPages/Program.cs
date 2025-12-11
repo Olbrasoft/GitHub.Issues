@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
@@ -5,6 +7,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;
+using System.Security.Claims;
 using System.Text.Json;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
@@ -14,6 +17,43 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddRazorPages();
+
+// Configure GitHub OAuth authentication
+var gitHubClientId = builder.Configuration["GitHub:ClientId"];
+var gitHubClientSecret = builder.Configuration["GitHub:ClientSecret"];
+var gitHubOwner = builder.Configuration["GitHub:Owner"] ?? "Olbrasoft";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = "GitHub";
+})
+.AddCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.LogoutPath = "/logout";
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+})
+.AddGitHub(options =>
+{
+    options.ClientId = gitHubClientId ?? throw new InvalidOperationException("GitHub:ClientId not configured");
+    options.ClientSecret = gitHubClientSecret ?? throw new InvalidOperationException("GitHub:ClientSecret not configured. Add it to User Secrets.");
+    options.Scope.Add("read:user");
+    options.CallbackPath = "/signin-github";
+    options.SaveTokens = true;
+});
+
+// Add authorization with owner policy
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("OwnerOnly", policy =>
+        policy.RequireAssertion(context =>
+        {
+            var username = context.User.FindFirst(ClaimTypes.Name)?.Value
+                        ?? context.User.FindFirst("urn:github:login")?.Value;
+            return string.Equals(username, gitHubOwner, StringComparison.OrdinalIgnoreCase);
+        }));
+});
 
 // Configure database provider from settings
 var databaseSettings = builder.Configuration.GetSection("Database").Get<DatabaseSettings>()
@@ -154,7 +194,42 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapRazorPages();
+
+// Authentication endpoints
+app.MapGet("/login", async (HttpContext context) =>
+{
+    var returnUrl = context.Request.Query["returnUrl"].FirstOrDefault() ?? "/";
+    await context.ChallengeAsync("GitHub", new AuthenticationProperties
+    {
+        RedirectUri = returnUrl
+    });
+});
+
+app.MapGet("/logout", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    context.Response.Redirect("/");
+});
+
+// Auth status endpoint for JavaScript
+app.MapGet("/api/auth/status", (HttpContext context, IConfiguration config) =>
+{
+    var isAuthenticated = context.User.Identity?.IsAuthenticated ?? false;
+    var username = context.User.FindFirst(ClaimTypes.Name)?.Value
+                ?? context.User.FindFirst("urn:github:login")?.Value;
+    var owner = config["GitHub:Owner"] ?? "Olbrasoft";
+    var isOwner = isAuthenticated && string.Equals(username, owner, StringComparison.OrdinalIgnoreCase);
+
+    return Results.Ok(new
+    {
+        isAuthenticated,
+        username,
+        isOwner
+    });
+});
 
 // API endpoints
 app.MapGet("/api/repositories/search", async (string? term, IMediator mediator, CancellationToken ct) =>
@@ -185,7 +260,7 @@ app.MapPost("/api/database/migrate", async (IDatabaseStatusService dbStatus, Can
 {
     var result = await dbStatus.ApplyMigrationsAsync(ct);
     return result.Success ? Results.Ok(result) : Results.BadRequest(result);
-});
+}).RequireAuthorization("OwnerOnly");
 
 app.MapPost("/api/data/import", async (
     IGitHubSyncService syncService,
@@ -204,7 +279,7 @@ app.MapPost("/api/data/import", async (
         logger.LogError(ex, "Import failed");
         return Results.BadRequest(new { success = false, message = ex.Message });
     }
-});
+}).RequireAuthorization("OwnerOnly");
 
 // Get all repositories with sync status
 app.MapGet("/api/repositories/sync-status", async (IMediator mediator, CancellationToken ct) =>
@@ -323,6 +398,6 @@ app.MapPost("/api/data/sync", async (
         logger.LogError(ex, "Sync failed");
         return Results.BadRequest(new { success = false, message = ex.Message });
     }
-});
+}).RequireAuthorization("OwnerOnly");
 
 app.Run();

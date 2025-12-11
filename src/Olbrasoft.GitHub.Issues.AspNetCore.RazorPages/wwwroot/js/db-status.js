@@ -1,8 +1,15 @@
 /**
  * Database status checker and intelligent sync functionality with modal dialog
+ * Includes authentication status management
  */
 (function() {
     'use strict';
+
+    // DOM Elements - Auth
+    const authControls = document.getElementById('authControls');
+    const authUser = document.getElementById('authUser');
+    const loginLink = document.getElementById('loginLink');
+    const logoutLink = document.getElementById('logoutLink');
 
     // DOM Elements - Status banner
     const banner = document.getElementById('dbStatusBanner');
@@ -15,6 +22,9 @@
     // DOM Elements - Sync button
     const syncBtn = document.getElementById('syncBtn');
     const syncBtnText = syncBtn?.querySelector('.sync-text');
+
+    // Auth state
+    let isOwner = false;
 
     // DOM Elements - Sync Modal
     const syncModal = document.getElementById('syncModal');
@@ -49,6 +59,40 @@
     let syncSelectedRepos = []; // Selected repos in sync modal
     let syncSelectedIndex = -1;
     let syncDebounceTimer = null;
+
+    // ===== Authentication Functions =====
+
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch('/api/auth/status');
+            if (!response.ok) throw new Error('Failed to fetch auth status');
+
+            const auth = await response.json();
+            isOwner = auth.isOwner;
+
+            // Update UI based on auth status
+            if (auth.isAuthenticated) {
+                authControls.style.display = 'flex';
+                authUser.textContent = auth.username;
+                loginLink.style.display = 'none';
+
+                // Show sync button only for owner
+                if (auth.isOwner && syncBtn) {
+                    syncBtn.style.display = 'inline-flex';
+                }
+            } else {
+                authControls.style.display = 'none';
+                loginLink.style.display = 'inline-flex';
+                if (syncBtn) {
+                    syncBtn.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Error checking auth status:', error);
+            // Show login link on error
+            loginLink.style.display = 'inline-flex';
+        }
+    }
 
     // ===== Database Status Functions =====
 
@@ -504,5 +548,8 @@
     });
 
     // Check status on page load
-    document.addEventListener('DOMContentLoaded', checkDatabaseStatus);
+    document.addEventListener('DOMContentLoaded', async () => {
+        await checkAuthStatus();
+        await checkDatabaseStatus();
+    });
 })();

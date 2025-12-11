@@ -18,7 +18,17 @@
     <div class="search-header">
         <h1>Hledat GitHub issues</h1>
         <div class="header-actions">
-            <button id="syncBtn" class="sync-btn" title="Synchronizovat data z GitHubu">
+            <!-- Auth controls - shown based on auth status -->
+            <div id="authControls" class="auth-controls" style="display: none;">
+                <span id="authUser" class="auth-user"></span>
+                <a id="logoutLink" href="/logout" class="auth-link">Odhlásit</a>
+            </div>
+            <a id="loginLink" href="/login" class="auth-link login-link" style="display: none;">
+                <span class="github-icon">&#xf09b;</span> Přihlásit přes GitHub
+            </a>
+
+            <!-- Sync button - only visible for authenticated owner -->
+            <button id="syncBtn" class="sync-btn" title="Synchronizovat data z GitHubu" style="display: none;">
                 <span class="sync-icon">&#8635;</span>
                 <span class="sync-text">Importovat data</span>
             </button>

@@ -500,6 +500,52 @@ footer {
     gap: 1rem;
 }
 
+/* Auth controls */
+.auth-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #e8f5e9;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.auth-user {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.auth-link {
+    color: #0366d6;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+.login-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background-color: #24292e;
+    color: white;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.login-link:hover {
+    background-color: #444d56;
+    text-decoration: none;
+}
+
+.github-icon {
+    font-family: 'Font Awesome 5 Brands', 'FontAwesome', sans-serif;
+}
+
 .import-btn {
     display: flex;
     align-items: center;
