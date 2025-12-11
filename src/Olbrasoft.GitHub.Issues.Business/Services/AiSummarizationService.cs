@@ -18,9 +18,9 @@ public class AiSummarizationService : IAiSummarizationService
     private readonly SummarizationSettings _summarization;
     private readonly ILogger<AiSummarizationService> _logger;
 
-    // Static rotation state - survives across requests, resets on app restart
-    private static int _rotationIndex;
-    private static readonly object _lock = new();
+    // Instance-based rotation state - thread-safe with Interlocked
+    // Service must be registered as Singleton for rotation to persist across requests
+    private int _rotationIndex;
 
     // Pre-built list of all provider/key/model combinations
     private readonly List<ProviderKeyModel> _combinations;
@@ -133,12 +133,10 @@ public class AiSummarizationService : IAiSummarizationService
 
     private int GetAndAdvanceRotationIndex()
     {
-        lock (_lock)
-        {
-            var current = _rotationIndex;
-            _rotationIndex = (_rotationIndex + 1) % Math.Max(1, _combinations.Count);
-            return current;
-        }
+        // Thread-safe increment without lock
+        var count = Math.Max(1, _combinations.Count);
+        var newIndex = Interlocked.Increment(ref _rotationIndex);
+        return (newIndex - 1) % count; // -1 because Increment returns NEW value
     }
 
     private async Task<SummarizationResult> TrySummarizeAsync(

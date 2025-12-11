@@ -70,7 +70,8 @@ else
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
 builder.Services.AddHttpClient<AiSummarizationService>();
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
-builder.Services.AddScoped<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
+// Singleton - rotation state must persist across requests
+builder.Services.AddSingleton<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
