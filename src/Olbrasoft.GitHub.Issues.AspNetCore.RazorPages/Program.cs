@@ -11,6 +11,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.GitHub.Issues.Sync.Webhooks;
 using Olbrasoft.Mediation;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -183,6 +184,11 @@ builder.Services.AddHttpClient<IGitHubEventApiClient, GitHubEventApiClient>(clie
 });
 builder.Services.AddScoped<IEventSyncService, EventSyncService>();
 builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
+
+// Webhook services for real-time sync
+builder.Services.Configure<WebhookSettings>(builder.Configuration.GetSection("GitHubApp"));
+builder.Services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
+builder.Services.AddScoped<IGitHubWebhookService, GitHubWebhookService>();
 
 var app = builder.Build();
 
@@ -399,5 +405,76 @@ app.MapPost("/api/data/sync", async (
         return Results.BadRequest(new { success = false, message = ex.Message });
     }
 }).RequireAuthorization("OwnerOnly");
+
+// GitHub Webhook endpoint for real-time issue sync
+app.MapPost("/api/webhooks/github", async (
+    HttpRequest request,
+    IWebhookSignatureValidator signatureValidator,
+    IGitHubWebhookService webhookService,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    // Read raw body for signature validation
+    request.EnableBuffering();
+    using var memoryStream = new MemoryStream();
+    await request.Body.CopyToAsync(memoryStream, ct);
+    var payload = memoryStream.ToArray();
+    request.Body.Position = 0;
+
+    // Validate signature
+    var signature = request.Headers["X-Hub-Signature-256"].FirstOrDefault();
+    if (!signatureValidator.ValidateSignature(payload, signature))
+    {
+        logger.LogWarning("Invalid webhook signature");
+        return Results.Unauthorized();
+    }
+
+    // Check event type
+    var eventType = request.Headers["X-GitHub-Event"].FirstOrDefault();
+    if (eventType != "issues")
+    {
+        logger.LogDebug("Ignoring webhook event type: {EventType}", eventType);
+        return Results.Ok(new { message = $"Ignored event: {eventType}" });
+    }
+
+    // Parse payload
+    GitHubIssueWebhookPayload? webhookPayload;
+    try
+    {
+        request.Body.Position = 0;
+        webhookPayload = await JsonSerializer.DeserializeAsync<GitHubIssueWebhookPayload>(
+            request.Body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+            ct);
+    }
+    catch (JsonException ex)
+    {
+        logger.LogError(ex, "Failed to parse webhook payload");
+        return Results.BadRequest(new { error = "Invalid JSON payload" });
+    }
+
+    if (webhookPayload == null)
+    {
+        return Results.BadRequest(new { error = "Empty payload" });
+    }
+
+    // Process the webhook
+    var result = await webhookService.ProcessIssueEventAsync(webhookPayload, ct);
+
+    if (result.Success)
+    {
+        logger.LogInformation(
+            "Webhook processed: {Message} for issue #{Number}",
+            result.Message, result.IssueNumber);
+        return Results.Ok(result);
+    }
+    else
+    {
+        logger.LogWarning(
+            "Webhook processing failed: {Message} for issue #{Number}",
+            result.Message, result.IssueNumber);
+        return Results.BadRequest(result);
+    }
+});
 
 app.Run();
