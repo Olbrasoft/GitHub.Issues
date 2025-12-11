@@ -119,6 +119,10 @@
                             <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
                                 @result.StateCzech
                             </span>
+                            @foreach (var label in result.Labels)
+                            {
+                                <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
+                            }
                         </div>
                         @if (!string.IsNullOrEmpty(result.BodyPreview))
                         {

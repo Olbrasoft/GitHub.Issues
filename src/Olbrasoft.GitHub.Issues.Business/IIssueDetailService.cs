@@ -1,3 +1,5 @@
+using Olbrasoft.GitHub.Issues.Data.Dtos;
+
 namespace Olbrasoft.GitHub.Issues.Business;
 
 /// <summary>
@@ -35,7 +37,8 @@ public record IssueDetailDto(
     string Owner,
     string RepoName,
     string RepositoryName,
-    string? Body)
+    string? Body,
+    List<LabelDto> Labels)
 {
     public string StateCzech => IsOpen ? "Otevřený" : "Zavřený";
 }

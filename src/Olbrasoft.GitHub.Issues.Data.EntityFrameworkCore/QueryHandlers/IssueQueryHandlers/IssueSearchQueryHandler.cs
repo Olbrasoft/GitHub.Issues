@@ -53,7 +53,8 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
-                Similarity = 1 - i.Embedding!.CosineDistance(query.QueryEmbedding)
+                Similarity = 1 - i.Embedding!.CosineDistance(query.QueryEmbedding),
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
             })
             .ToListAsync(token);
 
@@ -90,7 +91,8 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
-                Similarity = 1 - EF.Functions.VectorDistance("cosine", i.Embedding!, query.QueryEmbedding)
+                Similarity = 1 - EF.Functions.VectorDistance("cosine", i.Embedding!, query.QueryEmbedding),
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
             })
             .ToListAsync(token);
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
@@ -38,6 +39,8 @@ public class IssueDetailService : IIssueDetailService
     {
         var issue = await _dbContext.Issues
             .Include(i => i.Repository)
+            .Include(i => i.IssueLabels)
+                .ThenInclude(il => il.Label)
             .FirstOrDefaultAsync(i => i.Id == issueId, cancellationToken);
 
         if (issue == null)
@@ -53,6 +56,10 @@ public class IssueDetailService : IIssueDetailService
 
         var (owner, repoName) = ParseRepositoryFullName(issue.Repository.FullName);
 
+        var labels = issue.IssueLabels
+            .Select(il => new LabelDto(il.Label.Name, il.Label.Color))
+            .ToList();
+
         var issueDto = new IssueDetailDto(
             Id: issue.Id,
             IssueNumber: issue.Number,
@@ -62,7 +69,8 @@ public class IssueDetailService : IIssueDetailService
             Owner: owner,
             RepoName: repoName,
             RepositoryName: issue.Repository.FullName,
-            Body: null);
+            Body: null,
+            Labels: labels);
 
         // Fetch body from GitHub GraphQL API
         string? body = null;

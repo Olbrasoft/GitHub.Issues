@@ -26,4 +26,7 @@ public class IssueSearchResultDto
 
     /// <summary>Cosine similarity score (0.0-1.0).</summary>
     public double Similarity { get; set; }
+
+    /// <summary>Issue labels with colors.</summary>
+    public List<LabelDto> Labels { get; set; } = [];
 }

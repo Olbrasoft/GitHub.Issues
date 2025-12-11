@@ -40,7 +40,8 @@ public class IssueListQueryHandler : GitHubDbQueryHandler<Issue, IssueListQuery,
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
-                Similarity = 1.0f // No similarity for list queries
+                Similarity = 1.0f, // No similarity for list queries
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
             })
             .ToListAsync(token);
 

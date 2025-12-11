@@ -865,3 +865,21 @@ footer {
         box-shadow: none;
     }
 }
+
+/* Issue labels (GitHub-style badges) */
+.label-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    margin-left: 4px;
+}
+
+.labels-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}

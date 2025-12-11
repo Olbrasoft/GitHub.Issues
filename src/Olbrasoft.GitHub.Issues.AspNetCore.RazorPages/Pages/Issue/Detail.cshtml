@@ -35,6 +35,16 @@
                 <span class="issue-number">Issue #@Model.Issue.IssueNumber</span>
             </div>
 
+            @if (Model.Issue.Labels.Count > 0)
+            {
+                <div class="labels-container">
+                    @foreach (var label in Model.Issue.Labels)
+                    {
+                        <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
+                    }
+                </div>
+            }
+
             @if (!string.IsNullOrEmpty(Model.Summary))
             {
                 <div class="ai-summary">
@@ -302,5 +312,22 @@
 
     .ai-summary-error .ai-summary-text {
         color: #78350f;
+    }
+
+    /* Issue labels */
+    .labels-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+
+    .label-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
     }
 </style>

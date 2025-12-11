@@ -167,7 +167,8 @@ public class IssueSearchService : Service, IIssueSearchService
             Owner = parts.Length == 2 ? parts[0] : string.Empty,
             RepoName = parts.Length == 2 ? parts[1] : string.Empty,
             Similarity = dto.Similarity,
-            IsExactMatch = isExactMatch
+            IsExactMatch = isExactMatch,
+            Labels = dto.Labels
         };
     }
 

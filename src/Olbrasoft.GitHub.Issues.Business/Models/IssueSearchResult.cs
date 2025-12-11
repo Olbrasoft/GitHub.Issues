@@ -1,4 +1,5 @@
 using System.Globalization;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 
 namespace Olbrasoft.GitHub.Issues.Business.Models;
 
@@ -44,6 +45,9 @@ public class IssueSearchResult
 
     /// <summary>Full issue body content (fetched from GitHub GraphQL API).</summary>
     public string? Body { get; set; }
+
+    /// <summary>Issue labels with colors.</summary>
+    public List<LabelDto> Labels { get; set; } = [];
 
     /// <summary>
     /// Short preview of issue body for list display.
