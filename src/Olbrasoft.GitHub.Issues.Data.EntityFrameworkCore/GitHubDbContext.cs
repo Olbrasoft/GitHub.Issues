@@ -43,21 +43,21 @@ public class GitHubDbContext : DbContext
         {
             modelBuilder.HasPostgresExtension("vector");
 
-            // PostgreSQL: Use native pgvector type
+            // PostgreSQL: Use pgvector type with converter from float[] to Vector
             // 768 dimensions for local Ollama nomic-embed-text
-            // Azure uses SQL Server with varbinary(max) which doesn't have dimension constraint
             modelBuilder.Entity<Issue>()
                 .Property(e => e.Embedding)
+                .HasConversion(new FloatArrayToVectorConverter())
                 .HasColumnType("vector(768)");
         }
         else if (Provider == DatabaseProvider.SqlServer)
         {
-            // SQL Server: Store as binary with value converter
-            // Native VECTOR type exists but no EF Core mapping yet
+            // SQL Server: Use native VECTOR type via EFCore.SqlServer.VectorSearch
+            // float[] maps directly to vector with no converter needed
+            // 1024 dimensions for Azure Cohere embeddings
             modelBuilder.Entity<Issue>()
                 .Property(e => e.Embedding)
-                .HasColumnType("varbinary(max)")
-                .HasConversion(new VectorToBinaryConverter());
+                .HasColumnType("vector(1024)");
         }
     }
 }

@@ -1,5 +1,4 @@
 using Olbrasoft.GitHub.Issues.Data.Entities;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Business;
 
@@ -29,13 +28,13 @@ public interface IIssueSyncBusinessService
         string url,
         DateTimeOffset gitHubUpdatedAt,
         DateTimeOffset syncedAt,
-        Vector? embedding = null,
+        float[]? embedding = null,
         CancellationToken ct = default);
 
     /// <summary>
     /// Updates embedding for an existing issue.
     /// </summary>
-    Task<bool> UpdateEmbeddingAsync(int issueId, Vector embedding, CancellationToken ct = default);
+    Task<bool> UpdateEmbeddingAsync(int issueId, float[] embedding, CancellationToken ct = default);
 
     /// <summary>
     /// Sets parent-child relationships for multiple issues in batch.

@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
                 case DatabaseProvider.SqlServer:
                     options.UseSqlServer(connectionString, sqlOptions =>
                     {
+                        sqlOptions.UseVectorSearch(); // Native VECTOR type support
                         sqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.SqlServer");
                     });
                     // SQL Server: PascalCase (EF Core default, no convention needed)

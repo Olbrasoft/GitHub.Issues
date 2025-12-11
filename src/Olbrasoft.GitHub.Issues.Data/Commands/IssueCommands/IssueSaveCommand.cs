@@ -1,7 +1,6 @@
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.Mediation;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.Commands.IssueCommands;
 
@@ -17,7 +16,7 @@ public class IssueSaveCommand : BaseCommand<Issue>
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
-    public Vector? Embedding { get; set; }
+    public float[]? Embedding { get; set; }
 
     public IssueSaveCommand(ICommandExecutor executor) : base(executor)
     {

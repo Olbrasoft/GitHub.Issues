@@ -1,6 +1,5 @@
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.Mediation;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.Commands.IssueCommands;
 
@@ -10,7 +9,7 @@ namespace Olbrasoft.GitHub.Issues.Data.Commands.IssueCommands;
 public class IssueUpdateEmbeddingCommand : BaseCommand<bool>
 {
     public int IssueId { get; set; }
-    public Vector Embedding { get; set; } = null!;
+    public float[] Embedding { get; set; } = null!;
 
     public IssueUpdateEmbeddingCommand(ICommandExecutor executor) : base(executor)
     {

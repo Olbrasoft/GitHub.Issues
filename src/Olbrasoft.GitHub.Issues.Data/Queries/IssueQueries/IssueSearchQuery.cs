@@ -1,7 +1,6 @@
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.Mediation;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 
@@ -11,7 +10,7 @@ namespace Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 public class IssueSearchQuery : BaseQuery<IssueSearchPageDto>
 {
     /// <summary>Pre-computed embedding vector for the search query.</summary>
-    public Vector QueryEmbedding { get; set; } = null!;
+    public float[] QueryEmbedding { get; set; } = null!;
 
     /// <summary>Filter by state: "open", "closed", or "all".</summary>
     public string State { get; set; } = "all";

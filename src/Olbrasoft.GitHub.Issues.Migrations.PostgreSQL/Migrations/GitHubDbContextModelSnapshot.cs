@@ -18,7 +18,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "9.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");

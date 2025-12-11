@@ -17,7 +17,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "9.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -263,9 +263,9 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<byte[]>("Embedding")
+                    b.PrimitiveCollection<string>("Embedding")
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .HasColumnType("vector(1024)");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
                         .HasColumnType("datetimeoffset");

@@ -3,7 +3,6 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Business.Models;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 
@@ -24,7 +23,7 @@ public class IssueSearchServiceTests
         // Arrange
         _embeddingServiceMock
             .Setup(x => x.GenerateEmbeddingAsync(It.IsAny<string>(), It.IsAny<EmbeddingInputType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Vector?)null);
+            .ReturnsAsync((float[]?)null);
 
         // Note: We can't easily test with real DbContext due to pgvector dependency
         // This test verifies the interface contract exists

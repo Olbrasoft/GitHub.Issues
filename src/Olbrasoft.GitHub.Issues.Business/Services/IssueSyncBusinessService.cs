@@ -3,7 +3,6 @@ using Olbrasoft.GitHub.Issues.Data.Commands.IssueCommands;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 using Olbrasoft.Mediation;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -43,7 +42,7 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
         string url,
         DateTimeOffset gitHubUpdatedAt,
         DateTimeOffset syncedAt,
-        Vector? embedding = null,
+        float[]? embedding = null,
         CancellationToken ct = default)
     {
         var command = new IssueSaveCommand(Mediator)
@@ -60,7 +59,7 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
         return await command.ToResultAsync(ct);
     }
 
-    public async Task<bool> UpdateEmbeddingAsync(int issueId, Vector embedding, CancellationToken ct = default)
+    public async Task<bool> UpdateEmbeddingAsync(int issueId, float[] embedding, CancellationToken ct = default)
     {
         var command = new IssueUpdateEmbeddingCommand(Mediator)
         {

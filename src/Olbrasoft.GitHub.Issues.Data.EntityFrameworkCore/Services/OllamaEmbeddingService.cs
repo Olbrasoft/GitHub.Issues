@@ -2,7 +2,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
@@ -76,7 +75,7 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
         throw new InvalidOperationException($"Failed to start Ollama after {totalWaitSeconds} seconds");
     }
 
-    public async Task<Vector?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
+    public async Task<float[]?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
     {
         // Ollama doesn't distinguish between document and query embeddings - parameter ignored
         if (string.IsNullOrWhiteSpace(text))
@@ -108,7 +107,7 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
                     .Select(e => e.GetSingle())
                     .ToArray();
 
-                return new Vector(floats);
+                return floats;
             }
 
             _logger.LogWarning("Ollama response did not contain embedding property");

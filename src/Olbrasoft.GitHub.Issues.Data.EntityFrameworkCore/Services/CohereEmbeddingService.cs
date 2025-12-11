@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Pgvector;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
@@ -60,7 +59,7 @@ public class CohereEmbeddingService : IEmbeddingService
         }
     }
 
-    public async Task<Vector?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
+    public async Task<float[]?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -117,7 +116,7 @@ public class CohereEmbeddingService : IEmbeddingService
         return null;
     }
 
-    private async Task<(bool Success, Vector? Embedding, int StatusCode)> TryGenerateEmbeddingAsync(
+    private async Task<(bool Success, float[]? Embedding, int StatusCode)> TryGenerateEmbeddingAsync(
         string text,
         string inputType,
         string apiKey,
@@ -167,8 +166,7 @@ public class CohereEmbeddingService : IEmbeddingService
 
             if (result?.Embeddings?.Float?.Count > 0)
             {
-                var floats = result.Embeddings.Float[0];
-                var embedding = new Vector(floats.ToArray());
+                var embedding = result.Embeddings.Float[0].ToArray();
 
                 _logger.LogInformation("Cohere embed: key=...{MaskedKey}, texts=1, type={InputType}, status={StatusCode}, latency={Latency}ms",
                     maskedKey, inputType, statusCode, stopwatch.ElapsedMilliseconds);

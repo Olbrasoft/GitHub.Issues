@@ -13,7 +13,7 @@ using Pgvector;
 namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
-    [Migration("20251211110045_InitialCreate")]
+    [Migration("20251211113343_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -21,7 +21,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "9.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");

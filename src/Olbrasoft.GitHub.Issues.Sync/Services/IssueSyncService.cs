@@ -106,7 +106,7 @@ public class IssueSyncService : IIssueSyncService
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
     }
 
-    private async Task<Pgvector.Vector?> GetEmbeddingAsync(
+    private async Task<float[]?> GetEmbeddingAsync(
         GitHubIssueDto ghIssue,
         Issue? existingIssue,
         bool isNew,

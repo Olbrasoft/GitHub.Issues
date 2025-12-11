@@ -1,21 +1,17 @@
-using Pgvector;
-
 namespace Olbrasoft.GitHub.Issues.Data.Entities;
 
 /// <summary>
 /// Issue entity with vector embedding for semantic search.
 /// </summary>
 /// <remarks>
-/// ARCHITECTURAL DECISION: Vector type from Pgvector package is used directly in entity.
+/// ARCHITECTURAL DECISION: float[] type for cross-provider compatibility.
 ///
-/// Alternatives considered (see issue #56):
-/// - float[] with EF value conversion: Won't work - CosineDistance() extension requires Vector type
-/// - Separate domain/persistence entities: Over-engineered for this use case
+/// PostgreSQL: Uses pgvector extension with float[] mapped to vector type
+/// SQL Server: Uses native VECTOR type via EFCore.SqlServer.VectorSearch
 ///
-/// Trade-off: Accept infrastructure dependency in Data layer for:
-/// - Full LINQ support with CosineDistance(), L2Distance(), etc.
-/// - Type safety and proper vector dimension handling
-/// - Minimal package footprint (~100KB, no external dependencies)
+/// Embedding dimensions configured per environment:
+/// - Local (Ollama nomic-embed-text): 768 dimensions
+/// - Azure (Cohere): 1024 dimensions
 /// </remarks>
 public class Issue
 {
@@ -26,7 +22,7 @@ public class Issue
     public bool IsOpen { get; set; } = true;
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
-    public Vector Embedding { get; set; } = null!;
+    public float[]? Embedding { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;

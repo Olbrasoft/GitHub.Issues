@@ -1,5 +1,3 @@
-using Pgvector;
-
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 
 /// <summary>
@@ -31,7 +29,7 @@ public interface IEmbeddingService
     /// <param name="text">Text to embed.</param>
     /// <param name="inputType">Type of input - Document for indexing, Query for searching.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<Vector?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default);
+    Task<float[]?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks if the embedding service is available and responding.
