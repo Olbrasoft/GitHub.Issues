@@ -324,18 +324,20 @@ app.MapGet("/api/repositories/sync-status", async (IMediator mediator, Cancellat
 });
 
 // Generate AI summary for issue (progressive loading via SignalR)
-app.MapPost("/api/issues/{id:int}/generate-summary", async (
+app.MapPost("/api/issues/{id:int}/generate-summary", (
     int id,
-    IIssueDetailService issueDetailService,
-    ILogger<Program> logger,
-    CancellationToken ct) =>
+    IServiceScopeFactory scopeFactory,
+    ILogger<Program> logger) =>
 {
-    // Fire and forget - run summary generation in background
+    // Fire and forget - run summary generation in background with its own DI scope
     // The result will be pushed via SignalR
     _ = Task.Run(async () =>
     {
         try
         {
+            // Create new scope for background work - scoped services need their own scope
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
             await issueDetailService.GenerateSummaryAsync(id, CancellationToken.None);
         }
         catch (Exception ex)
@@ -350,8 +352,7 @@ app.MapPost("/api/issues/{id:int}/generate-summary", async (
 // Translate issue titles to Czech (progressive loading via SignalR)
 app.MapPost("/api/issues/translate-titles", async (
     HttpRequest request,
-    ITitleTranslationService translationService,
-    ITranslationNotifier notifier,
+    IServiceScopeFactory scopeFactory,
     ILogger<Program> logger,
     CancellationToken ct) =>
 {
@@ -383,11 +384,16 @@ app.MapPost("/api/issues/translate-titles", async (
         return Results.Ok(new { translated = 0 });
     }
 
-    // Fire and forget - translate in background and push via SignalR
+    // Fire and forget - translate in background with its own DI scope
     _ = Task.Run(async () =>
     {
         try
         {
+            // Create new scope for background work - scoped services need their own scope
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var translationService = scope.ServiceProvider.GetRequiredService<ITitleTranslationService>();
+            var notifier = scope.ServiceProvider.GetRequiredService<ITranslationNotifier>();
+
             var results = await translationService.TranslateTitlesAsync(issueIds, CancellationToken.None);
 
             foreach (var result in results.Where(r => r.Success && r.CzechTitle != null))
