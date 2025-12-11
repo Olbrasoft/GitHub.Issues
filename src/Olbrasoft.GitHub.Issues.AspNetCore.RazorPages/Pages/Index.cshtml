@@ -44,6 +44,7 @@
                    placeholder="Zadejte hledaný text..."
                    class="search-input" />
             <button type="submit" class="search-button">Hledat</button>
+            <button type="button" class="reset-button" onclick="clearSearch()">Vymazat</button>
         </div>
 
         <div class="repo-filter-row">
@@ -207,11 +208,19 @@
     </div>
 </div>
 
+<!-- Hidden form for clearing search session -->
+<form id="clearSearchForm" method="post" asp-page-handler="ClearSearch" style="display: none;"></form>
+
 @section Scripts {
     <script>
         // Initialize selected repositories from server
         window.initialSelectedRepos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.SelectedRepositories.Select(r => new { id = r.Id, fullName = r.FullName })));
+
+        // Clear search function - clears session and reloads page
+        function clearSearch() {
+            document.getElementById('clearSearchForm').submit();
+        }
     </script>
     <script src="~/js/repo-filter.js"></script>
     <script src="~/js/db-status.js"></script>

@@ -21,6 +21,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 
+// Add session support for search state persistence
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(2);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.Name = ".GitHubIssues.Session";
+});
+
 // Configure GitHub OAuth authentication
 var gitHubClientId = builder.Configuration["GitHub:ClientId"];
 var gitHubClientSecret = builder.Configuration["GitHub:ClientSecret"];
@@ -203,6 +213,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();
