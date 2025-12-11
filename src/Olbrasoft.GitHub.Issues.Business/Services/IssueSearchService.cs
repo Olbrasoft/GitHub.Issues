@@ -161,6 +161,7 @@ public class IssueSearchService : Service, IIssueSearchService
             Id = dto.Id,
             IssueNumber = dto.IssueNumber,
             Title = dto.Title,
+            CzechTitle = dto.CzechTitle,
             IsOpen = dto.IsOpen,
             Url = dto.Url,
             RepositoryName = dto.RepositoryFullName,

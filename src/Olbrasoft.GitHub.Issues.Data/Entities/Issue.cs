@@ -30,6 +30,10 @@ public class Issue
     public string? SummaryProvider { get; set; }
     public DateTimeOffset? SummaryCachedAt { get; set; }
 
+    // Cached AI-generated Czech title translation
+    public string? CzechTitle { get; set; }
+    public DateTimeOffset? TitleTranslatedAt { get; set; }
+
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
     public ICollection<IssueEvent> Events { get; set; } = new List<IssueEvent>();

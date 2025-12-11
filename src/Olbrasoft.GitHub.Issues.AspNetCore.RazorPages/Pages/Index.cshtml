@@ -113,9 +113,16 @@
             <ul class="results-list">
                 @foreach (var result in Model.SearchResult.Results)
                 {
-                    <li class="result-item" data-issue-id="@result.Id">
+                    <li class="result-item" data-issue-id="@result.Id" data-needs-translation="@(string.IsNullOrEmpty(result.CzechTitle) ? "true" : "false")">
                         <div class="result-header">
-                            <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
+                            <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">
+                                <span class="issue-number">#@result.IssueNumber</span>
+                                <span class="title-text" data-english-title="@result.Title">@(result.CzechTitle ?? result.Title)</span>
+                                @if (string.IsNullOrEmpty(result.CzechTitle))
+                                {
+                                    <span class="translating-indicator" title="Překládám...">⏳</span>
+                                }
+                            </a>
                             <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
                                 @result.StateCzech
                             </span>

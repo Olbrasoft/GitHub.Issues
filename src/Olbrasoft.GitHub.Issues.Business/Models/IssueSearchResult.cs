@@ -22,6 +22,9 @@ public class IssueSearchResult
     /// <summary>Issue title.</summary>
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>Czech translation of the title (null if not yet translated).</summary>
+    public string? CzechTitle { get; set; }
+
     /// <summary>Whether the issue is currently open.</summary>
     public bool IsOpen { get; set; }
 

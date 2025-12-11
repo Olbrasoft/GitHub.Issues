@@ -866,6 +866,37 @@ footer {
     }
 }
 
+/* Title translation indicator */
+.translating-indicator {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.title-text {
+    transition: color 0.3s ease;
+}
+
+/* Title translated highlight animation */
+.result-item.title-translated {
+    animation: title-translated 1.5s ease-out;
+}
+
+@keyframes title-translated {
+    0% {
+        background-color: #d4edda;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
 /* Issue labels (GitHub-style badges) */
 .label-badge {
     display: inline-block;

@@ -27,6 +27,9 @@
         // Handle incoming issue updates
         connection.on('IssueUpdated', handleIssueUpdate);
 
+        // Handle title translation updates
+        connection.on('TitleTranslationReceived', handleTitleTranslation);
+
         // Handle connection state changes
         connection.onreconnecting(function (error) {
             console.log('SignalR reconnecting...', error);
@@ -78,9 +81,75 @@
             await connection.invoke('SubscribeToIssues', issueIds);
             subscribedIssueIds = issueIds;
             console.log('Subscribed to', issueIds.length, 'issues');
+
+            // Request translations for issues that need it
+            requestTitleTranslations();
         } catch (err) {
             console.error('Failed to subscribe to issues:', err);
         }
+    }
+
+    function requestTitleTranslations() {
+        // Find issues that need translation
+        const issueItems = document.querySelectorAll('.result-item[data-needs-translation="true"]');
+        const issueIds = Array.from(issueItems)
+            .map(item => parseInt(item.dataset.issueId, 10))
+            .filter(id => !isNaN(id));
+
+        if (issueIds.length === 0) {
+            return;
+        }
+
+        console.log('Requesting translations for', issueIds.length, 'issues');
+
+        // Call API to trigger translations (fire-and-forget)
+        fetch('/api/issues/translate-titles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ issueIds: issueIds })
+        })
+        .then(response => {
+            if (!response.ok) {
+                console.error('Translation request failed:', response.status);
+            }
+        })
+        .catch(err => {
+            console.error('Translation request error:', err);
+        });
+    }
+
+    function handleTitleTranslation(data) {
+        console.log('Received title translation:', data);
+
+        const issueItem = document.querySelector(`.result-item[data-issue-id="${data.issueId}"]`);
+        if (!issueItem) {
+            return;
+        }
+
+        // Update title text
+        const titleText = issueItem.querySelector('.title-text');
+        if (titleText && data.czechTitle) {
+            titleText.textContent = data.czechTitle;
+        }
+
+        // Remove translating indicator
+        const indicator = issueItem.querySelector('.translating-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+
+        // Mark as translated (no longer needs translation)
+        issueItem.dataset.needsTranslation = 'false';
+
+        // Add highlight animation
+        issueItem.classList.add('title-translated');
+
+        // Remove highlight after animation completes
+        setTimeout(function () {
+            issueItem.classList.remove('title-translated');
+        }, 1500);
     }
 
     function handleIssueUpdate(update) {

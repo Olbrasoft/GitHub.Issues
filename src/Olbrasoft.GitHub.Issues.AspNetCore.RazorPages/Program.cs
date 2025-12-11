@@ -142,6 +142,10 @@ builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
 // SignalR notifiers for progressive updates
 builder.Services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
+builder.Services.AddScoped<ITranslationNotifier, SignalRTranslationNotifier>();
+
+// Title translation service for search results
+builder.Services.AddScoped<ITitleTranslationService, TitleTranslationService>();
 
 // Register Sync services for data import
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
@@ -341,6 +345,70 @@ app.MapPost("/api/issues/{id:int}/generate-summary", async (
     });
 
     return Results.Accepted();
+});
+
+// Translate issue titles to Czech (progressive loading via SignalR)
+app.MapPost("/api/issues/translate-titles", async (
+    HttpRequest request,
+    ITitleTranslationService translationService,
+    ITranslationNotifier notifier,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    // Parse issue IDs from request body
+    List<int> issueIds;
+    try
+    {
+        using var reader = new StreamReader(request.Body);
+        var body = await reader.ReadToEndAsync(ct);
+        var json = JsonDocument.Parse(body);
+
+        if (!json.RootElement.TryGetProperty("issueIds", out var idsElement) ||
+            idsElement.ValueKind != JsonValueKind.Array)
+        {
+            return Results.BadRequest(new { error = "Missing issueIds array" });
+        }
+
+        issueIds = idsElement.EnumerateArray()
+            .Select(e => e.GetInt32())
+            .ToList();
+    }
+    catch (JsonException)
+    {
+        return Results.BadRequest(new { error = "Invalid JSON" });
+    }
+
+    if (issueIds.Count == 0)
+    {
+        return Results.Ok(new { translated = 0 });
+    }
+
+    // Fire and forget - translate in background and push via SignalR
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            var results = await translationService.TranslateTitlesAsync(issueIds, CancellationToken.None);
+
+            foreach (var result in results.Where(r => r.Success && r.CzechTitle != null))
+            {
+                await notifier.NotifyTitleTranslationAsync(
+                    new TitleTranslationNotificationDto(result.IssueId, result.CzechTitle!),
+                    CancellationToken.None);
+            }
+
+            logger.LogInformation(
+                "Translated {Count}/{Total} titles",
+                results.Count(r => r.Success),
+                issueIds.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Background title translation failed");
+        }
+    });
+
+    return Results.Accepted(value: new { queued = issueIds.Count });
 });
 
 // Sync specific repository or all repositories
