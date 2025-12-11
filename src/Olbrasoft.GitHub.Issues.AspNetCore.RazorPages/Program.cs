@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
@@ -217,6 +218,24 @@ builder.Services.AddScoped<IIssueUpdateNotifier, SignalRIssueUpdateNotifier>();
 builder.Services.AddScoped<IGitHubWebhookService, GitHubWebhookService>();
 
 var app = builder.Build();
+
+// Apply pending migrations automatically
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<GitHubDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        logger.LogInformation("Applying pending database migrations...");
+        dbContext.Database.Migrate();
+        logger.LogInformation("Database migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error applying database migrations");
+        throw; // Fail fast if migrations fail
+    }
+}
 
 // Configure pipeline
 if (!app.Environment.IsDevelopment())
