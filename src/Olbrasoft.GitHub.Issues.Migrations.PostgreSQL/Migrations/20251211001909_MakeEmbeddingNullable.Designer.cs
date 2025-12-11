@@ -2,18 +2,19 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 {
     [DbContext(typeof(GitHubDbContext))]
-    [Migration("20251210221630_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251211001909_MakeEmbeddingNullable")]
+    partial class MakeEmbeddingNullable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,23 +22,24 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "9.0.5")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.EventType", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("name");
 
                     b.HasKey("Id");
@@ -264,50 +266,49 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<byte[]>("Embedding")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)")
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector(768)")
                         .HasColumnName("embedding");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("github_updated_at");
 
                     b.Property<bool>("IsOpen")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("is_open");
 
                     b.Property<int>("Number")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("number");
 
                     b.Property<int?>("ParentIssueId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("parent_issue_id");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("repository_id");
 
                     b.Property<DateTimeOffset>("SyncedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("synced_at");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnType("character varying(1024)")
                         .HasColumnName("title");
 
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
+                        .HasColumnType("character varying(512)")
                         .HasColumnName("url");
 
                     b.HasKey("Id");
@@ -324,26 +325,26 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("ActorId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("actor_id");
 
                     b.Property<string>("ActorLogin")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("actor_login");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<int>("EventTypeId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("event_type_id");
 
                     b.Property<long>("GitHubEventId")
@@ -351,7 +352,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .HasColumnName("github_event_id");
 
                     b.Property<int>("IssueId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("issue_id");
 
                     b.HasKey("Id");
@@ -369,11 +370,11 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.IssueLabel", b =>
                 {
                     b.Property<int>("IssueId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("issue_id");
 
                     b.Property<int>("LabelId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("label_id");
 
                     b.HasKey("IssueId", "LabelId");
@@ -387,27 +388,27 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Color")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)")
+                        .HasColumnType("character varying(6)")
                         .HasDefaultValue("ededed")
                         .HasColumnName("color");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("name");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("repository_id");
 
                     b.HasKey("Id");
@@ -422,15 +423,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("full_name");
 
                     b.Property<long>("GitHubId")
@@ -440,11 +441,11 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.Property<string>("HtmlUrl")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
+                        .HasColumnType("character varying(512)")
                         .HasColumnName("html_url");
 
                     b.Property<DateTimeOffset?>("LastSyncedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_synced_at");
 
                     b.HasKey("Id");

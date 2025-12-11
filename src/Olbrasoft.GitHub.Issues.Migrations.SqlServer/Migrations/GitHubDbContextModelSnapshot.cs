@@ -267,7 +267,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<byte[]>("Embedding")
-                        .IsRequired()
                         .HasColumnType("varbinary(max)")
                         .HasColumnName("embedding");
 

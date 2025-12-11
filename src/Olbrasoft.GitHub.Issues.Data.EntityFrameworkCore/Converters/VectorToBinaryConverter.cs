@@ -41,7 +41,7 @@ public class VectorToBinaryConverter : ValueConverter<Vector, byte[]>
     private static Vector BytesToVector(byte[] bytes)
     {
         if (bytes == null || bytes.Length == 0)
-            return new Vector(new float[768]); // Default to 768-dimension zero vector
+            return null!; // Return null for empty bytes - don't assume dimension
 
         var floatCount = bytes.Length / FloatSize;
         var floats = new float[floatCount];
