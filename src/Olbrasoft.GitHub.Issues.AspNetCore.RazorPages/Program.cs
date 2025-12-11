@@ -224,7 +224,7 @@ app.MapPost("/api/data/sync", async (
     try
     {
         // Parse request body
-        string? repositoryFullName = null;
+        List<string>? repositoryFullNames = null;
         bool fullRefresh = false;
 
         if (request.ContentLength > 0)
@@ -234,10 +234,25 @@ app.MapPost("/api/data/sync", async (
             if (!string.IsNullOrWhiteSpace(body))
             {
                 var json = JsonDocument.Parse(body);
-                if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+
+                // Support both single repo (legacy) and multiple repos
+                if (json.RootElement.TryGetProperty("repositoryFullNames", out var reposElement) && reposElement.ValueKind == JsonValueKind.Array)
                 {
-                    repositoryFullName = repoElement.GetString();
+                    repositoryFullNames = reposElement.EnumerateArray()
+                        .Select(e => e.GetString())
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Cast<string>()
+                        .ToList();
                 }
+                else if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+                {
+                    var singleRepo = repoElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(singleRepo))
+                    {
+                        repositoryFullNames = new List<string> { singleRepo };
+                    }
+                }
+
                 if (json.RootElement.TryGetProperty("fullRefresh", out var refreshElement))
                 {
                     fullRefresh = refreshElement.GetBoolean();
@@ -248,27 +263,59 @@ app.MapPost("/api/data/sync", async (
         // Determine sync mode
         var smartMode = !fullRefresh;
 
-        if (!string.IsNullOrWhiteSpace(repositoryFullName))
+        Olbrasoft.GitHub.Issues.Data.Dtos.SyncStatisticsDto stats;
+
+        if (repositoryFullNames != null && repositoryFullNames.Count > 0)
         {
-            // Sync specific repository
-            var parts = repositoryFullName.Split('/');
-            if (parts.Length != 2)
+            // Validate all repository formats first
+            foreach (var repoFullName in repositoryFullNames)
             {
-                return Results.BadRequest(new { success = false, message = "Invalid repository format. Expected: owner/repo" });
+                var parts = repoFullName.Split('/');
+                if (parts.Length != 2)
+                {
+                    return Results.BadRequest(new { success = false, message = $"Invalid repository format: {repoFullName}. Expected: owner/repo" });
+                }
             }
 
-            logger.LogInformation("Starting sync for {Repository} (smartMode: {SmartMode})", repositoryFullName, smartMode);
-            await syncService.SyncRepositoryAsync(parts[0], parts[1], since: null, smartMode: smartMode, ct);
+            logger.LogInformation("Starting sync for {Count} repositories (smartMode: {SmartMode})", repositoryFullNames.Count, smartMode);
+            stats = await syncService.SyncRepositoriesAsync(repositoryFullNames, since: null, smartMode: smartMode, ct);
 
-            return Results.Ok(new { success = true, message = $"Synchronizace {repositoryFullName} dokončena" });
+            var repoLabel = repositoryFullNames.Count == 1 ? repositoryFullNames[0] : $"{repositoryFullNames.Count} repozitářů";
+            return Results.Ok(new
+            {
+                success = true,
+                message = $"Synchronizace {repoLabel} dokončena",
+                statistics = new
+                {
+                    apiCalls = stats.ApiCalls,
+                    totalFound = stats.TotalFound,
+                    created = stats.Created,
+                    updated = stats.Updated,
+                    unchanged = stats.Unchanged,
+                    sinceTimestamp = stats.SinceTimestamp
+                }
+            });
         }
         else
         {
             // Sync all repositories
             logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode})", smartMode);
-            await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+            stats = await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
 
-            return Results.Ok(new { success = true, message = "Synchronizace všech repozitářů dokončena" });
+            return Results.Ok(new
+            {
+                success = true,
+                message = "Synchronizace všech repozitářů dokončena",
+                statistics = new
+                {
+                    apiCalls = stats.ApiCalls,
+                    totalFound = stats.TotalFound,
+                    created = stats.Created,
+                    updated = stats.Updated,
+                    unchanged = stats.Unchanged,
+                    sinceTimestamp = stats.SinceTimestamp
+                }
+            });
         }
     }
     catch (Exception ex)

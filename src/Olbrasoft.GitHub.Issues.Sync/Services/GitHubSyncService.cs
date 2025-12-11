@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 
@@ -36,7 +37,7 @@ public class GitHubSyncService : IGitHubSyncService
         _logger = logger;
     }
 
-    public async Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         IEnumerable<string> repositories;
 
@@ -55,14 +56,16 @@ public class GitHubSyncService : IGitHubSyncService
         else
         {
             _logger.LogWarning("No repositories to sync. Configure either 'Repositories' list or 'Owner' in settings.");
-            return;
+            return new SyncStatisticsDto();
         }
 
-        await SyncRepositoriesAsync(repositories, since, smartMode, cancellationToken);
+        return await SyncRepositoriesAsync(repositories, since, smartMode, cancellationToken);
     }
 
-    public async Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
+        var aggregatedStats = new SyncStatisticsDto();
+
         foreach (var repoFullName in repositories)
         {
             var parts = repoFullName.Split('/');
@@ -72,11 +75,17 @@ public class GitHubSyncService : IGitHubSyncService
                 continue;
             }
 
-            await SyncRepositoryAsync(parts[0], parts[1], since, smartMode, cancellationToken);
+            var repoStats = await SyncRepositoryAsync(parts[0], parts[1], since, smartMode, cancellationToken);
+            aggregatedStats.Add(repoStats);
+
+            // Keep the first since timestamp (for display purposes)
+            aggregatedStats.SinceTimestamp ??= repoStats.SinceTimestamp;
         }
+
+        return aggregatedStats;
     }
 
-    public async Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         var repository = await _repositorySyncService.EnsureRepositoryAsync(owner, repo, cancellationToken);
 
@@ -106,12 +115,15 @@ public class GitHubSyncService : IGitHubSyncService
 
         // Orchestrate sync operations
         await _labelSyncService.SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken);
+        var stats = await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken);
         await _eventSyncService.SyncEventsAsync(repository, owner, repo, effectiveSince, cancellationToken);
 
         // Update last synced timestamp via Business service
         await _repositorySyncBusiness.UpdateLastSyncedAsync(repository.Id, DateTimeOffset.UtcNow, cancellationToken);
 
-        _logger.LogInformation("Completed sync for {Owner}/{Repo}", owner, repo);
+        _logger.LogInformation("Completed sync for {Owner}/{Repo}: Found={Found}, Created={Created}, Updated={Updated}, Unchanged={Unchanged}",
+            owner, repo, stats.TotalFound, stats.Created, stats.Updated, stats.Unchanged);
+
+        return stats;
     }
 }

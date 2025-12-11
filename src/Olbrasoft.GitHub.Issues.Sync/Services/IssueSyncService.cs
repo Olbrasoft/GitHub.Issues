@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
@@ -32,15 +33,21 @@ public class IssueSyncService : IIssueSyncService
         _logger = logger;
     }
 
-    public async Task SyncIssuesAsync(
+    public async Task<SyncStatisticsDto> SyncIssuesAsync(
         Repository repository,
         string owner,
         string repo,
         DateTimeOffset? since = null,
         CancellationToken cancellationToken = default)
     {
+        var stats = new SyncStatisticsDto
+        {
+            SinceTimestamp = since
+        };
+
         // Fetch issues from GitHub API
         var allIssues = await _apiClient.FetchIssuesAsync(owner, repo, since, cancellationToken);
+        stats.ApiCalls++; // Count API call
 
         // Get existing issues for change detection
         var existingIssues = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
@@ -55,6 +62,8 @@ public class IssueSyncService : IIssueSyncService
             {
                 continue;
             }
+
+            stats.TotalFound++;
 
             // Track parent-child relationships for later
             if (!string.IsNullOrEmpty(ghIssue.ParentIssueUrl))
@@ -89,6 +98,20 @@ public class IssueSyncService : IIssueSyncService
                 embedding,
                 cancellationToken);
 
+            // Track statistics
+            if (isNew)
+            {
+                stats.Created++;
+            }
+            else if (hasChanged)
+            {
+                stats.Updated++;
+            }
+            else
+            {
+                stats.Unchanged++;
+            }
+
             // Sync labels
             if (ghIssue.LabelNames.Count > 0)
             {
@@ -104,6 +127,8 @@ public class IssueSyncService : IIssueSyncService
 
         // Update parent-child relationships
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
+
+        return stats;
     }
 
     private async Task<float[]?> GetEmbeddingAsync(

@@ -18,25 +18,13 @@
     <div class="search-header">
         <h1>Hledat GitHub issues</h1>
         <div class="header-actions">
-            <div class="sync-controls">
-                <button id="importBtn" class="import-btn" title="Synchronizovat data z GitHubu">
-                    <span class="import-icon">&#8635;</span>
-                    <span class="import-text">Importovat data</span>
-                </button>
-                <div class="sync-options hidden">
-                    <select id="repoSelect" class="repo-select">
-                        <option value="">Všechny repozitáře</option>
-                    </select>
-                    <label class="full-refresh-label">
-                        <input type="checkbox" id="fullRefreshCheckbox" />
-                        Plný refresh
-                    </label>
-                </div>
-            </div>
+            <button id="syncBtn" class="sync-btn" title="Synchronizovat data z GitHubu">
+                <span class="sync-icon">&#8635;</span>
+                <span class="sync-text">Importovat data</span>
+            </button>
             <span id="dbStats" class="db-stats"></span>
         </div>
     </div>
-    <div id="syncStatusContainer" class="sync-status-container"></div>
 
     <form method="get" class="search-form" id="searchForm">
         <div class="search-row">
@@ -154,6 +142,56 @@
         }
     </div>
 }
+
+<!-- Sync Modal Dialog -->
+<div id="syncModal" class="modal-overlay" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2>Synchronizace dat</h2>
+            <button id="modalCloseBtn" class="modal-close-btn" title="Zavřít">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-field">
+                <label>Repozitáře:</label>
+                <div class="tag-input-container" id="syncTagInputContainer">
+                    <div class="tags" id="syncSelectedTags"></div>
+                    <input type="text"
+                           id="syncRepoSearchInput"
+                           placeholder="Zadejte název repozitáře... (prázdné = všechny)"
+                           autocomplete="off" />
+                    <div class="autocomplete-dropdown" id="syncAutocompleteDropdown"></div>
+                </div>
+                <small class="field-hint">Prázdné pole = synchronizace všech repozitářů</small>
+            </div>
+            <div class="modal-field">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="modalFullRefreshCheckbox" />
+                    Plný refresh (stáhnout vše znovu, ignorovat timestamp)
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="modalCancelBtn" class="btn-secondary">Zrušit</button>
+            <button id="modalSyncBtn" class="btn-primary">Synchronizovat</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Result Modal -->
+<div id="syncResultModal" class="modal-overlay" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2 id="syncResultTitle">Synchronizace dokončena</h2>
+            <button id="resultCloseBtn" class="modal-close-btn" title="Zavřít">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="syncResultContent"></div>
+        </div>
+        <div class="modal-footer">
+            <button id="resultOkBtn" class="btn-primary">Zavřít</button>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>

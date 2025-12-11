@@ -1,3 +1,5 @@
+using Olbrasoft.GitHub.Issues.Data.Dtos;
+
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 
 public interface IGitHubSyncService
@@ -10,7 +12,8 @@ public interface IGitHubSyncService
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    /// <returns>Statistics about the sync operation.</returns>
+    Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes all repositories based on configuration:
@@ -20,7 +23,8 @@ public interface IGitHubSyncService
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    /// <returns>Aggregated statistics about the sync operation.</returns>
+    Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes a list of repositories provided as arguments.
@@ -29,5 +33,6 @@ public interface IGitHubSyncService
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    /// <returns>Aggregated statistics about the sync operation.</returns>
+    Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 }

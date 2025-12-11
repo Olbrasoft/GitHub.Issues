@@ -1,20 +1,40 @@
 /**
- * Database status checker and intelligent sync functionality
+ * Database status checker and intelligent sync functionality with modal dialog
  */
 (function() {
     'use strict';
 
+    // DOM Elements - Status banner
     const banner = document.getElementById('dbStatusBanner');
     const statusIcon = banner?.querySelector('.db-status-icon');
     const statusMessage = banner?.querySelector('.db-status-message');
     const actionBtn = document.getElementById('dbActionBtn');
     const dismissBtn = document.getElementById('dbDismissBtn');
-    const importBtn = document.getElementById('importBtn');
-    const importBtnText = importBtn?.querySelector('.import-text');
     const dbStats = document.getElementById('dbStats');
-    const repoSelect = document.getElementById('repoSelect');
-    const fullRefreshCheckbox = document.getElementById('fullRefreshCheckbox');
-    const syncStatusContainer = document.getElementById('syncStatusContainer');
+
+    // DOM Elements - Sync button
+    const syncBtn = document.getElementById('syncBtn');
+    const syncBtnText = syncBtn?.querySelector('.sync-text');
+
+    // DOM Elements - Sync Modal
+    const syncModal = document.getElementById('syncModal');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+    const modalSyncBtn = document.getElementById('modalSyncBtn');
+    const modalFullRefreshCheckbox = document.getElementById('modalFullRefreshCheckbox');
+
+    // DOM Elements - Sync Modal Tag Input
+    const syncTagInputContainer = document.getElementById('syncTagInputContainer');
+    const syncSelectedTags = document.getElementById('syncSelectedTags');
+    const syncRepoSearchInput = document.getElementById('syncRepoSearchInput');
+    const syncAutocompleteDropdown = document.getElementById('syncAutocompleteDropdown');
+
+    // DOM Elements - Sync Result Modal
+    const syncResultModal = document.getElementById('syncResultModal');
+    const syncResultTitle = document.getElementById('syncResultTitle');
+    const syncResultContent = document.getElementById('syncResultContent');
+    const resultCloseBtn = document.getElementById('resultCloseBtn');
+    const resultOkBtn = document.getElementById('resultOkBtn');
 
     // Status codes from server
     const StatusCode = {
@@ -26,7 +46,11 @@
     };
 
     let currentStatus = null;
-    let repositorySyncStatus = [];
+    let syncSelectedRepos = []; // Selected repos in sync modal
+    let syncSelectedIndex = -1;
+    let syncDebounceTimer = null;
+
+    // ===== Database Status Functions =====
 
     async function checkDatabaseStatus() {
         try {
@@ -36,102 +60,10 @@
             const status = await response.json();
             currentStatus = status;
             updateUI(status);
-
-            // Load repository sync status if we have data
-            if (status.statusCode === StatusCode.Healthy) {
-                await loadRepositorySyncStatus();
-            }
         } catch (error) {
             console.error('Error checking database status:', error);
             showBanner('error', '⚠️', 'Chyba při kontrole databáze', null);
         }
-    }
-
-    async function loadRepositorySyncStatus() {
-        try {
-            const response = await fetch('/api/repositories/sync-status');
-            if (!response.ok) throw new Error('Failed to fetch sync status');
-
-            repositorySyncStatus = await response.json();
-            populateRepoDropdown();
-            updateSyncStatusDisplay();
-        } catch (error) {
-            console.error('Error loading repository sync status:', error);
-        }
-    }
-
-    function populateRepoDropdown() {
-        if (!repoSelect) return;
-
-        // Clear existing options (except first)
-        while (repoSelect.options.length > 1) {
-            repoSelect.remove(1);
-        }
-
-        // Add repositories
-        repositorySyncStatus.forEach(repo => {
-            const option = document.createElement('option');
-            option.value = repo.fullName;
-            option.textContent = `${repo.fullName} (${repo.issueCount} issues)`;
-            repoSelect.appendChild(option);
-        });
-
-        // Show dropdown if we have repositories
-        if (repositorySyncStatus.length > 0) {
-            repoSelect.closest('.sync-options')?.classList.remove('hidden');
-        }
-    }
-
-    function updateSyncStatusDisplay() {
-        if (!syncStatusContainer) return;
-
-        if (repositorySyncStatus.length === 0) {
-            syncStatusContainer.innerHTML = '';
-            return;
-        }
-
-        const html = `
-            <details class="sync-status-details">
-                <summary>Stav synchronizace repozitářů</summary>
-                <table class="sync-status-table">
-                    <thead>
-                        <tr>
-                            <th>Repozitář</th>
-                            <th>Issues</th>
-                            <th>Poslední sync</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${repositorySyncStatus.map(repo => `
-                            <tr>
-                                <td>${repo.fullName}</td>
-                                <td>${repo.issueCount}</td>
-                                <td>${formatLastSync(repo.lastSyncedAt)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </details>
-        `;
-        syncStatusContainer.innerHTML = html;
-    }
-
-    function formatLastSync(timestamp) {
-        if (!timestamp) return '<span class="never-synced">nikdy</span>';
-
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'právě teď';
-        if (diffMins < 60) return `před ${diffMins} min`;
-        if (diffHours < 24) return `před ${diffHours} hod`;
-        if (diffDays < 7) return `před ${diffDays} dny`;
-
-        return date.toLocaleDateString('cs-CZ');
     }
 
     function updateUI(status) {
@@ -168,7 +100,7 @@
             case StatusCode.NoData:
                 showBanner('info', 'ℹ️', status.statusMessage, {
                     text: 'Importovat data',
-                    action: syncData
+                    action: () => syncDataDirect() // Direct sync when no data
                 });
                 break;
 
@@ -184,19 +116,15 @@
     }
 
     function updateButtonForImport() {
-        if (importBtnText) {
-            importBtnText.textContent = 'Importovat data';
+        if (syncBtnText) {
+            syncBtnText.textContent = 'Importovat data';
         }
-        // Hide sync options when importing
-        document.querySelector('.sync-options')?.classList.add('hidden');
     }
 
     function updateButtonForSync() {
-        if (importBtnText) {
-            importBtnText.textContent = 'Synchronizovat';
+        if (syncBtnText) {
+            syncBtnText.textContent = 'Synchronizovat';
         }
-        // Show sync options when syncing
-        document.querySelector('.sync-options')?.classList.remove('hidden');
     }
 
     function showBanner(type, icon, message, action) {
@@ -241,46 +169,126 @@
         }
     }
 
-    async function syncData() {
-        const btn = importBtn || actionBtn;
+    // ===== Sync Modal Functions =====
+
+    function openSyncModal() {
+        // If no data, do direct sync without modal
+        if (currentStatus?.statusCode === StatusCode.NoData) {
+            syncDataDirect();
+            return;
+        }
+
+        // Pre-fill from search filter if available
+        if (window.initialSelectedRepos && Array.isArray(window.initialSelectedRepos)) {
+            syncSelectedRepos = window.initialSelectedRepos.map(r => ({
+                id: r.id,
+                fullName: r.fullName
+            }));
+        } else {
+            syncSelectedRepos = [];
+        }
+
+        renderSyncTags();
+        modalFullRefreshCheckbox.checked = false;
+        syncModal.style.display = 'flex';
+        syncRepoSearchInput.focus();
+    }
+
+    function closeSyncModal() {
+        syncModal.style.display = 'none';
+        hideSyncDropdown();
+    }
+
+    function renderSyncTags() {
+        syncSelectedTags.innerHTML = syncSelectedRepos.map(repo => `
+            <span class="tag" data-id="${repo.id}">
+                ${repo.fullName}
+                <span class="tag-remove" data-id="${repo.id}">&times;</span>
+            </span>
+        `).join('');
+    }
+
+    function addSyncRepo(repo) {
+        if (syncSelectedRepos.some(r => r.id === repo.id)) return;
+        syncSelectedRepos.push(repo);
+        renderSyncTags();
+        syncRepoSearchInput.value = '';
+        hideSyncDropdown();
+    }
+
+    function removeSyncRepo(id) {
+        syncSelectedRepos = syncSelectedRepos.filter(r => r.id !== id);
+        renderSyncTags();
+    }
+
+    function showSyncDropdown(repos) {
+        if (repos.length === 0) {
+            hideSyncDropdown();
+            return;
+        }
+
+        const filteredRepos = repos.filter(r => !syncSelectedRepos.some(s => s.id === r.id));
+        if (filteredRepos.length === 0) {
+            hideSyncDropdown();
+            return;
+        }
+
+        syncAutocompleteDropdown.innerHTML = filteredRepos.map((repo, index) => `
+            <div class="autocomplete-item${index === syncSelectedIndex ? ' selected' : ''}"
+                 data-id="${repo.id}"
+                 data-fullname="${repo.fullName}">
+                ${repo.fullName}
+            </div>
+        `).join('');
+
+        syncAutocompleteDropdown.classList.add('show');
+    }
+
+    function hideSyncDropdown() {
+        syncAutocompleteDropdown.classList.remove('show');
+        syncSelectedIndex = -1;
+    }
+
+    function searchSyncRepos(term) {
+        if (!term || term.length < 1) {
+            hideSyncDropdown();
+            return;
+        }
+
+        fetch(`/api/repositories/search?term=${encodeURIComponent(term)}`)
+            .then(response => response.json())
+            .then(repos => showSyncDropdown(repos))
+            .catch(() => hideSyncDropdown());
+    }
+
+    // ===== Sync Execution =====
+
+    // Direct sync (no modal) - used when database is empty
+    async function syncDataDirect() {
+        const btn = syncBtn || actionBtn;
         const originalHtml = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<span class="import-icon spinning">&#8635;</span> Synchronizuji...';
+        btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
 
-        // Hide action button in banner if it exists
         if (actionBtn) {
             actionBtn.style.display = 'none';
         }
 
-        // Get sync options
-        const selectedRepo = repoSelect?.value || '';
-        const fullRefresh = fullRefreshCheckbox?.checked || false;
-
-        // Determine progress message
-        const repoLabel = selectedRepo || 'všechny repozitáře';
-        const refreshLabel = fullRefresh ? ' (plný refresh)' : '';
-
-        // Show progress banner
-        showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}...`, null);
+        showBanner('info', '⏳', 'Synchronizuji všechny repozitáře...', null);
 
         try {
             const response = await fetch('/api/data/sync', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    repositoryFullName: selectedRepo || null,
-                    fullRefresh: fullRefresh
+                    repositoryFullNames: null,
+                    fullRefresh: false
                 })
             });
             const result = await response.json();
 
             if (result.success) {
-                showBanner('success', '✅', result.message, null);
-                setTimeout(() => {
-                    checkDatabaseStatus();
-                }, 2000);
+                showSyncResult(result);
             } else {
                 showBanner('error', '❌', `Chyba synchronizace: ${result.message}`, null);
             }
@@ -292,9 +300,208 @@
         }
     }
 
-    // Event listeners
+    // Sync from modal
+    async function syncDataFromModal() {
+        closeSyncModal();
+
+        const btn = syncBtn;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
+
+        const fullRefresh = modalFullRefreshCheckbox.checked;
+        const repoNames = syncSelectedRepos.map(r => r.fullName);
+        const repoLabel = repoNames.length > 0 ? repoNames.join(', ') : 'všechny repozitáře';
+        const refreshLabel = fullRefresh ? ' (plný refresh)' : '';
+
+        showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}...`, null);
+
+        try {
+            const response = await fetch('/api/data/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    repositoryFullNames: repoNames.length > 0 ? repoNames : null,
+                    fullRefresh: fullRefresh
+                })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                showSyncResult(result);
+            } else {
+                showBanner('error', '❌', `Chyba synchronizace: ${result.message}`, null);
+            }
+        } catch (error) {
+            showBanner('error', '❌', `Chyba: ${error.message}`, null);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+
+    // ===== Sync Result Modal =====
+
+    function showSyncResult(result) {
+        hideBanner();
+
+        syncResultTitle.textContent = result.success ? 'Synchronizace dokončena' : 'Synchronizace selhala';
+
+        let html = '';
+
+        if (result.statistics) {
+            const stats = result.statistics;
+            html += `
+                <div class="sync-stats">
+                    <div class="sync-stat-row">
+                        <span class="sync-stat-label">API dotazů:</span>
+                        <span class="sync-stat-value">${stats.apiCalls || 0}</span>
+                    </div>
+                    <div class="sync-stat-row">
+                        <span class="sync-stat-label">Nalezeno issues:</span>
+                        <span class="sync-stat-value">${stats.totalFound || 0}</span>
+                    </div>
+                    <div class="sync-stat-row">
+                        <span class="sync-stat-label">Nově přidáno:</span>
+                        <span class="sync-stat-value">${stats.created || 0}</span>
+                    </div>
+                    <div class="sync-stat-row">
+                        <span class="sync-stat-label">Aktualizováno:</span>
+                        <span class="sync-stat-value">${stats.updated || 0}</span>
+                    </div>
+                    <div class="sync-stat-row">
+                        <span class="sync-stat-label">Beze změny:</span>
+                        <span class="sync-stat-value">${stats.unchanged || 0}</span>
+                    </div>
+                </div>
+            `;
+
+            if (stats.sinceTimestamp) {
+                html += `
+                    <div class="sync-timestamp">
+                        <small>Inkrementální sync od: ${new Date(stats.sinceTimestamp).toLocaleString('cs-CZ')}</small>
+                    </div>
+                `;
+            }
+        } else {
+            html = `<p>${result.message}</p>`;
+        }
+
+        syncResultContent.innerHTML = html;
+        syncResultModal.style.display = 'flex';
+
+        // Refresh database status after sync
+        setTimeout(() => {
+            checkDatabaseStatus();
+        }, 500);
+    }
+
+    function closeSyncResultModal() {
+        syncResultModal.style.display = 'none';
+    }
+
+    // ===== Event Listeners =====
+
+    // Sync button click
+    syncBtn?.addEventListener('click', openSyncModal);
+
+    // Dismiss banner
     dismissBtn?.addEventListener('click', hideBanner);
-    importBtn?.addEventListener('click', syncData);
+
+    // Modal close buttons
+    modalCloseBtn?.addEventListener('click', closeSyncModal);
+    modalCancelBtn?.addEventListener('click', closeSyncModal);
+    modalSyncBtn?.addEventListener('click', syncDataFromModal);
+
+    // Result modal close buttons
+    resultCloseBtn?.addEventListener('click', closeSyncResultModal);
+    resultOkBtn?.addEventListener('click', closeSyncResultModal);
+
+    // Click outside modal to close
+    syncModal?.addEventListener('click', function(e) {
+        if (e.target === syncModal) {
+            closeSyncModal();
+        }
+    });
+
+    syncResultModal?.addEventListener('click', function(e) {
+        if (e.target === syncResultModal) {
+            closeSyncResultModal();
+        }
+    });
+
+    // Sync modal tag input - typing
+    syncRepoSearchInput?.addEventListener('input', function(e) {
+        clearTimeout(syncDebounceTimer);
+        syncDebounceTimer = setTimeout(() => {
+            searchSyncRepos(e.target.value.trim());
+        }, 200);
+    });
+
+    // Sync modal tag input - keyboard navigation
+    syncRepoSearchInput?.addEventListener('keydown', function(e) {
+        const items = syncAutocompleteDropdown.querySelectorAll('.autocomplete-item');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            syncSelectedIndex = Math.min(syncSelectedIndex + 1, items.length - 1);
+            updateSyncSelectedItem(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            syncSelectedIndex = Math.max(syncSelectedIndex - 1, 0);
+            updateSyncSelectedItem(items);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (syncSelectedIndex >= 0 && items[syncSelectedIndex]) {
+                const item = items[syncSelectedIndex];
+                addSyncRepo({
+                    id: parseInt(item.dataset.id),
+                    fullName: item.dataset.fullname
+                });
+            }
+        } else if (e.key === 'Escape') {
+            hideSyncDropdown();
+        } else if (e.key === 'Backspace' && !e.target.value && syncSelectedRepos.length > 0) {
+            removeSyncRepo(syncSelectedRepos[syncSelectedRepos.length - 1].id);
+        }
+    });
+
+    function updateSyncSelectedItem(items) {
+        items.forEach((item, index) => {
+            item.classList.toggle('selected', index === syncSelectedIndex);
+        });
+    }
+
+    // Sync modal dropdown - click
+    syncAutocompleteDropdown?.addEventListener('click', function(e) {
+        const item = e.target.closest('.autocomplete-item');
+        if (item) {
+            addSyncRepo({
+                id: parseInt(item.dataset.id),
+                fullName: item.dataset.fullname
+            });
+        }
+    });
+
+    // Sync modal tags - remove click
+    syncSelectedTags?.addEventListener('click', function(e) {
+        if (e.target.classList.contains('tag-remove')) {
+            removeSyncRepo(parseInt(e.target.dataset.id));
+        }
+    });
+
+    // Click outside dropdown to close
+    syncTagInputContainer?.addEventListener('click', function(e) {
+        if (e.target === syncTagInputContainer || e.target === syncRepoSearchInput) {
+            // Keep dropdown
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#syncTagInputContainer')) {
+            hideSyncDropdown();
+        }
+    });
 
     // Check status on page load
     document.addEventListener('DOMContentLoaded', checkDatabaseStatus);

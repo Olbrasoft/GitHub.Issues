@@ -545,107 +545,241 @@ footer {
     border-radius: 4px;
 }
 
-/* Sync controls */
-.sync-controls {
+/* Sync button */
+.sync-btn {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.sync-options {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.sync-options.hidden {
-    display: none;
-}
-
-.repo-select {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.9rem;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background-color: white;
-    cursor: pointer;
-    min-width: 180px;
-}
-
-.repo-select:focus {
-    border-color: #0366d6;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.1);
-}
-
-.full-refresh-label {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.85rem;
-    color: #666;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.full-refresh-label input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-}
-
-/* Sync status container */
-.sync-status-container {
-    margin-top: 1rem;
-}
-
-.sync-status-details {
-    background: #f6f8fa;
-    border-radius: 6px;
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
-}
-
-.sync-status-details summary {
+    background-color: #6c5ce7;
+    color: white;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 500;
-    color: #24292e;
-    padding: 0.5rem 0;
-}
-
-.sync-status-details summary:hover {
-    color: #0366d6;
-}
-
-.sync-status-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 0.75rem;
     font-size: 0.9rem;
 }
 
-.sync-status-table th,
-.sync-status-table td {
-    padding: 0.5rem 0.75rem;
-    text-align: left;
+.sync-btn:hover {
+    background-color: #5a4ccc;
+}
+
+.sync-btn:disabled {
+    background-color: #a29bfe;
+    cursor: not-allowed;
+}
+
+.sync-icon {
+    font-size: 1.1rem;
+    display: inline-block;
+}
+
+.sync-icon.spinning {
+    animation: spin 1s linear infinite;
+}
+
+/* Modal Dialog */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-dialog {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid #e1e4e8;
 }
 
-.sync-status-table th {
-    font-weight: 600;
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
     color: #24292e;
-    background-color: #f1f3f5;
 }
 
-.sync-status-table tr:last-child td {
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close-btn:hover {
+    color: #24292e;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.modal-field {
+    margin-bottom: 1.25rem;
+}
+
+.modal-field:last-child {
+    margin-bottom: 0;
+}
+
+.modal-field > label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #24292e;
+}
+
+.field-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: normal !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e1e4e8;
+    background-color: #f6f8fa;
+}
+
+.btn-primary {
+    padding: 0.6rem 1.25rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.btn-primary:hover {
+    background-color: #22863a;
+}
+
+.btn-primary:disabled {
+    background-color: #94d3a2;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    padding: 0.6rem 1.25rem;
+    background-color: white;
+    color: #24292e;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.btn-secondary:hover {
+    background-color: #f6f8fa;
+}
+
+/* Sync Result Styles */
+.sync-result-success {
+    color: #28a745;
+}
+
+.sync-result-error {
+    color: #cb2431;
+}
+
+.sync-stats {
+    background-color: #f6f8fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.sync-stats h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #24292e;
+}
+
+.sync-stats ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sync-stats li {
+    padding: 0.35rem 0;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #e1e4e8;
+}
+
+.sync-stats li:last-child {
     border-bottom: none;
 }
 
-.sync-status-table tr:hover td {
-    background-color: #fafbfc;
+.sync-stats .stat-label {
+    color: #586069;
 }
 
-.never-synced {
-    color: #cb2431;
-    font-style: italic;
+.sync-stats .stat-value {
+    font-weight: 600;
+    color: #24292e;
+}
+
+.sync-timestamp {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e1e4e8;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.sync-progress {
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.sync-progress-text {
+    font-size: 1rem;
+    color: #24292e;
+    margin-bottom: 0.5rem;
 }
