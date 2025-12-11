@@ -19,9 +19,10 @@ public class AiTranslationService : IAiTranslationService
     private readonly TranslationSettings _translation;
     private readonly ILogger<AiTranslationService> _logger;
 
-    // Rotation state - must be singleton for persistence
-    private int _cohereKeyIndex;
-    private int _fallbackIndex;
+    // Static rotation state - persists across all instances (service can be transient/scoped)
+    // Thread-safe with Interlocked
+    private static int _cohereKeyIndex;
+    private static int _fallbackIndex;
 
     // Pre-built fallback combinations (Cerebras/Groq with Czech-capable models)
     private readonly List<TranslationProvider> _fallbacks;

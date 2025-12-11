@@ -128,12 +128,14 @@ else
 
 // Register services
 builder.Services.AddHttpClient<GitHubGraphQLClient>();
-builder.Services.AddHttpClient<AiSummarizationService>();
-builder.Services.AddHttpClient<AiTranslationService>();
 builder.Services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
-// Singleton - rotation state must persist across requests
-builder.Services.AddSingleton<IAiSummarizationService>(sp => sp.GetRequiredService<AiSummarizationService>());
-builder.Services.AddSingleton<IAiTranslationService>(sp => sp.GetRequiredService<AiTranslationService>());
+
+// AI services - Singleton for rotation state persistence, but HttpClient via factory
+builder.Services.AddHttpClient<IAiSummarizationService, AiSummarizationService>()
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IAiTranslationService, AiTranslationService>()
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
+
 builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 builder.Services.AddScoped<IIssueDetailService, IssueDetailService>();
 builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();

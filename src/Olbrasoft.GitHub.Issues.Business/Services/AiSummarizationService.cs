@@ -18,9 +18,9 @@ public class AiSummarizationService : IAiSummarizationService
     private readonly SummarizationSettings _summarization;
     private readonly ILogger<AiSummarizationService> _logger;
 
-    // Instance-based rotation state - thread-safe with Interlocked
-    // Service must be registered as Singleton for rotation to persist across requests
-    private int _rotationIndex;
+    // Static rotation state - persists across all instances (service can be transient/scoped)
+    // Thread-safe with Interlocked
+    private static int _rotationIndex;
 
     // Pre-built list of all provider/key/model combinations
     private readonly List<ProviderKeyModel> _combinations;
