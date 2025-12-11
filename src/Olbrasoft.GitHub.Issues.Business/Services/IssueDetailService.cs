@@ -156,7 +156,7 @@ public class IssueDetailService : IIssueDetailService
     /// </summary>
     public async Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting summary generation for issue {Id}", issueId);
+        _logger.LogInformation("[GenerateSummary] START for issue {Id}", issueId);
 
         var issue = await _dbContext.Issues
             .Include(i => i.Repository)
@@ -164,9 +164,11 @@ public class IssueDetailService : IIssueDetailService
 
         if (issue == null)
         {
-            _logger.LogWarning("Issue {Id} not found for summary generation", issueId);
+            _logger.LogWarning("[GenerateSummary] Issue {Id} not found", issueId);
             return;
         }
+
+        _logger.LogInformation("[GenerateSummary] Issue {Id} found: {Title}", issueId, issue.Title);
 
         // Fetch body from GraphQL
         var (owner, repoName) = ParseRepositoryFullName(issue.Repository.FullName);
@@ -174,26 +176,31 @@ public class IssueDetailService : IIssueDetailService
 
         if (!string.IsNullOrEmpty(owner) && !string.IsNullOrEmpty(repoName))
         {
+            _logger.LogInformation("[GenerateSummary] Fetching body from GraphQL for {Owner}/{Repo}#{Number}", owner, repoName, issue.Number);
             var requests = new[] { new IssueBodyRequest(owner, repoName, issue.Number) };
             var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
             bodies.TryGetValue((owner, repoName, issue.Number), out body);
+            _logger.LogInformation("[GenerateSummary] Body fetched, length: {Length}", body?.Length ?? 0);
         }
 
         if (string.IsNullOrWhiteSpace(body))
         {
-            _logger.LogWarning("No body available for issue {Id} - cannot generate summary", issueId);
+            _logger.LogWarning("[GenerateSummary] No body available for issue {Id} - cannot generate summary", issueId);
             return;
         }
 
         // Step 1: Summarize in English
+        _logger.LogInformation("[GenerateSummary] Step 1: Calling AI summarization...");
         var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
         if (!summarizeResult.Success || string.IsNullOrWhiteSpace(summarizeResult.Summary))
         {
-            _logger.LogWarning("Failed to summarize issue {Id}: {Error}", issueId, summarizeResult.Error);
+            _logger.LogWarning("[GenerateSummary] Summarization failed for issue {Id}: {Error}", issueId, summarizeResult.Error);
             return;
         }
+        _logger.LogInformation("[GenerateSummary] Summarization succeeded via {Provider}", summarizeResult.Provider);
 
         // Step 2: Translate to Czech
+        _logger.LogInformation("[GenerateSummary] Step 2: Calling AI translation...");
         string summary;
         string summaryProvider;
 
@@ -202,23 +209,26 @@ public class IssueDetailService : IIssueDetailService
         {
             summary = translateResult.Translation;
             summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} → {translateResult.Provider}/{translateResult.Model}";
+            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}", translateResult.Provider);
         }
         else
         {
             // Translation failed - use English summary as fallback
-            _logger.LogWarning("Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
+            _logger.LogWarning("[GenerateSummary] Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
             summary = summarizeResult.Summary;
             summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} (EN)";
         }
 
         // Cache the result
+        _logger.LogInformation("[GenerateSummary] Caching summary...");
         await CacheSummaryAsync(issueId, summary, summaryProvider, cancellationToken);
 
         // Send notification via SignalR
+        _logger.LogInformation("[GenerateSummary] Sending SignalR notification...");
         await _summaryNotifier.NotifySummaryReadyAsync(
             new SummaryNotificationDto(issueId, summary, summaryProvider),
             cancellationToken);
 
-        _logger.LogInformation("Summary generated and sent for issue {Id} via {Provider}", issueId, summaryProvider);
+        _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via {Provider}", issueId, summaryProvider);
     }
 }

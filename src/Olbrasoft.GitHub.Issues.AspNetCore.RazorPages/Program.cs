@@ -320,19 +320,26 @@ app.MapGet("/api/repositories/sync-status", async (IMediator mediator, Cancellat
 });
 
 // Generate AI summary for issue (progressive loading via SignalR)
-app.MapPost("/api/issues/{id:int}/generate-summary", async (
+app.MapPost("/api/issues/{id:int}/generate-summary", (
     int id,
-    IIssueDetailService issueDetailService,
-    ILogger<Program> logger,
-    CancellationToken ct) =>
+    IServiceScopeFactory scopeFactory,
+    ILogger<Program> logger) =>
 {
-    // Fire and forget - run summary generation in background
-    // The result will be pushed via SignalR
+    logger.LogInformation("API: Starting summary generation for issue {Id}", id);
+
+    // Fire and forget - run summary generation in background with its own DI scope
+    // IMPORTANT: Scoped services (DbContext, etc.) need their own scope in background tasks
     _ = Task.Run(async () =>
     {
         try
         {
+            logger.LogInformation("Background task: Creating scope for issue {Id}", id);
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
+
+            logger.LogInformation("Background task: Calling GenerateSummaryAsync for issue {Id}", id);
             await issueDetailService.GenerateSummaryAsync(id, CancellationToken.None);
+            logger.LogInformation("Background task: GenerateSummaryAsync completed for issue {Id}", id);
         }
         catch (Exception ex)
         {

@@ -24,8 +24,10 @@ public class IssueUpdatesHub : Hub
         foreach (var id in issueIds)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"issue-{id}");
+            _logger.LogInformation("[Hub] Client {ConnectionId} joined group issue-{Id}", Context.ConnectionId, id);
         }
-        _logger.LogDebug("Client {ConnectionId} subscribed to {Count} issues", Context.ConnectionId, issueIds.Length);
+        _logger.LogInformation("[Hub] Client {ConnectionId} subscribed to {Count} issues: [{Ids}]",
+            Context.ConnectionId, issueIds.Length, string.Join(", ", issueIds));
     }
 
     /// <summary>
@@ -38,18 +40,19 @@ public class IssueUpdatesHub : Hub
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"issue-{id}");
         }
-        _logger.LogDebug("Client {ConnectionId} unsubscribed from {Count} issues", Context.ConnectionId, issueIds.Length);
+        _logger.LogInformation("[Hub] Client {ConnectionId} unsubscribed from {Count} issues", Context.ConnectionId, issueIds.Length);
     }
 
     public override async Task OnConnectedAsync()
     {
-        _logger.LogDebug("Client connected: {ConnectionId}", Context.ConnectionId);
+        _logger.LogInformation("[Hub] Client connected: {ConnectionId}", Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogDebug("Client disconnected: {ConnectionId}", Context.ConnectionId);
+        _logger.LogInformation("[Hub] Client disconnected: {ConnectionId}, Error: {Error}",
+            Context.ConnectionId, exception?.Message ?? "none");
         await base.OnDisconnectedAsync(exception);
     }
 }

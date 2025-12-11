@@ -24,6 +24,10 @@ public class SignalRSummaryNotifier : ISummaryNotifier
     {
         var groupName = $"issue-{notification.IssueId}";
 
+        _logger.LogInformation(
+            "[SignalR] Broadcasting SummaryReceived to group {Group} for issue {Id}",
+            groupName, notification.IssueId);
+
         await _hubContext.Clients.Group(groupName).SendAsync(
             "SummaryReceived",
             new
@@ -34,8 +38,8 @@ public class SignalRSummaryNotifier : ISummaryNotifier
             },
             cancellationToken);
 
-        _logger.LogDebug(
-            "Broadcast summary for issue {Id} to group {Group} (provider: {Provider})",
-            notification.IssueId, groupName, notification.Provider);
+        _logger.LogInformation(
+            "[SignalR] Broadcast COMPLETE for issue {Id} via {Provider}",
+            notification.IssueId, notification.Provider);
     }
 }

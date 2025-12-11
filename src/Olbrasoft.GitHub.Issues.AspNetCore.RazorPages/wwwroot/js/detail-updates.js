@@ -11,30 +11,39 @@
     });
 
     function initializeDetailUpdates() {
+        console.log('[detail-updates] Initializing...');
         const container = document.getElementById('ai-summary-container');
         if (!container) {
+            console.log('[detail-updates] No ai-summary-container found');
             return;
         }
 
         issueId = parseInt(container.dataset.issueId, 10);
         const summaryPending = container.dataset.summaryPending === 'true';
 
+        console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending);
+
         if (!issueId || isNaN(issueId)) {
+            console.log('[detail-updates] Invalid issue ID');
             return;
         }
 
         // Only connect to SignalR if summary is pending
         if (summaryPending) {
+            console.log('[detail-updates] Summary is pending, initializing SignalR...');
             initializeSignalR();
+        } else {
+            console.log('[detail-updates] Summary not pending, skipping SignalR');
         }
     }
 
     function initializeSignalR() {
+        console.log('[detail-updates] Creating SignalR connection to /hubs/issues...');
         // Create SignalR connection
         connection = new signalR.HubConnectionBuilder()
             .withUrl('/hubs/issues')
             .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-            .configureLogging(signalR.LogLevel.Warning)
+            .configureLogging(signalR.LogLevel.Information)
             .build();
 
         // Handle incoming summary
@@ -110,9 +119,12 @@
     }
 
     function handleSummaryReceived(data) {
-        console.log('Received summary for issue:', data);
+        console.log('[detail-updates] SummaryReceived event received!');
+        console.log('[detail-updates] Data:', JSON.stringify(data));
+        console.log('[detail-updates] Expected issueId:', issueId, 'Received:', data.issueId);
 
         if (data.issueId !== issueId) {
+            console.log('[detail-updates] Issue ID mismatch, ignoring');
             return;
         }
 
