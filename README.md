@@ -2,20 +2,23 @@
 
 [![Build and Deploy](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml/badge.svg)](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml)
 
-Semantic search for GitHub issues using vector embeddings (pgvector) and Ollama. Synchronizes issues from multiple GitHub repositories and enables natural language search.
+Semantic search for GitHub issues using vector embeddings. Supports **dual embedding providers**: Ollama (local) and Cohere (cloud). Synchronizes issues from multiple GitHub repositories and enables natural language search.
 
 **Live Demo:** https://github-issues.azurewebsites.net
 
 ## Features
 
 - **Semantic Search**: Find issues by meaning, not just keywords (using vector embeddings)
+- **Dual Embedding Providers**: Ollama (local, 768d) or Cohere (cloud, 1024d)
+- **AI Issue Summarization**: Automatic issue summaries using OpenRouter/Ollama with provider rotation
 - **Multi-Repository Support**: Sync and search across multiple GitHub repositories
+- **Repository Filter**: Filter search results by specific repositories
 - **Smart Incremental Sync**: Only sync changed issues using stored timestamps
 - **Sub-Issues Hierarchy**: Track parent-child relationships between issues
 - **Issue Events**: Track issue lifecycle events (opened, closed, labeled, etc.)
 - **Labels Sync**: Full label synchronization with colors
-- **Auto-Start Ollama**: Automatically starts Ollama service if not running
-- **Clean Architecture**: Layered design with CQRS pattern for maintainability
+- **Multi-Provider Database**: PostgreSQL (local) or SQL Server (Azure)
+- **Clean Architecture**: Layered design with CQRS pattern, 104+ unit tests
 
 ## Architecture
 
@@ -63,10 +66,14 @@ The project follows **Clean Architecture** with **CQRS (Command Query Responsibi
 └─────────────────────────────────────────────────────────────────────┘
 
 External Services:
-┌─────────────────┐     ┌─────────────────┐
-│   GitHub API    │     │     Ollama      │
-│   (REST)        │     │ (nomic-embed)   │
-└─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   GitHub API    │     │     Ollama      │     │     Cohere      │
+│   (REST/GraphQL)│     │ (nomic-embed)   │     │ (embed-multi)   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                        ┌─────────────────┐
+                        │   OpenRouter    │
+                        │ (AI summaries)  │
+                        └─────────────────┘
 ```
 
 ### Data Flow
@@ -89,6 +96,13 @@ The project supports both **PostgreSQL** and **SQL Server** databases with separ
 |----------|----------|----------------|-------------------|
 | PostgreSQL | Development | `vector(768)` (pgvector) | `Migrations.PostgreSQL` |
 | SQL Server | Production (Azure) | `varbinary(max)` | `Migrations.SqlServer` |
+
+### Embedding Providers
+
+| Provider | Use Case | Dimensions | Model |
+|----------|----------|------------|-------|
+| Ollama | Local development | 768 | `nomic-embed-text` |
+| Cohere | Azure production | 1024 | `embed-multilingual-v3.0` |
 
 ### Configuration
 
@@ -197,25 +211,33 @@ GitHub.Issues/
 │   ├── Olbrasoft.GitHub.Issues.Business/                 # Business Layer
 │   │   ├── Services/
 │   │   │   ├── IssueSearchService.cs       # Semantic search
+│   │   │   ├── IssueDetailService.cs       # Issue detail with AI summary
 │   │   │   ├── IssueSyncBusinessService.cs # Issue sync operations
 │   │   │   ├── LabelSyncBusinessService.cs # Label sync operations
 │   │   │   ├── RepositorySyncBusinessService.cs
-│   │   │   └── EventSyncBusinessService.cs
-│   │   ├── IIssueSyncBusinessService.cs    # Interfaces
-│   │   ├── ILabelSyncBusinessService.cs
-│   │   ├── IRepositorySyncBusinessService.cs
-│   │   ├── IEventSyncBusinessService.cs
-│   │   └── GitHubSettings.cs               # Configuration
+│   │   │   ├── EventSyncBusinessService.cs
+│   │   │   ├── GitHubGraphQLClient.cs      # GitHub GraphQL API
+│   │   │   ├── AiSummarizationService.cs   # AI summaries (OpenRouter/Ollama)
+│   │   │   └── DatabaseStatusService.cs    # DB health checks
+│   │   ├── I*Service.cs                    # Service interfaces
+│   │   └── *Settings.cs                    # Configuration classes
 │   │
 │   ├── Olbrasoft.GitHub.Issues.Sync/                     # CLI Sync Tool
 │   │   ├── Program.cs                      # Entry point
+│   │   ├── ApiClients/
+│   │   │   ├── IGitHubIssueApiClient.cs    # Issue API abstraction
+│   │   │   ├── GitHubIssueApiClient.cs     # Issue HTTP/JSON client
+│   │   │   ├── IGitHubEventApiClient.cs    # Event API abstraction
+│   │   │   ├── GitHubEventApiClient.cs     # Event HTTP/JSON client
+│   │   │   ├── IGitHubRepositoryApiClient.cs # Repo API abstraction
+│   │   │   └── GitHubRepositoryApiClient.cs  # Repo HTTP/JSON client
 │   │   └── Services/
 │   │       ├── GitHubSyncService.cs        # Orchestrator
-│   │       ├── IssueSyncService.cs         # Issue sync (uses Business)
+│   │       ├── IssueSyncService.cs         # Issue sync (pure orchestrator)
 │   │       ├── LabelSyncService.cs         # Label sync (uses Business)
-│   │       ├── RepositorySyncService.cs    # Repo sync (uses Business)
-│   │       ├── EventSyncService.cs         # Event sync (uses Business)
-│   │       └── OctokitGitHubApiClient.cs   # GitHub API client
+│   │       ├── RepositorySyncService.cs    # Repo sync (pure orchestrator)
+│   │       ├── EventSyncService.cs         # Event sync (pure orchestrator)
+│   │       └── OctokitGitHubApiClient.cs   # Legacy Octokit wrapper
 │   │
 │   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/    # Web UI
 │       ├── Pages/
@@ -225,11 +247,11 @@ GitHub.Issues/
 │       │   └── IssueSearchService.cs       # Search service
 │       └── Program.cs                      # DI configuration
 │
-├── test/
+├── test/                                    # 104+ Unit Tests
 │   ├── Olbrasoft.GitHub.Issues.Data.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Business.Tests/
-│   ├── Olbrasoft.GitHub.Issues.Sync.Tests/
+│   ├── Olbrasoft.GitHub.Issues.Sync.Tests/  # Including API client tests
 │   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests/
 │
 └── GitHub.Issues.sln
@@ -353,7 +375,7 @@ dotnet run -- sync --since 2025-12-01T00:00:00Z
 
 ## Testing
 
-The project includes 79+ unit tests using xUnit and Moq.
+The project includes 104+ unit tests using xUnit and Moq.
 
 ```bash
 # Run all tests
@@ -394,7 +416,7 @@ You can manually trigger deployment via GitHub Actions → "Build and Deploy" �
 | `EventType` | Event types (opened, closed, labeled, etc.) |
 | `IssueEvent` | Issue events with actor and timestamp |
 
-Vector dimension: **768** (nomic-embed-text)
+Vector dimensions: **768** (Ollama/nomic-embed-text) or **1024** (Cohere/embed-multilingual-v3.0)
 
 ## CQRS Pattern
 
