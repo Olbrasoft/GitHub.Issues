@@ -42,10 +42,10 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .IsRequired();
 
         // Embedding column - provider-specific configuration applied in DbContext.OnModelCreating
-        // Nullable because embedding may be unavailable (Cohere API down, rate limits, etc.)
+        // Required - issues without embeddings are skipped during sync (useless for semantic search)
         builder.Property(i => i.Embedding)
             .HasColumnName("embedding")
-            .IsRequired(false);
+            .IsRequired();
 
         builder.Property(i => i.SyncedAt)
             .HasColumnName("synced_at")

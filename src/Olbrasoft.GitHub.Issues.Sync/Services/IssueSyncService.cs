@@ -145,7 +145,7 @@ public class IssueSyncService : IIssueSyncService
             var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < updatedAt;
 
             // Generate embedding for new issues OR re-embed if issue has changed
-            // Embeddings are optional - if Ollama is unavailable, issues are still synced without vectors
+            // Embedding is REQUIRED - issues without embeddings are useless for semantic search
             Pgvector.Vector? embedding = null;
             if (isNew || hasChanged)
             {
@@ -153,12 +153,22 @@ public class IssueSyncService : IIssueSyncService
                 embedding = await _embeddingService.GenerateEmbeddingAsync(textToEmbed, EmbeddingInputType.Document, cancellationToken);
                 if (embedding == null)
                 {
-                    _logger.LogWarning("Could not generate embedding for issue #{Number}. Embedding service may be unavailable. Issue will be synced without vector.", issueNumber);
+                    _logger.LogWarning(
+                        "SKIPPED issue #{Number} ({Title}): Could not generate embedding. " +
+                        "Embedding service may be unavailable or rate-limited.",
+                        issueNumber, title);
+                    continue; // Skip this issue - don't save without embedding
                 }
-                else if (hasChanged)
+
+                if (hasChanged)
                 {
                     _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", issueNumber, title);
                 }
+            }
+            else
+            {
+                // Unchanged existing issue - keep existing embedding
+                embedding = existingIssue!.Embedding;
             }
 
             // Save issue (creates or updates)
