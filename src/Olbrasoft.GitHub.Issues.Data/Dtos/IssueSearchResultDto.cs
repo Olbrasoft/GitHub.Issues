@@ -12,11 +12,8 @@ public class IssueSearchResultDto
     /// <summary>GitHub issue number.</summary>
     public int IssueNumber { get; set; }
 
-    /// <summary>Issue title (English).</summary>
+    /// <summary>Issue title.</summary>
     public string Title { get; set; } = string.Empty;
-
-    /// <summary>Czech translation of the title (null if not yet translated).</summary>
-    public string? CzechTitle { get; set; }
 
     /// <summary>Whether the issue is open.</summary>
     public bool IsOpen { get; set; }

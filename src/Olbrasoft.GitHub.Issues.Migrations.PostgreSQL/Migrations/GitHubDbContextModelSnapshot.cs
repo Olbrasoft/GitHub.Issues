@@ -274,10 +274,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         .HasColumnType("text")
                         .HasColumnName("czech_summary");
 
-                    b.Property<string>("CzechTitle")
-                        .HasColumnType("text")
-                        .HasColumnName("czech_title");
-
                     b.Property<Vector>("Embedding")
                         .IsRequired()
                         .HasColumnType("vector(768)")
@@ -320,10 +316,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("title");
-
-                    b.Property<DateTimeOffset?>("TitleTranslatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("title_translated_at");
 
                     b.Property<string>("Url")
                         .IsRequired()

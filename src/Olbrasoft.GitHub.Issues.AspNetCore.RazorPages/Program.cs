@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
@@ -143,10 +142,6 @@ builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
 // SignalR notifiers for progressive updates
 builder.Services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
-builder.Services.AddScoped<ITranslationNotifier, SignalRTranslationNotifier>();
-
-// Title translation service for search results
-builder.Services.AddScoped<ITitleTranslationService, TitleTranslationService>();
 
 // Register Sync services for data import
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
@@ -218,24 +213,6 @@ builder.Services.AddScoped<IIssueUpdateNotifier, SignalRIssueUpdateNotifier>();
 builder.Services.AddScoped<IGitHubWebhookService, GitHubWebhookService>();
 
 var app = builder.Build();
-
-// Apply pending migrations automatically
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<GitHubDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        logger.LogInformation("Applying pending database migrations...");
-        dbContext.Database.Migrate();
-        logger.LogInformation("Database migrations applied successfully");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error applying database migrations");
-        throw; // Fail fast if migrations fail
-    }
-}
 
 // Configure pipeline
 if (!app.Environment.IsDevelopment())
@@ -343,20 +320,18 @@ app.MapGet("/api/repositories/sync-status", async (IMediator mediator, Cancellat
 });
 
 // Generate AI summary for issue (progressive loading via SignalR)
-app.MapPost("/api/issues/{id:int}/generate-summary", (
+app.MapPost("/api/issues/{id:int}/generate-summary", async (
     int id,
-    IServiceScopeFactory scopeFactory,
-    ILogger<Program> logger) =>
+    IIssueDetailService issueDetailService,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
 {
-    // Fire and forget - run summary generation in background with its own DI scope
+    // Fire and forget - run summary generation in background
     // The result will be pushed via SignalR
     _ = Task.Run(async () =>
     {
         try
         {
-            // Create new scope for background work - scoped services need their own scope
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
             await issueDetailService.GenerateSummaryAsync(id, CancellationToken.None);
         }
         catch (Exception ex)
@@ -366,74 +341,6 @@ app.MapPost("/api/issues/{id:int}/generate-summary", (
     });
 
     return Results.Accepted();
-});
-
-// Translate issue titles to Czech (progressive loading via SignalR)
-app.MapPost("/api/issues/translate-titles", async (
-    HttpRequest request,
-    IServiceScopeFactory scopeFactory,
-    ILogger<Program> logger,
-    CancellationToken ct) =>
-{
-    // Parse issue IDs from request body
-    List<int> issueIds;
-    try
-    {
-        using var reader = new StreamReader(request.Body);
-        var body = await reader.ReadToEndAsync(ct);
-        var json = JsonDocument.Parse(body);
-
-        if (!json.RootElement.TryGetProperty("issueIds", out var idsElement) ||
-            idsElement.ValueKind != JsonValueKind.Array)
-        {
-            return Results.BadRequest(new { error = "Missing issueIds array" });
-        }
-
-        issueIds = idsElement.EnumerateArray()
-            .Select(e => e.GetInt32())
-            .ToList();
-    }
-    catch (JsonException)
-    {
-        return Results.BadRequest(new { error = "Invalid JSON" });
-    }
-
-    if (issueIds.Count == 0)
-    {
-        return Results.Ok(new { translated = 0 });
-    }
-
-    // Fire and forget - translate in background with its own DI scope
-    _ = Task.Run(async () =>
-    {
-        try
-        {
-            // Create new scope for background work - scoped services need their own scope
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var translationService = scope.ServiceProvider.GetRequiredService<ITitleTranslationService>();
-            var notifier = scope.ServiceProvider.GetRequiredService<ITranslationNotifier>();
-
-            var results = await translationService.TranslateTitlesAsync(issueIds, CancellationToken.None);
-
-            foreach (var result in results.Where(r => r.Success && r.CzechTitle != null))
-            {
-                await notifier.NotifyTitleTranslationAsync(
-                    new TitleTranslationNotificationDto(result.IssueId, result.CzechTitle!),
-                    CancellationToken.None);
-            }
-
-            logger.LogInformation(
-                "Translated {Count}/{Total} titles",
-                results.Count(r => r.Success),
-                issueIds.Count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Background title translation failed");
-        }
-    });
-
-    return Results.Accepted(value: new { queued = issueIds.Count });
 });
 
 // Sync specific repository or all repositories
