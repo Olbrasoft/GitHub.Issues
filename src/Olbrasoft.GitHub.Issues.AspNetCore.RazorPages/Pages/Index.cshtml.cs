@@ -52,7 +52,10 @@ public class IndexModel : PageModel
     /// </summary>
     public bool HasSearchCriteria { get; set; }
 
-    public int[] PageSizeOptions => _searchSettings.PageSizeOptions;
+    private static readonly int[] DefaultPageSizeOptions = [10, 25, 50];
+    public int[] PageSizeOptions => _searchSettings.PageSizeOptions.Length > 0
+        ? _searchSettings.PageSizeOptions
+        : DefaultPageSizeOptions;
 
     public IReadOnlyList<int> SelectedRepositoryIds => ParseRepositoryIds(Repos);
 

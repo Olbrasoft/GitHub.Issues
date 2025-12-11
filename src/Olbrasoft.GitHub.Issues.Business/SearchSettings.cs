@@ -11,7 +11,8 @@ public class SearchSettings
     public int DefaultPageSize { get; set; } = 25;
 
     /// <summary>
-    /// Available page size options for the UI dropdown. Default: [10, 25, 50]
+    /// Available page size options for the UI dropdown.
+    /// Configured in appsettings.json. Falls back to [10, 25, 50] if not configured.
     /// </summary>
-    public int[] PageSizeOptions { get; set; } = [10, 25, 50];
+    public int[] PageSizeOptions { get; set; } = [];
 }
