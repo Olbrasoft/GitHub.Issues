@@ -21,4 +21,9 @@ public interface ILabelSyncBusinessService
     /// Saves (creates or updates) a label.
     /// </summary>
     Task<Label> SaveLabelAsync(int repositoryId, string name, string color, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes a label from a repository.
+    /// </summary>
+    Task<bool> DeleteLabelAsync(int repositoryId, string name, CancellationToken ct = default);
 }

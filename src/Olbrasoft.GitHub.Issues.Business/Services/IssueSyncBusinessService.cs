@@ -88,4 +88,15 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
         };
         return await command.ToResultAsync(ct);
     }
+
+    public async Task<bool> UpdateCommentCountAsync(int repositoryId, int issueNumber, int commentCount, CancellationToken ct = default)
+    {
+        var command = new IssueUpdateCommentCountCommand(Mediator)
+        {
+            RepositoryId = repositoryId,
+            IssueNumber = issueNumber,
+            CommentCount = commentCount
+        };
+        return await command.ToResultAsync(ct);
+    }
 }

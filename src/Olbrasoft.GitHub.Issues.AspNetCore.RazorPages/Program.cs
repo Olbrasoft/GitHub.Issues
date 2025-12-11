@@ -406,7 +406,8 @@ app.MapPost("/api/data/sync", async (
     }
 }).RequireAuthorization("OwnerOnly");
 
-// GitHub Webhook endpoint for real-time issue sync
+// GitHub Webhook endpoint for real-time sync
+// Handles: issues, issue_comment, repository, label events
 app.MapPost("/api/webhooks/github", async (
     HttpRequest request,
     IWebhookSignatureValidator signatureValidator,
@@ -431,49 +432,70 @@ app.MapPost("/api/webhooks/github", async (
 
     // Check event type
     var eventType = request.Headers["X-GitHub-Event"].FirstOrDefault();
-    if (eventType != "issues")
-    {
-        logger.LogDebug("Ignoring webhook event type: {EventType}", eventType);
-        return Results.Ok(new { message = $"Ignored event: {eventType}" });
-    }
+    var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-    // Parse payload
-    GitHubIssueWebhookPayload? webhookPayload;
     try
     {
-        request.Body.Position = 0;
-        webhookPayload = await JsonSerializer.DeserializeAsync<GitHubIssueWebhookPayload>(
-            request.Body,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
-            ct);
+        WebhookProcessingResult result;
+
+        switch (eventType)
+        {
+            case "issues":
+                request.Body.Position = 0;
+                var issuePayload = await JsonSerializer.DeserializeAsync<GitHubIssueWebhookPayload>(
+                    request.Body, jsonOptions, ct);
+                if (issuePayload == null)
+                    return Results.BadRequest(new { error = "Empty payload" });
+                result = await webhookService.ProcessIssueEventAsync(issuePayload, ct);
+                break;
+
+            case "issue_comment":
+                request.Body.Position = 0;
+                var commentPayload = await JsonSerializer.DeserializeAsync<GitHubIssueCommentWebhookPayload>(
+                    request.Body, jsonOptions, ct);
+                if (commentPayload == null)
+                    return Results.BadRequest(new { error = "Empty payload" });
+                result = await webhookService.ProcessIssueCommentEventAsync(commentPayload, ct);
+                break;
+
+            case "repository":
+                request.Body.Position = 0;
+                var repoPayload = await JsonSerializer.DeserializeAsync<GitHubRepositoryWebhookPayload>(
+                    request.Body, jsonOptions, ct);
+                if (repoPayload == null)
+                    return Results.BadRequest(new { error = "Empty payload" });
+                result = await webhookService.ProcessRepositoryEventAsync(repoPayload, ct);
+                break;
+
+            case "label":
+                request.Body.Position = 0;
+                var labelPayload = await JsonSerializer.DeserializeAsync<GitHubLabelWebhookPayload>(
+                    request.Body, jsonOptions, ct);
+                if (labelPayload == null)
+                    return Results.BadRequest(new { error = "Empty payload" });
+                result = await webhookService.ProcessLabelEventAsync(labelPayload, ct);
+                break;
+
+            default:
+                logger.LogDebug("Ignoring webhook event type: {EventType}", eventType);
+                return Results.Ok(new { message = $"Ignored event: {eventType}" });
+        }
+
+        if (result.Success)
+        {
+            logger.LogInformation("Webhook {Event} processed: {Message}", eventType, result.Message);
+            return Results.Ok(result);
+        }
+        else
+        {
+            logger.LogWarning("Webhook {Event} failed: {Message}", eventType, result.Message);
+            return Results.BadRequest(result);
+        }
     }
     catch (JsonException ex)
     {
-        logger.LogError(ex, "Failed to parse webhook payload");
+        logger.LogError(ex, "Failed to parse webhook payload for event: {EventType}", eventType);
         return Results.BadRequest(new { error = "Invalid JSON payload" });
-    }
-
-    if (webhookPayload == null)
-    {
-        return Results.BadRequest(new { error = "Empty payload" });
-    }
-
-    // Process the webhook
-    var result = await webhookService.ProcessIssueEventAsync(webhookPayload, ct);
-
-    if (result.Success)
-    {
-        logger.LogInformation(
-            "Webhook processed: {Message} for issue #{Number}",
-            result.Message, result.IssueNumber);
-        return Results.Ok(result);
-    }
-    else
-    {
-        logger.LogWarning(
-            "Webhook processing failed: {Message} for issue #{Number}",
-            result.Message, result.IssueNumber);
-        return Results.BadRequest(result);
     }
 });
 

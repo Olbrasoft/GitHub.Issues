@@ -24,6 +24,7 @@ public class Issue
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public float[]? Embedding { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
+    public int CommentCount { get; set; }
 
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();

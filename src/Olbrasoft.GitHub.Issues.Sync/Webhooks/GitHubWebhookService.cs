@@ -13,6 +13,7 @@ public class GitHubWebhookService : IGitHubWebhookService
 {
     private readonly IRepositorySyncBusinessService _repositoryService;
     private readonly IIssueSyncBusinessService _issueService;
+    private readonly ILabelSyncBusinessService _labelService;
     private readonly IEmbeddingService _embeddingService;
     private readonly IEmbeddingTextBuilder _textBuilder;
     private readonly ILogger<GitHubWebhookService> _logger;
@@ -27,12 +28,14 @@ public class GitHubWebhookService : IGitHubWebhookService
     public GitHubWebhookService(
         IRepositorySyncBusinessService repositoryService,
         IIssueSyncBusinessService issueService,
+        ILabelSyncBusinessService labelService,
         IEmbeddingService embeddingService,
         IEmbeddingTextBuilder textBuilder,
         ILogger<GitHubWebhookService> logger)
     {
         _repositoryService = repositoryService;
         _issueService = issueService;
+        _labelService = labelService;
         _embeddingService = embeddingService;
         _textBuilder = textBuilder;
         _logger = logger;
@@ -290,5 +293,265 @@ public class GitHubWebhookService : IGitHubWebhookService
             _logger.LogError(ex, "Error generating embedding");
             return null;
         }
+    }
+
+    // ===== Issue Comment Event Handler =====
+
+    /// <inheritdoc />
+    public async Task<WebhookProcessingResult> ProcessIssueCommentEventAsync(
+        GitHubIssueCommentWebhookPayload payload,
+        CancellationToken ct = default)
+    {
+        var action = payload.Action;
+        var issue = payload.Issue;
+        var repo = payload.Repository;
+
+        _logger.LogInformation(
+            "Processing issue_comment webhook: {Action} for issue #{Number} in {Repo}",
+            action, issue.Number, repo.FullName);
+
+        // Skip pull requests
+        if (issue.IsPullRequest)
+        {
+            _logger.LogDebug("Skipping pull request #{Number}", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = true,
+                Message = "Skipped (pull request)",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repo.FullName
+            };
+        }
+
+        try
+        {
+            // Get repository
+            var repository = await _repositoryService.GetByFullNameAsync(repo.FullName, ct);
+            if (repository == null)
+            {
+                _logger.LogWarning("Repository {Repo} not found in database", repo.FullName);
+                return new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = "Repository not synced",
+                    IssueNumber = issue.Number,
+                    RepositoryFullName = repo.FullName
+                };
+            }
+
+            // Update comment count
+            var updated = await _issueService.UpdateCommentCountAsync(
+                repository.Id,
+                issue.Number,
+                issue.Comments,
+                ct);
+
+            if (!updated)
+            {
+                _logger.LogWarning("Issue #{Number} not found in database", issue.Number);
+                return new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = "Issue not synced",
+                    IssueNumber = issue.Number,
+                    RepositoryFullName = repo.FullName
+                };
+            }
+
+            return new WebhookProcessingResult
+            {
+                Success = true,
+                Message = $"Comment count updated to {issue.Comments}",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repo.FullName
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing issue_comment webhook for issue #{Number}", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repo.FullName
+            };
+        }
+    }
+
+    // ===== Repository Event Handler =====
+
+    /// <inheritdoc />
+    public async Task<WebhookProcessingResult> ProcessRepositoryEventAsync(
+        GitHubRepositoryWebhookPayload payload,
+        CancellationToken ct = default)
+    {
+        var action = payload.Action;
+        var repo = payload.Repository;
+
+        _logger.LogInformation(
+            "Processing repository webhook: {Action} for {Repo}",
+            action, repo.FullName);
+
+        try
+        {
+            if (!action.Equals("created", StringComparison.OrdinalIgnoreCase))
+            {
+                return new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = $"Ignored action: {action}",
+                    RepositoryFullName = repo.FullName
+                };
+            }
+
+            // Check if repository already exists
+            var existing = await _repositoryService.GetByFullNameAsync(repo.FullName, ct);
+            if (existing != null)
+            {
+                return new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = "Repository already exists",
+                    RepositoryFullName = repo.FullName
+                };
+            }
+
+            // Auto-add new repository
+            await _repositoryService.SaveRepositoryAsync(
+                repo.Id,
+                repo.FullName,
+                repo.HtmlUrl,
+                ct);
+
+            _logger.LogInformation("Auto-discovered new repository: {Repo}", repo.FullName);
+
+            return new WebhookProcessingResult
+            {
+                Success = true,
+                Message = "Repository auto-discovered and added",
+                RepositoryFullName = repo.FullName
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing repository webhook for {Repo}", repo.FullName);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}",
+                RepositoryFullName = repo.FullName
+            };
+        }
+    }
+
+    // ===== Label Event Handler =====
+
+    /// <inheritdoc />
+    public async Task<WebhookProcessingResult> ProcessLabelEventAsync(
+        GitHubLabelWebhookPayload payload,
+        CancellationToken ct = default)
+    {
+        var action = payload.Action;
+        var label = payload.Label;
+        var repo = payload.Repository;
+
+        _logger.LogInformation(
+            "Processing label webhook: {Action} for label '{Label}' in {Repo}",
+            action, label.Name, repo.FullName);
+
+        try
+        {
+            // Get repository
+            var repository = await _repositoryService.GetByFullNameAsync(repo.FullName, ct);
+            if (repository == null)
+            {
+                _logger.LogWarning("Repository {Repo} not found in database", repo.FullName);
+                return new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = "Repository not synced",
+                    RepositoryFullName = repo.FullName
+                };
+            }
+
+            return action.ToLowerInvariant() switch
+            {
+                "created" => await HandleLabelCreatedAsync(repository.Id, label, repo.FullName, ct),
+                "edited" => await HandleLabelEditedAsync(repository.Id, label, payload.Changes, repo.FullName, ct),
+                "deleted" => await HandleLabelDeletedAsync(repository.Id, label, repo.FullName, ct),
+                _ => new WebhookProcessingResult
+                {
+                    Success = true,
+                    Message = $"Ignored action: {action}",
+                    RepositoryFullName = repo.FullName
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing label webhook for '{Label}'", label.Name);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}",
+                RepositoryFullName = repo.FullName
+            };
+        }
+    }
+
+    private async Task<WebhookProcessingResult> HandleLabelCreatedAsync(
+        int repositoryId,
+        GitHubWebhookLabel label,
+        string repoFullName,
+        CancellationToken ct)
+    {
+        await _labelService.SaveLabelAsync(repositoryId, label.Name, label.Color, ct);
+
+        return new WebhookProcessingResult
+        {
+            Success = true,
+            Message = $"Label '{label.Name}' created",
+            RepositoryFullName = repoFullName
+        };
+    }
+
+    private async Task<WebhookProcessingResult> HandleLabelEditedAsync(
+        int repositoryId,
+        GitHubWebhookLabel label,
+        GitHubLabelChanges? changes,
+        string repoFullName,
+        CancellationToken ct)
+    {
+        // If name changed, we need to delete old and create new
+        if (changes?.Name != null)
+        {
+            await _labelService.DeleteLabelAsync(repositoryId, changes.Name.From, ct);
+        }
+
+        await _labelService.SaveLabelAsync(repositoryId, label.Name, label.Color, ct);
+
+        return new WebhookProcessingResult
+        {
+            Success = true,
+            Message = $"Label '{label.Name}' updated",
+            RepositoryFullName = repoFullName
+        };
+    }
+
+    private async Task<WebhookProcessingResult> HandleLabelDeletedAsync(
+        int repositoryId,
+        GitHubWebhookLabel label,
+        string repoFullName,
+        CancellationToken ct)
+    {
+        await _labelService.DeleteLabelAsync(repositoryId, label.Name, ct);
+
+        return new WebhookProcessingResult
+        {
+            Success = true,
+            Message = $"Label '{label.Name}' deleted",
+            RepositoryFullName = repoFullName
+        };
     }
 }

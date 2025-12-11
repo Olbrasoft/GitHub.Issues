@@ -44,4 +44,14 @@ public class LabelSyncBusinessService : Service, ILabelSyncBusinessService
         };
         return await command.ToResultAsync(ct);
     }
+
+    public async Task<bool> DeleteLabelAsync(int repositoryId, string name, CancellationToken ct = default)
+    {
+        var command = new LabelDeleteCommand(Mediator)
+        {
+            RepositoryId = repositoryId,
+            Name = name
+        };
+        return await command.ToResultAsync(ct);
+    }
 }
