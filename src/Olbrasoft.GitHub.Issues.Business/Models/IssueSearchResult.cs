@@ -50,10 +50,16 @@ public class IssueSearchResult
     public List<LabelDto> Labels { get; set; } = [];
 
     /// <summary>
+    /// Maximum length for body preview. Set from AiSummarySettings.MaxLength.
+    /// </summary>
+    public int PreviewMaxLength { get; set; } = 500;
+
+    /// <summary>
     /// Short preview of issue body for list display.
     /// Computed property that truncates at sentence boundary.
+    /// Uses PreviewMaxLength from configuration.
     /// </summary>
-    public string BodyPreview => GetPreview(Body, 200);
+    public string BodyPreview => GetPreview(Body, PreviewMaxLength);
 
     /// <summary>
     /// Similarity formatted as percentage for display (e.g., "85.3%").

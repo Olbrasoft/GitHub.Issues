@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business.Models;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
@@ -17,17 +18,20 @@ public class IssueSearchService : Service, IIssueSearchService
     private readonly IEmbeddingService _embeddingService;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ILogger<IssueSearchService> _logger;
+    private readonly AiSummarySettings _aiSummarySettings;
 
     public IssueSearchService(
         IMediator mediator,
         IEmbeddingService embeddingService,
         IGitHubGraphQLClient graphQLClient,
-        ILogger<IssueSearchService> logger)
+        ILogger<IssueSearchService> logger,
+        IOptions<AiSummarySettings> aiSummarySettings)
         : base(mediator)
     {
         _embeddingService = embeddingService;
         _graphQLClient = graphQLClient;
         _logger = logger;
+        _aiSummarySettings = aiSummarySettings.Value;
     }
 
     public async Task<SearchResultPage> SearchAsync(
@@ -64,7 +68,7 @@ public class IssueSearchService : Service, IIssueSearchService
             var exactMatches = await exactQuery.ToResultAsync(cancellationToken);
             foreach (var dto in exactMatches)
             {
-                var result = MapToSearchResult(dto, isExactMatch: true);
+                var result = MapToSearchResult(dto, isExactMatch: true, _aiSummarySettings.MaxLength);
                 allResults.Add(result);
                 exactMatchIds.Add(dto.Id);
             }
@@ -95,7 +99,7 @@ public class IssueSearchService : Service, IIssueSearchService
                 // Add semantic results, excluding already found exact matches
                 foreach (var dto in semanticPage.Results.Where(d => !exactMatchIds.Contains(d.Id)))
                 {
-                    allResults.Add(MapToSearchResult(dto, isExactMatch: false));
+                    allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
                 }
             }
             else
@@ -117,7 +121,7 @@ public class IssueSearchService : Service, IIssueSearchService
             var listPage = await listQuery.ToResultAsync(cancellationToken);
             foreach (var dto in listPage.Results)
             {
-                allResults.Add(MapToSearchResult(dto, isExactMatch: false));
+                allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
             }
 
             // For list queries, return paginated results directly
@@ -153,7 +157,7 @@ public class IssueSearchService : Service, IIssueSearchService
         };
     }
 
-    private static IssueSearchResult MapToSearchResult(IssueSearchResultDto dto, bool isExactMatch)
+    private static IssueSearchResult MapToSearchResult(IssueSearchResultDto dto, bool isExactMatch, int previewMaxLength)
     {
         var parts = dto.RepositoryFullName.Split('/');
         return new IssueSearchResult
@@ -168,7 +172,8 @@ public class IssueSearchService : Service, IIssueSearchService
             RepoName = parts.Length == 2 ? parts[1] : string.Empty,
             Similarity = dto.Similarity,
             IsExactMatch = isExactMatch,
-            Labels = dto.Labels
+            Labels = dto.Labels,
+            PreviewMaxLength = previewMaxLength
         };
     }
 

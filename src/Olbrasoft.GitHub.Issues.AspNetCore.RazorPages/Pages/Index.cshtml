@@ -70,9 +70,9 @@
 
             <label>Jazyk shrnutí:</label>
             <select name="SummaryLanguage" class="language-select">
-                <option value="en" @(Model.SummaryLanguage == "en" ? "selected" : "")>English</option>
-                <option value="cs" @(Model.SummaryLanguage == "cs" ? "selected" : "")>Česky</option>
-                <option value="both" @(Model.SummaryLanguage == "both" ? "selected" : "")>Obojí</option>
+                @if (Model.SummaryLanguage == "en") { <option value="en" selected>English</option> } else { <option value="en">English</option> }
+                @if (Model.SummaryLanguage == "cs") { <option value="cs" selected>Česky</option> } else { <option value="cs">Česky</option> }
+                @if (Model.SummaryLanguage == "both") { <option value="both" selected>Obojí</option> } else { <option value="both">Obojí</option> }
             </select>
 
             <label>Položek na stránku:</label>
@@ -131,12 +131,19 @@
                                 <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(result.BodyPreview))
-                        {
-                            <div class="result-body-preview">
-                                @result.BodyPreview
+                        <div class="ai-summary-container" data-issue-id="@result.Id">
+                            @* Phase 1: Immediate body preview (shown right away) *@
+                            <div class="body-preview">
+                                @if (!string.IsNullOrEmpty(result.BodyPreview))
+                                {
+                                    @result.BodyPreview
+                                }
                             </div>
-                        }
+                            @* Phase 2: AI Summary - initially hidden, SignalR populates and shows *@
+                            <div class="ai-summary-en" style="display:none;"></div>
+                            @* Phase 3: Translation - initially hidden, SignalR populates and shows *@
+                            <div class="ai-summary-cs" style="display:none;"></div>
+                        </div>
                         <div class="result-meta">
                             <span class="repository">@result.RepositoryName</span>
                             @if (result.IsExactMatch)

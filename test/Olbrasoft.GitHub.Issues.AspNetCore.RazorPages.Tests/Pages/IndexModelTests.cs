@@ -17,9 +17,10 @@ public class IndexModelTests
         var searchServiceMock = new Mock<IIssueSearchService>();
         var mediatorMock = new Mock<IMediator>();
         var searchSettings = Options.Create(new SearchSettings { DefaultPageSize = 10, PageSizeOptions = [10, 25, 50] });
+        var aiSummarySettings = Options.Create(new AiSummarySettings { MaxLength = 500, DefaultLanguage = "en" });
 
         // Act
-        var model = new IndexModel(searchServiceMock.Object, searchSettings, mediatorMock.Object);
+        var model = new IndexModel(searchServiceMock.Object, searchSettings, aiSummarySettings, mediatorMock.Object);
 
         // Assert
         Assert.Null(model.Query);
@@ -34,7 +35,8 @@ public class IndexModelTests
         var searchServiceMock = new Mock<IIssueSearchService>();
         var mediatorMock = new Mock<IMediator>();
         var searchSettings = Options.Create(new SearchSettings { DefaultPageSize = 10, PageSizeOptions = [10, 25, 50] });
-        var model = new IndexModel(searchServiceMock.Object, searchSettings, mediatorMock.Object);
+        var aiSummarySettings = Options.Create(new AiSummarySettings { MaxLength = 500, DefaultLanguage = "en" });
+        var model = new IndexModel(searchServiceMock.Object, searchSettings, aiSummarySettings, mediatorMock.Object);
 
         // Act
         await model.OnGetAsync(CancellationToken.None);
@@ -57,7 +59,8 @@ public class IndexModelTests
             .ReturnsAsync(expectedResult);
 
         var searchSettings = Options.Create(new SearchSettings { DefaultPageSize = 10, PageSizeOptions = [10, 25, 50] });
-        var model = new IndexModel(searchServiceMock.Object, searchSettings, mediatorMock.Object)
+        var aiSummarySettings = Options.Create(new AiSummarySettings { MaxLength = 500, DefaultLanguage = "en" });
+        var model = new IndexModel(searchServiceMock.Object, searchSettings, aiSummarySettings, mediatorMock.Object)
         {
             Query = "test"
         };
