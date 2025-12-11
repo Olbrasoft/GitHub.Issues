@@ -19,7 +19,29 @@ public interface IGitHubIssueApiClient
         string repo,
         DateTimeOffset? since = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches all comments for a specific issue.
+    /// </summary>
+    /// <param name="owner">Repository owner</param>
+    /// <param name="repo">Repository name</param>
+    /// <param name="issueNumber">Issue number</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of comment bodies (ordered chronologically)</returns>
+    Task<IReadOnlyList<string>> FetchIssueCommentsAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// DTO representing a GitHub comment from the API.
+/// </summary>
+public record GitHubCommentDto(
+    long Id,
+    string Body,
+    DateTimeOffset CreatedAt);
 
 /// <summary>
 /// DTO representing a GitHub issue from the API.

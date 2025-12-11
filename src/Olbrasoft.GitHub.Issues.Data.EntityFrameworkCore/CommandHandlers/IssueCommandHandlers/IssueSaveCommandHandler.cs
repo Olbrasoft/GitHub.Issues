@@ -42,11 +42,6 @@ public class IssueSaveCommandHandler
             issue.Embedding = command.Embedding;
         }
 
-        if (command.CommentCount.HasValue)
-        {
-            issue.CommentCount = command.CommentCount.Value;
-        }
-
         await SaveChangesAsync(token);
         return issue;
     }

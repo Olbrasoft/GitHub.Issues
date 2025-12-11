@@ -105,7 +105,7 @@
             <ul class="results-list">
                 @foreach (var result in Model.SearchResult.Results)
                 {
-                    <li class="result-item">
+                    <li class="result-item" data-issue-id="@result.Id">
                         <div class="result-header">
                             <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
                             <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
@@ -215,4 +215,5 @@
     </script>
     <script src="~/js/repo-filter.js"></script>
     <script src="~/js/db-status.js"></script>
+    <script src="~/js/issue-updates.js"></script>
 }

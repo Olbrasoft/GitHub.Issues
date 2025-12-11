@@ -829,3 +829,23 @@ footer {
     color: #24292e;
     margin-bottom: 0.5rem;
 }
+
+/* Real-time issue update highlight animation */
+.result-item.issue-updated {
+    animation: issue-highlight 2s ease-out;
+}
+
+@keyframes issue-highlight {
+    0% {
+        background-color: #fff3cd;
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    }
+    50% {
+        background-color: #fff8e1;
+        box-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: none;
+    }
+}

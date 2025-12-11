@@ -79,6 +79,67 @@ public class GitHubIssueApiClient : IGitHubIssueApiClient
         return allIssues;
     }
 
+    public async Task<IReadOnlyList<string>> FetchIssueCommentsAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Fetching comments for issue #{Number} in {Owner}/{Repo}", issueNumber, owner, repo);
+
+        var allComments = new List<string>();
+        var page = 1;
+
+        while (true)
+        {
+            var url = $"repos/{owner}/{repo}/issues/{issueNumber}/comments?per_page={_pageSize}&page={page}";
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            var pageComments = ParseCommentsFromJson(doc.RootElement);
+            if (pageComments.Count == 0)
+            {
+                break;
+            }
+
+            allComments.AddRange(pageComments);
+
+            if (pageComments.Count < _pageSize)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _logger.LogDebug("Fetched {Count} comments for issue #{Number}", allComments.Count, issueNumber);
+        return allComments;
+    }
+
+    private static List<string> ParseCommentsFromJson(JsonElement root)
+    {
+        var comments = new List<string>();
+
+        foreach (var comment in root.EnumerateArray())
+        {
+            if (comment.TryGetProperty("body", out var bodyElement) &&
+                bodyElement.ValueKind == JsonValueKind.String)
+            {
+                var body = bodyElement.GetString();
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    comments.Add(body);
+                }
+            }
+        }
+
+        return comments;
+    }
+
     private static List<GitHubIssueDto> ParseIssuesFromJson(JsonElement root)
     {
         var issues = new List<GitHubIssueDto>();

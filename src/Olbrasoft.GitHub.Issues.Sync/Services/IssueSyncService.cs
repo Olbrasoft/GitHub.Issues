@@ -76,8 +76,9 @@ public class IssueSyncService : IIssueSyncService
             var isNew = existingIssue == null;
             var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < ghIssue.UpdatedAt;
 
-            // Generate embedding for new/changed issues
-            var embedding = await GetEmbeddingAsync(ghIssue, existingIssue, isNew, hasChanged, cancellationToken);
+            // Generate embedding for new/changed issues (includes comments)
+            var embedding = await GetEmbeddingAsync(ghIssue, existingIssue, isNew, hasChanged, owner, repo, cancellationToken);
+            stats.ApiCalls++; // Count comment API call if made
             if (embedding == null)
             {
                 _logger.LogWarning(
@@ -136,11 +137,31 @@ public class IssueSyncService : IIssueSyncService
         Issue? existingIssue,
         bool isNew,
         bool hasChanged,
+        string owner,
+        string repo,
         CancellationToken cancellationToken)
     {
         if (isNew || hasChanged)
         {
-            var textToEmbed = _textBuilder.CreateEmbeddingText(ghIssue.Title, ghIssue.Body);
+            // Fetch comments for full-content embedding
+            IReadOnlyList<string>? comments = null;
+            try
+            {
+                comments = await _apiClient.FetchIssueCommentsAsync(owner, repo, ghIssue.Number, cancellationToken);
+                _logger.LogDebug("Fetched {Count} comments for issue #{Number}", comments.Count, ghIssue.Number);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch comments for issue #{Number}, embedding without comments", ghIssue.Number);
+            }
+
+            // Build text with title, body, labels, and comments
+            var textToEmbed = _textBuilder.CreateEmbeddingText(
+                ghIssue.Title,
+                ghIssue.Body,
+                ghIssue.LabelNames,
+                comments);
+
             var embedding = await _embeddingService.GenerateEmbeddingAsync(
                 textToEmbed,
                 EmbeddingInputType.Document,

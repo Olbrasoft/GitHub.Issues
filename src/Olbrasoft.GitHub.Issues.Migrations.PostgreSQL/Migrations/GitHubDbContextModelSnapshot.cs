@@ -270,10 +270,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CommentCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("comment_count");
-
                     b.Property<Vector>("Embedding")
                         .IsRequired()
                         .HasColumnType("vector(768)")

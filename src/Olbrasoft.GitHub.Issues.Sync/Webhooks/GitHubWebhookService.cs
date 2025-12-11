@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
+using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Webhooks;
@@ -14,8 +15,10 @@ public class GitHubWebhookService : IGitHubWebhookService
     private readonly IRepositorySyncBusinessService _repositoryService;
     private readonly IIssueSyncBusinessService _issueService;
     private readonly ILabelSyncBusinessService _labelService;
+    private readonly IGitHubIssueApiClient _apiClient;
     private readonly IEmbeddingService _embeddingService;
     private readonly IEmbeddingTextBuilder _textBuilder;
+    private readonly IIssueUpdateNotifier _updateNotifier;
     private readonly ILogger<GitHubWebhookService> _logger;
 
     // Actions that require embedding regeneration
@@ -29,15 +32,19 @@ public class GitHubWebhookService : IGitHubWebhookService
         IRepositorySyncBusinessService repositoryService,
         IIssueSyncBusinessService issueService,
         ILabelSyncBusinessService labelService,
+        IGitHubIssueApiClient apiClient,
         IEmbeddingService embeddingService,
         IEmbeddingTextBuilder textBuilder,
+        IIssueUpdateNotifier updateNotifier,
         ILogger<GitHubWebhookService> logger)
     {
         _repositoryService = repositoryService;
         _issueService = issueService;
         _labelService = labelService;
+        _apiClient = apiClient;
         _embeddingService = embeddingService;
         _textBuilder = textBuilder;
+        _updateNotifier = updateNotifier;
         _logger = logger;
     }
 
@@ -84,12 +91,12 @@ public class GitHubWebhookService : IGitHubWebhookService
         {
             return action.ToLowerInvariant() switch
             {
-                "opened" => await HandleOpenedAsync(repository.Id, issue, ct),
-                "edited" => await HandleEditedAsync(repository.Id, issue, ct),
+                "opened" => await HandleOpenedAsync(repository.Id, repo.FullName, issue, ct),
+                "edited" => await HandleEditedAsync(repository.Id, repo.FullName, issue, ct),
                 "closed" => await HandleStateChangeAsync(repository.Id, issue, isOpen: false, ct),
                 "reopened" => await HandleStateChangeAsync(repository.Id, issue, isOpen: true, ct),
                 "deleted" => await HandleDeletedAsync(repository.Id, issue, ct),
-                "labeled" or "unlabeled" => await HandleLabelChangeAsync(repository.Id, issue, ct),
+                "labeled" or "unlabeled" => await HandleLabelChangeAsync(repository.Id, repo.FullName, issue, ct),
                 _ => new WebhookProcessingResult
                 {
                     Success = true,
@@ -114,13 +121,18 @@ public class GitHubWebhookService : IGitHubWebhookService
 
     private async Task<WebhookProcessingResult> HandleOpenedAsync(
         int repositoryId,
+        string repoFullName,
         GitHubWebhookIssue issue,
         CancellationToken ct)
     {
         _logger.LogInformation("Creating new issue #{Number}: {Title}", issue.Number, issue.Title);
 
-        // Generate embedding for new issue
-        var embedding = await GenerateEmbeddingAsync(issue.Title, issue.Body, ct);
+        // Extract owner and repo from full name
+        var (owner, repo) = ParseRepoFullName(repoFullName);
+        var labelNames = issue.Labels.Select(l => l.Name).ToList();
+
+        // Generate embedding for new issue (includes comments and labels)
+        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -134,11 +146,13 @@ public class GitHubWebhookService : IGitHubWebhookService
             ct);
 
         // Sync labels
-        var labelNames = issue.Labels.Select(l => l.Name).ToList();
         if (labelNames.Count > 0)
         {
             await _issueService.SyncLabelsAsync(savedIssue.Id, repositoryId, labelNames, ct);
         }
+
+        // Notify connected clients about the new issue
+        await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
 
         return new WebhookProcessingResult
         {
@@ -146,19 +160,25 @@ public class GitHubWebhookService : IGitHubWebhookService
             Message = "Issue created",
             IssueTitle = issue.Title,
             IssueNumber = issue.Number,
+            RepositoryFullName = repoFullName,
             EmbeddingGenerated = embedding != null
         };
     }
 
     private async Task<WebhookProcessingResult> HandleEditedAsync(
         int repositoryId,
+        string repoFullName,
         GitHubWebhookIssue issue,
         CancellationToken ct)
     {
         _logger.LogInformation("Updating issue #{Number}: {Title}", issue.Number, issue.Title);
 
-        // Generate new embedding for edited issue (title/body may have changed)
-        var embedding = await GenerateEmbeddingAsync(issue.Title, issue.Body, ct);
+        // Extract owner and repo from full name
+        var (owner, repo) = ParseRepoFullName(repoFullName);
+        var labelNames = issue.Labels.Select(l => l.Name).ToList();
+
+        // Generate new embedding for edited issue (includes comments and labels)
+        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -172,8 +192,10 @@ public class GitHubWebhookService : IGitHubWebhookService
             ct);
 
         // Sync labels
-        var labelNames = issue.Labels.Select(l => l.Name).ToList();
         await _issueService.SyncLabelsAsync(savedIssue.Id, repositoryId, labelNames, ct);
+
+        // Notify connected clients about the updated issue
+        await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
 
         return new WebhookProcessingResult
         {
@@ -181,6 +203,7 @@ public class GitHubWebhookService : IGitHubWebhookService
             Message = "Issue updated",
             IssueTitle = issue.Title,
             IssueNumber = issue.Number,
+            RepositoryFullName = repoFullName,
             EmbeddingGenerated = embedding != null
         };
     }
@@ -197,7 +220,7 @@ public class GitHubWebhookService : IGitHubWebhookService
         // Get existing issue to preserve embedding
         var existingIssue = await _issueService.GetIssueAsync(repositoryId, issue.Number, ct);
 
-        await _issueService.SaveIssueAsync(
+        var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
             issue.Number,
             issue.Title,
@@ -207,6 +230,9 @@ public class GitHubWebhookService : IGitHubWebhookService
             DateTimeOffset.UtcNow,
             existingIssue?.Embedding, // Preserve existing embedding
             ct);
+
+        // Notify connected clients about the state change
+        await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
 
         return new WebhookProcessingResult
         {
@@ -243,6 +269,7 @@ public class GitHubWebhookService : IGitHubWebhookService
 
     private async Task<WebhookProcessingResult> HandleLabelChangeAsync(
         int repositoryId,
+        string repoFullName,
         GitHubWebhookIssue issue,
         CancellationToken ct)
     {
@@ -254,28 +281,67 @@ public class GitHubWebhookService : IGitHubWebhookService
         if (existingIssue == null)
         {
             // Issue not in our database yet - create it with embedding
-            return await HandleOpenedAsync(repositoryId, issue, ct);
+            return await HandleOpenedAsync(repositoryId, repoFullName, issue, ct);
         }
 
-        // Just sync labels, no need to regenerate embedding
+        // Labels are part of embedding, so regenerate it
+        var (owner, repo) = ParseRepoFullName(repoFullName);
         var labelNames = issue.Labels.Select(l => l.Name).ToList();
-        await _issueService.SyncLabelsAsync(existingIssue.Id, repositoryId, labelNames, ct);
+        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+
+        var savedIssue = await _issueService.SaveIssueAsync(
+            repositoryId,
+            issue.Number,
+            issue.Title,
+            issue.State.Equals("open", StringComparison.OrdinalIgnoreCase),
+            issue.HtmlUrl,
+            issue.UpdatedAt,
+            DateTimeOffset.UtcNow,
+            embedding,
+            ct);
+
+        // Sync labels
+        await _issueService.SyncLabelsAsync(savedIssue.Id, repositoryId, labelNames, ct);
+
+        // Notify connected clients about the label change
+        await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
 
         return new WebhookProcessingResult
         {
             Success = true,
-            Message = "Labels updated",
+            Message = "Labels updated (embedding regenerated)",
             IssueTitle = issue.Title,
             IssueNumber = issue.Number,
-            EmbeddingGenerated = false
+            RepositoryFullName = repoFullName,
+            EmbeddingGenerated = embedding != null
         };
     }
 
-    private async Task<float[]?> GenerateEmbeddingAsync(string title, string? body, CancellationToken ct)
+    private async Task<float[]?> GenerateEmbeddingAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        string title,
+        string? body,
+        IReadOnlyList<string> labelNames,
+        CancellationToken ct)
     {
         try
         {
-            var text = _textBuilder.CreateEmbeddingText(title, body);
+            // Fetch comments from GitHub API
+            IReadOnlyList<string>? comments = null;
+            try
+            {
+                comments = await _apiClient.FetchIssueCommentsAsync(owner, repo, issueNumber, ct);
+                _logger.LogDebug("Fetched {Count} comments for issue #{Number}", comments.Count, issueNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch comments for issue #{Number}, embedding without comments", issueNumber);
+            }
+
+            // Build text with title, body, labels, and comments
+            var text = _textBuilder.CreateEmbeddingText(title, body, labelNames, comments);
             var embedding = await _embeddingService.GenerateEmbeddingAsync(
                 text,
                 EmbeddingInputType.Document,
@@ -283,14 +349,14 @@ public class GitHubWebhookService : IGitHubWebhookService
 
             if (embedding == null)
             {
-                _logger.LogWarning("Failed to generate embedding for issue");
+                _logger.LogWarning("Failed to generate embedding for issue #{Number}", issueNumber);
             }
 
             return embedding;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating embedding");
+            _logger.LogError(ex, "Error generating embedding for issue #{Number}", issueNumber);
             return null;
         }
     }
@@ -339,14 +405,9 @@ public class GitHubWebhookService : IGitHubWebhookService
                 };
             }
 
-            // Update comment count
-            var updated = await _issueService.UpdateCommentCountAsync(
-                repository.Id,
-                issue.Number,
-                issue.Comments,
-                ct);
-
-            if (!updated)
+            // Get existing issue
+            var existingIssue = await _issueService.GetIssueAsync(repository.Id, issue.Number, ct);
+            if (existingIssue == null)
             {
                 _logger.LogWarning("Issue #{Number} not found in database", issue.Number);
                 return new WebhookProcessingResult
@@ -358,12 +419,32 @@ public class GitHubWebhookService : IGitHubWebhookService
                 };
             }
 
+            // Regenerate embedding with updated comments (fetched from GitHub API)
+            var (owner, repoName) = ParseRepoFullName(repo.FullName);
+            var labelNames = issue.Labels.Select(l => l.Name).ToList();
+            var embedding = await GenerateEmbeddingAsync(owner, repoName, issue.Number, issue.Title, issue.Body, labelNames, ct);
+
+            var savedIssue = await _issueService.SaveIssueAsync(
+                repository.Id,
+                issue.Number,
+                issue.Title,
+                issue.State.Equals("open", StringComparison.OrdinalIgnoreCase),
+                issue.HtmlUrl,
+                issue.UpdatedAt,
+                DateTimeOffset.UtcNow,
+                embedding,
+                ct);
+
+            // Notify connected clients about the comment change
+            await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
+
             return new WebhookProcessingResult
             {
                 Success = true,
-                Message = $"Comment count updated to {issue.Comments}",
+                Message = $"Embedding regenerated (comment {action})",
                 IssueNumber = issue.Number,
-                RepositoryFullName = repo.FullName
+                RepositoryFullName = repo.FullName,
+                EmbeddingGenerated = embedding != null
             };
         }
         catch (Exception ex)
@@ -553,5 +634,42 @@ public class GitHubWebhookService : IGitHubWebhookService
             Message = $"Label '{label.Name}' deleted",
             RepositoryFullName = repoFullName
         };
+    }
+
+    /// <summary>
+    /// Parses repository full name (e.g., "owner/repo") into owner and repo parts.
+    /// </summary>
+    private static (string Owner, string Repo) ParseRepoFullName(string fullName)
+    {
+        var parts = fullName.Split('/');
+        if (parts.Length != 2)
+        {
+            throw new ArgumentException($"Invalid repository full name format: {fullName}", nameof(fullName));
+        }
+        return (parts[0], parts[1]);
+    }
+
+    /// <summary>
+    /// Notifies connected clients about an issue update via SignalR.
+    /// </summary>
+    private async Task NotifyIssueUpdateAsync(int issueId, GitHubWebhookIssue issue, CancellationToken ct)
+    {
+        try
+        {
+            var update = new IssueUpdateDto(
+                IssueId: issueId,
+                GitHubNumber: issue.Number,
+                IsOpen: issue.State.Equals("open", StringComparison.OrdinalIgnoreCase),
+                Title: issue.Title,
+                Labels: issue.Labels.Select(l => new LabelDto(l.Name, l.Color)).ToList());
+
+            await _updateNotifier.NotifyIssueUpdatedAsync(update, ct);
+            _logger.LogDebug("Notified clients about update to issue #{Number}", issue.Number);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the webhook processing if notification fails
+            _logger.LogWarning(ex, "Failed to notify clients about issue #{Number} update", issue.Number);
+        }
     }
 }

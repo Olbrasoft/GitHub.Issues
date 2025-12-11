@@ -13,11 +13,13 @@ using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.Sync.Webhooks;
 using Olbrasoft.Mediation;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddRazorPages();
+builder.Services.AddSignalR();
 
 // Configure GitHub OAuth authentication
 var gitHubClientId = builder.Configuration["GitHub:ClientId"];
@@ -188,6 +190,7 @@ builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();
 // Webhook services for real-time sync
 builder.Services.Configure<WebhookSettings>(builder.Configuration.GetSection("GitHubApp"));
 builder.Services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
+builder.Services.AddScoped<IIssueUpdateNotifier, SignalRIssueUpdateNotifier>();
 builder.Services.AddScoped<IGitHubWebhookService, GitHubWebhookService>();
 
 var app = builder.Build();
@@ -203,6 +206,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();
+app.MapHub<IssueUpdatesHub>("/hubs/issues");
 
 // Authentication endpoints
 app.MapGet("/login", async (HttpContext context) =>

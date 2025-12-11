@@ -45,9 +45,4 @@ public interface IIssueSyncBusinessService
     /// Syncs labels for an issue.
     /// </summary>
     Task<bool> SyncLabelsAsync(int issueId, int repositoryId, List<string> labelNames, CancellationToken ct = default);
-
-    /// <summary>
-    /// Updates the comment count for an issue.
-    /// </summary>
-    Task<bool> UpdateCommentCountAsync(int repositoryId, int issueNumber, int commentCount, CancellationToken ct = default);
 }

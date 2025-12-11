@@ -1,0 +1,87 @@
+{
+  "format": 1,
+  "restore": {
+    "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj": {}
+  },
+  "projects": {
+    "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj",
+        "projectName": "Olbrasoft.GitHub.Issues.Data",
+        "projectPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj",
+        "packagesPath": "/home/jirka/.nuget/packages/",
+        "outputPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/jirka/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "Olbrasoft.Data.Cqrs.Common": {
+              "target": "Package",
+              "version": "[1.8.0, )"
+            },
+            "Pgvector": {
+              "target": "Package",
+              "version": "[0.3.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/jirka/.dotnet/sdk/10.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

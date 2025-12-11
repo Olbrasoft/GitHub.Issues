@@ -1,0 +1,164 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "Olbrasoft.GitHub.Issues.Data/1.0.0": {
+        "dependencies": {
+          "Olbrasoft.Data.Cqrs.Common": "1.8.0",
+          "Pgvector": "0.3.0"
+        },
+        "runtime": {
+          "Olbrasoft.GitHub.Issues.Data.dll": {}
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.1": {
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.324.11423"
+          }
+        }
+      },
+      "Microsoft.Extensions.Logging.Abstractions/8.0.0": {
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "Npgsql/8.0.3": {
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/Npgsql.dll": {
+            "assemblyVersion": "8.0.3.0",
+            "fileVersion": "8.0.3.0"
+          }
+        }
+      },
+      "Olbrasoft.Data.Cqrs.Common/1.8.0": {
+        "dependencies": {
+          "Olbrasoft.Data.Entities.Abstractions": "1.8.0",
+          "Olbrasoft.Mediation": "1.0.4"
+        },
+        "runtime": {
+          "lib/net9.0/Olbrasoft.Data.Cqrs.Common.dll": {
+            "assemblyVersion": "1.8.0.0",
+            "fileVersion": "1.8.0.0"
+          }
+        }
+      },
+      "Olbrasoft.Data.Entities.Abstractions/1.8.0": {
+        "runtime": {
+          "lib/net8.0/Olbrasoft.Data.Entities.Abstractions.dll": {
+            "assemblyVersion": "1.8.0.0",
+            "fileVersion": "1.8.0.0"
+          }
+        }
+      },
+      "Olbrasoft.Mediation/1.0.4": {
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.1",
+          "Olbrasoft.Mediation.Abstractions": "1.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/Olbrasoft.Mediation.dll": {
+            "assemblyVersion": "1.0.4.0",
+            "fileVersion": "1.0.4.0"
+          }
+        }
+      },
+      "Olbrasoft.Mediation.Abstractions/1.0.0": {
+        "runtime": {
+          "lib/net8.0/Olbrasoft.Mediation.Abstractions.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Pgvector/0.3.0": {
+        "dependencies": {
+          "Npgsql": "8.0.3"
+        },
+        "runtime": {
+          "lib/net6.0/Pgvector.dll": {
+            "assemblyVersion": "0.3.0.0",
+            "fileVersion": "0.3.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Olbrasoft.GitHub.Issues.Data/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-fGLiCRLMYd00JYpClraLjJTNKLmMJPnqxMaiRzEBIIvevlzxz33mXy39Lkd48hu1G+N21S7QpaO5ZzKsI6FRuA==",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/8.0.1",
+      "hashPath": "microsoft.extensions.dependencyinjection.abstractions.8.0.1.nupkg.sha512"
+    },
+    "Microsoft.Extensions.Logging.Abstractions/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-arDBqTgFCyS0EvRV7O3MZturChstm50OJ0y9bDJvAcmEPJm0FFpFyjU/JLYyStNGGey081DvnQYlncNX5SJJGA==",
+      "path": "microsoft.extensions.logging.abstractions/8.0.0",
+      "hashPath": "microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512"
+    },
+    "Npgsql/8.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-6WEmzsQJCZAlUG1pThKg/RmeF6V+I0DmBBBE/8YzpRtEzhyZzKcK7ulMANDm5CkxrALBEC8H+5plxHWtIL7xnA==",
+      "path": "npgsql/8.0.3",
+      "hashPath": "npgsql.8.0.3.nupkg.sha512"
+    },
+    "Olbrasoft.Data.Cqrs.Common/1.8.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-41Mk3eUAse2d926FXFIxqNDjrQamfA48iGfedVlYjG7/16562vREajfYRray4dKiwJEk/yIheGkBu8f5NmvPYw==",
+      "path": "olbrasoft.data.cqrs.common/1.8.0",
+      "hashPath": "olbrasoft.data.cqrs.common.1.8.0.nupkg.sha512"
+    },
+    "Olbrasoft.Data.Entities.Abstractions/1.8.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5+NKSaTgp14htRJyZwmNWffufbwjmXG9L0nOFZQ66tjWioUe09fO9BcxmHtGzS7HEisonfUvjYXB9bJ7pZMM+w==",
+      "path": "olbrasoft.data.entities.abstractions/1.8.0",
+      "hashPath": "olbrasoft.data.entities.abstractions.1.8.0.nupkg.sha512"
+    },
+    "Olbrasoft.Mediation/1.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ugVnvXG6ch63iWw7Fw9S04tscYCOOa1nt50x226ksg0ZeIlnOK29fv/zHiT4N2WUlr/oV4g3D8RQUVz/CvU+wQ==",
+      "path": "olbrasoft.mediation/1.0.4",
+      "hashPath": "olbrasoft.mediation.1.0.4.nupkg.sha512"
+    },
+    "Olbrasoft.Mediation.Abstractions/1.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-/zGAgcwWKAZfdKXyOdYIuTJ15ZUQELkqXXrkgA6cVMvewIVUukegcPbBZ44xjL9JKvfTNqFxhKVoyQSnvKMm/w==",
+      "path": "olbrasoft.mediation.abstractions/1.0.0",
+      "hashPath": "olbrasoft.mediation.abstractions.1.0.0.nupkg.sha512"
+    },
+    "Pgvector/0.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-asa5XkgE3rXCNi5qHGavWZ5w+pmqWjjM1T5vN5VuPaKqV52h4TLiOM9ZJFofYgYtfhReo1QWe4NeD+hbv7ydfw==",
+      "path": "pgvector/0.3.0",
+      "hashPath": "pgvector.0.3.0.nupkg.sha512"
+    }
+  }
+}

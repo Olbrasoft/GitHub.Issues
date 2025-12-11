@@ -263,9 +263,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CommentCount")
-                        .HasColumnType("int");
-
                     b.PrimitiveCollection<string>("Embedding")
                         .IsRequired()
                         .HasColumnType("vector(1024)");

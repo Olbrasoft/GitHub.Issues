@@ -1,0 +1,204 @@
+{
+  "format": 1,
+  "restore": {
+    "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj": {}
+  },
+  "projects": {
+    "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj",
+        "projectName": "Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore",
+        "projectPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj",
+        "packagesPath": "/home/jirka/.nuget/packages/",
+        "outputPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/jirka/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj": {
+                "projectPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "EFCore.NamingConventions": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "EFCore.SqlServer.VectorSearch": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.Extensions.Configuration.Json": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.Extensions.Http": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.Extensions.Options": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Olbrasoft.Data.Cqrs.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[1.8.0, )"
+            },
+            "Pgvector.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[0.2.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/jirka/.dotnet/sdk/10.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj",
+        "projectName": "Olbrasoft.GitHub.Issues.Data",
+        "projectPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/Olbrasoft.GitHub.Issues.Data.csproj",
+        "packagesPath": "/home/jirka/.nuget/packages/",
+        "outputPath": "/home/jirka/Olbrasoft/GitHub.Issues/src/Olbrasoft.GitHub.Issues.Data/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/jirka/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "Olbrasoft.Data.Cqrs.Common": {
+              "target": "Package",
+              "version": "[1.8.0, )"
+            },
+            "Pgvector": {
+              "target": "Package",
+              "version": "[0.3.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[9.0.11, 9.0.11]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/jirka/.dotnet/sdk/10.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
