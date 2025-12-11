@@ -45,30 +45,42 @@
                 </div>
             }
 
-            @if (!string.IsNullOrEmpty(Model.Summary))
-            {
-                <div class="ai-summary">
-                    <div class="ai-summary-header">
-                        <span class="ai-icon">🤖</span>
-                        <span class="ai-label">AI Shrnutí</span>
-                        @if (!string.IsNullOrEmpty(Model.SummaryProvider))
-                        {
-                            <span class="ai-provider">@Model.SummaryProvider</span>
-                        }
+            <div id="ai-summary-container" data-issue-id="@Model.Issue.Id" data-summary-pending="@Model.SummaryPending.ToString().ToLower()">
+                @if (!string.IsNullOrEmpty(Model.Summary))
+                {
+                    <div class="ai-summary">
+                        <div class="ai-summary-header">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-label">AI Shrnutí</span>
+                            @if (!string.IsNullOrEmpty(Model.SummaryProvider))
+                            {
+                                <span class="ai-provider">@Model.SummaryProvider</span>
+                            }
+                        </div>
+                        <p class="ai-summary-text">@Model.Summary</p>
                     </div>
-                    <p class="ai-summary-text">@Model.Summary</p>
-                </div>
-            }
-            else if (!string.IsNullOrEmpty(Model.SummaryError))
-            {
-                <div class="ai-summary ai-summary-error">
-                    <div class="ai-summary-header">
-                        <span class="ai-icon">⚠️</span>
-                        <span class="ai-label">AI Shrnutí nedostupné</span>
+                }
+                else if (!string.IsNullOrEmpty(Model.SummaryError))
+                {
+                    <div class="ai-summary ai-summary-error">
+                        <div class="ai-summary-header">
+                            <span class="ai-icon">⚠️</span>
+                            <span class="ai-label">AI Shrnutí nedostupné</span>
+                        </div>
+                        <p class="ai-summary-text">@Model.SummaryError</p>
                     </div>
-                    <p class="ai-summary-text">@Model.SummaryError</p>
-                </div>
-            }
+                }
+                else if (Model.SummaryPending)
+                {
+                    <div class="ai-summary ai-summary-loading">
+                        <div class="ai-summary-header">
+                            <span class="ai-icon ai-icon-spin">⏳</span>
+                            <span class="ai-label">Generuji AI shrnutí...</span>
+                        </div>
+                        <p class="ai-summary-text">Shrnutí bude za chvíli k dispozici.</p>
+                    </div>
+                }
+            </div>
 
             <hr />
 
@@ -314,6 +326,45 @@
         color: #78350f;
     }
 
+    /* AI Summary loading state */
+    .ai-summary-loading {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border-color: #9ca3af;
+    }
+
+    .ai-summary-loading .ai-label {
+        color: #6b7280;
+    }
+
+    .ai-summary-loading .ai-summary-text {
+        color: #6b7280;
+    }
+
+    .ai-icon-spin {
+        animation: spin 1.5s linear infinite;
+    }
+
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* AI Summary received animation */
+    .ai-summary-received {
+        animation: summaryReceived 0.5s ease-out;
+    }
+
+    @@keyframes summaryReceived {
+        0% {
+            background-color: #d1fae5;
+            transform: scale(1.02);
+        }
+        100% {
+            background-color: transparent;
+            transform: scale(1);
+        }
+    }
+
     /* Issue labels */
     .labels-container {
         display: flex;
@@ -331,3 +382,8 @@
         white-space: nowrap;
     }
 </style>
+
+@section Scripts {
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script src="~/js/detail-updates.js"></script>
+}

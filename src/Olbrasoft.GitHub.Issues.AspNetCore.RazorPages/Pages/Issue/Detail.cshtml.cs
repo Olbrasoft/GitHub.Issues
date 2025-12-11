@@ -28,6 +28,12 @@ public class DetailModel : PageModel
     public string? SummaryProvider { get; set; }
 
     /// <summary>
+    /// Indicates whether summary is being generated asynchronously.
+    /// When true, the view should show a loading indicator and connect to SignalR.
+    /// </summary>
+    public bool SummaryPending { get; set; }
+
+    /// <summary>
     /// URL to return to after viewing the detail (e.g., search results page).
     /// Falls back to homepage if not provided.
     /// </summary>
@@ -53,6 +59,7 @@ public class DetailModel : PageModel
         Summary = result.Summary;
         SummaryProvider = result.SummaryProvider;
         SummaryError = result.SummaryError;
+        SummaryPending = result.SummaryPending;
 
         return Page();
     }

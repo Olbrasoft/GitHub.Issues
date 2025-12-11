@@ -140,6 +140,9 @@ builder.Services.AddScoped<IIssueSearchService, IssueSearchService>();
 builder.Services.AddScoped<IIssueDetailService, IssueDetailService>();
 builder.Services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
+// SignalR notifiers for progressive updates
+builder.Services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
+
 // Register Sync services for data import
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("Sync"));
 builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
@@ -314,6 +317,30 @@ app.MapGet("/api/repositories/sync-status", async (IMediator mediator, Cancellat
     var query = new RepositoriesSyncStatusQuery(mediator);
     var results = await query.ToResultAsync(ct);
     return Results.Ok(results);
+});
+
+// Generate AI summary for issue (progressive loading via SignalR)
+app.MapPost("/api/issues/{id:int}/generate-summary", async (
+    int id,
+    IIssueDetailService issueDetailService,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    // Fire and forget - run summary generation in background
+    // The result will be pushed via SignalR
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            await issueDetailService.GenerateSummaryAsync(id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Background summary generation failed for issue {Id}", id);
+        }
+    });
+
+    return Results.Accepted();
 });
 
 // Sync specific repository or all repositories

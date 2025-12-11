@@ -8,7 +8,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 /// <summary>
 /// Service for fetching issue details including body from GraphQL and Czech AI summary.
 /// Uses two-step process: English summarization → Czech translation.
-/// Single responsibility: Orchestrate data retrieval for issue detail page.
+/// Summary generation is progressive - page loads immediately, summary arrives via SignalR.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
 {
@@ -16,6 +16,7 @@ public class IssueDetailService : IIssueDetailService
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly IAiSummarizationService _summarizationService;
     private readonly IAiTranslationService _translationService;
+    private readonly ISummaryNotifier _summaryNotifier;
     private readonly ILogger<IssueDetailService> _logger;
 
     // Cache validity period - regenerate summary if issue was updated after cache
@@ -26,12 +27,14 @@ public class IssueDetailService : IIssueDetailService
         IGitHubGraphQLClient graphQLClient,
         IAiSummarizationService summarizationService,
         IAiTranslationService translationService,
+        ISummaryNotifier summaryNotifier,
         ILogger<IssueDetailService> logger)
     {
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
         _summarizationService = summarizationService;
         _translationService = translationService;
+        _summaryNotifier = summaryNotifier;
         _logger = logger;
     }
 
@@ -86,12 +89,11 @@ public class IssueDetailService : IIssueDetailService
             }
         }
 
-        // Generate Czech AI summary (two-step: summarize → translate)
+        // Check for cached summary - don't generate here, just return what we have
         string? summary = null;
         string? summaryProvider = null;
-        string? summaryError = null;
+        var summaryPending = false;
 
-        // Check cache first
         var isCacheValid = issue.SummaryCachedAt.HasValue &&
                           issue.SummaryCachedAt.Value > issue.GitHubUpdatedAt &&
                           issue.SummaryCachedAt.Value > DateTimeOffset.UtcNow.Subtract(CacheValidityPeriod);
@@ -104,33 +106,9 @@ public class IssueDetailService : IIssueDetailService
         }
         else if (!string.IsNullOrWhiteSpace(body))
         {
-            // Step 1: Summarize in English
-            var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
-            if (summarizeResult.Success && !string.IsNullOrWhiteSpace(summarizeResult.Summary))
-            {
-                // Step 2: Translate to Czech (using different provider)
-                var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
-                if (translateResult.Success)
-                {
-                    summary = translateResult.Translation;
-                    summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} → {translateResult.Provider}/{translateResult.Model}";
-
-                    // Cache the result
-                    await CacheSummaryAsync(issueId, summary!, summaryProvider, cancellationToken);
-                }
-                else
-                {
-                    // Translation failed - use English summary as fallback
-                    _logger.LogWarning("Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
-                    summary = summarizeResult.Summary;
-                    summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} (EN)";
-                }
-            }
-            else
-            {
-                summaryError = summarizeResult.Error;
-                _logger.LogWarning("Failed to summarize issue {Id}: {Error}", issueId, summarizeResult.Error);
-            }
+            // Summary not cached but body exists - mark as pending for progressive loading
+            summaryPending = true;
+            _logger.LogDebug("Summary pending for issue {Id} - will be generated via SignalR", issueId);
         }
 
         return new IssueDetailResult(
@@ -138,8 +116,9 @@ public class IssueDetailService : IIssueDetailService
             Issue: issueDto,
             Summary: summary,
             SummaryProvider: summaryProvider,
-            SummaryError: summaryError,
-            ErrorMessage: null);
+            SummaryError: null,
+            ErrorMessage: null,
+            SummaryPending: summaryPending);
     }
 
     private async Task CacheSummaryAsync(int issueId, string czechSummary, string provider, CancellationToken cancellationToken)
@@ -169,5 +148,77 @@ public class IssueDetailService : IIssueDetailService
         return parts.Length == 2
             ? (parts[0], parts[1])
             : (string.Empty, string.Empty);
+    }
+
+    /// <summary>
+    /// Generates AI summary for issue and sends notification via SignalR.
+    /// Called from background task when SummaryPending = true.
+    /// </summary>
+    public async Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Starting summary generation for issue {Id}", issueId);
+
+        var issue = await _dbContext.Issues
+            .Include(i => i.Repository)
+            .FirstOrDefaultAsync(i => i.Id == issueId, cancellationToken);
+
+        if (issue == null)
+        {
+            _logger.LogWarning("Issue {Id} not found for summary generation", issueId);
+            return;
+        }
+
+        // Fetch body from GraphQL
+        var (owner, repoName) = ParseRepositoryFullName(issue.Repository.FullName);
+        string? body = null;
+
+        if (!string.IsNullOrEmpty(owner) && !string.IsNullOrEmpty(repoName))
+        {
+            var requests = new[] { new IssueBodyRequest(owner, repoName, issue.Number) };
+            var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
+            bodies.TryGetValue((owner, repoName, issue.Number), out body);
+        }
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            _logger.LogWarning("No body available for issue {Id} - cannot generate summary", issueId);
+            return;
+        }
+
+        // Step 1: Summarize in English
+        var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
+        if (!summarizeResult.Success || string.IsNullOrWhiteSpace(summarizeResult.Summary))
+        {
+            _logger.LogWarning("Failed to summarize issue {Id}: {Error}", issueId, summarizeResult.Error);
+            return;
+        }
+
+        // Step 2: Translate to Czech
+        string summary;
+        string summaryProvider;
+
+        var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+        if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
+        {
+            summary = translateResult.Translation;
+            summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} → {translateResult.Provider}/{translateResult.Model}";
+        }
+        else
+        {
+            // Translation failed - use English summary as fallback
+            _logger.LogWarning("Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
+            summary = summarizeResult.Summary;
+            summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} (EN)";
+        }
+
+        // Cache the result
+        await CacheSummaryAsync(issueId, summary, summaryProvider, cancellationToken);
+
+        // Send notification via SignalR
+        await _summaryNotifier.NotifySummaryReadyAsync(
+            new SummaryNotificationDto(issueId, summary, summaryProvider),
+            cancellationToken);
+
+        _logger.LogInformation("Summary generated and sent for issue {Id} via {Provider}", issueId, summaryProvider);
     }
 }

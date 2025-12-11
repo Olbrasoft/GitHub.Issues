@@ -9,9 +9,16 @@ namespace Olbrasoft.GitHub.Issues.Business;
 public interface IIssueDetailService
 {
     /// <summary>
-    /// Gets issue detail by ID, including body from GraphQL and AI summary.
+    /// Gets issue detail by ID, including body from GraphQL.
+    /// Returns cached summary if available, otherwise sets SummaryPending = true.
     /// </summary>
     Task<IssueDetailResult> GetIssueDetailAsync(int issueId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generates AI summary for issue and sends notification via SignalR.
+    /// Should be called from background task when SummaryPending = true.
+    /// </summary>
+    Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -23,7 +30,8 @@ public record IssueDetailResult(
     string? Summary,
     string? SummaryProvider,
     string? SummaryError,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    bool SummaryPending = false);
 
 /// <summary>
 /// DTO for issue detail page.
