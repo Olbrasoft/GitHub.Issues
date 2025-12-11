@@ -63,16 +63,23 @@
         <div class="filter-row">
             <label>Stav:</label>
             <select name="State" class="state-select">
-                <option value="all" selected="@(Model.State == "all")">Vše</option>
-                <option value="open" selected="@(Model.State == "open")">Otevřený</option>
-                <option value="closed" selected="@(Model.State == "closed")">Zavřený</option>
+                @if (Model.State == "all") { <option value="all" selected>Vše</option> } else { <option value="all">Vše</option> }
+                @if (Model.State == "open") { <option value="open" selected>Otevřený</option> } else { <option value="open">Otevřený</option> }
+                @if (Model.State == "closed") { <option value="closed" selected>Zavřený</option> } else { <option value="closed">Zavřený</option> }
             </select>
 
             <label>Položek na stránku:</label>
             <select name="PageSize" class="page-size-select" onchange="document.getElementById('searchForm').submit();">
                 @foreach (var size in Model.PageSizeOptions)
                 {
-                    <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                    if (Model.PageSize == size)
+                    {
+                        <option value="@size" selected>@size</option>
+                    }
+                    else
+                    {
+                        <option value="@size">@size</option>
+                    }
                 }
             </select>
         </div>
