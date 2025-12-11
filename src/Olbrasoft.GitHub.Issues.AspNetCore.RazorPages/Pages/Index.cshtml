@@ -83,17 +83,15 @@
                 }
             </select>
 
-            @* Hidden field ensures "false" is sent when checkbox is unchecked *@
-            <input type="hidden" name="TranslateToCzech" value="false" />
             <label class="translate-checkbox-label">
                 <input type="checkbox"
-                       name="TranslateToCzech"
                        id="translateToCzechCheckbox"
                        class="translate-checkbox"
-                       value="true"
-                       @(Model.TranslateToCzech ? "checked" : "") />
+                       @(Model.TranslateToCzech ? "checked" : "")
+                       onchange="updateTranslateHiddenField(this)" />
                 Přeložit do češtiny
             </label>
+            <input type="hidden" name="TranslateToCzech" id="translateToCzechHidden" value="@(Model.TranslateToCzech ? "true" : "false")" />
         </div>
         <input type="hidden" name="PageNum" value="1" />
     </form>
@@ -250,6 +248,11 @@
         // Clear search function - clears session and reloads page
         function clearSearch() {
             document.getElementById('clearSearchForm').submit();
+        }
+
+        // Update hidden field when checkbox changes (prevents duplicate URL params)
+        function updateTranslateHiddenField(checkbox) {
+            document.getElementById('translateToCzechHidden').value = checkbox.checked ? 'true' : 'false';
         }
     </script>
     <script src="~/js/repo-filter.js"></script>
