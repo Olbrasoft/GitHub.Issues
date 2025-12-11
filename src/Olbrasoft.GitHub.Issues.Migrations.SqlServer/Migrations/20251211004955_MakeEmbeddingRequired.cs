@@ -12,6 +12,11 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
         {
             // Delete related data for issues without embeddings (FK constraints)
             migrationBuilder.Sql(@"
+                -- First, NULL out parent_issue_id references to issues being deleted
+                UPDATE issues SET parent_issue_id = NULL
+                WHERE parent_issue_id IN (SELECT id FROM issues WHERE embedding IS NULL);
+
+                -- Then delete related data
                 DELETE FROM issue_events WHERE issue_id IN (SELECT id FROM issues WHERE embedding IS NULL);
                 DELETE FROM issue_labels WHERE issue_id IN (SELECT id FROM issues WHERE embedding IS NULL);
                 DELETE FROM issues WHERE embedding IS NULL;
