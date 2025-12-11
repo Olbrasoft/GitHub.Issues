@@ -27,6 +27,18 @@ public class DetailModel : PageModel
 
     public string? SummaryProvider { get; set; }
 
+    /// <summary>
+    /// URL to return to after viewing the detail (e.g., search results page).
+    /// Falls back to homepage if not provided.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? ReturnUrl { get; set; }
+
+    /// <summary>
+    /// Gets the safe return URL - defaults to homepage if not provided.
+    /// </summary>
+    public string SafeReturnUrl => string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : ReturnUrl;
+
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken cancellationToken)
     {
         var result = await _issueDetailService.GetIssueDetailAsync(id, cancellationToken);

@@ -6,7 +6,13 @@
 }
 
 <div class="detail-container">
-    <a href="javascript:history.back()" class="back-link">← Zpět na výsledky</a>
+    <div class="nav-buttons nav-buttons-top">
+        <a href="@Model.SafeReturnUrl" class="back-link">← Zpět na výsledky</a>
+        @if (Model.Issue != null)
+        {
+            <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
+        }
+    </div>
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
@@ -71,7 +77,8 @@
 
             <hr />
 
-            <div class="issue-actions">
+            <div class="nav-buttons nav-buttons-bottom">
+                <a href="@Model.SafeReturnUrl" class="back-link">← Zpět na výsledky</a>
                 <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
             </div>
         </div>
@@ -85,9 +92,23 @@
         padding: 20px;
     }
 
+    .nav-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .nav-buttons-top {
+        margin-bottom: 20px;
+    }
+
+    .nav-buttons-bottom {
+        margin-top: 24px;
+    }
+
     .back-link {
         display: inline-block;
-        margin-bottom: 20px;
         color: #0969da;
         text-decoration: none;
     }
@@ -209,10 +230,6 @@
     .no-body {
         color: #656d76;
         font-style: italic;
-    }
-
-    .issue-actions {
-        margin-top: 24px;
     }
 
     .github-button {
