@@ -45,7 +45,8 @@ public class DesignTimeGitHubDbContextFactory : IDesignTimeDbContextFactory<GitH
                 {
                     npgsqlOptions.UseVector();
                     npgsqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.PostgreSQL");
-                });
+                })
+                .UseSnakeCaseNamingConvention(); // PostgreSQL convention: snake_case
                 break;
 
             case DatabaseProvider.SqlServer:
@@ -53,6 +54,7 @@ public class DesignTimeGitHubDbContextFactory : IDesignTimeDbContextFactory<GitH
                 {
                     sqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.SqlServer");
                 });
+                // SQL Server: PascalCase (EF Core default, no convention needed)
                 break;
 
             default:

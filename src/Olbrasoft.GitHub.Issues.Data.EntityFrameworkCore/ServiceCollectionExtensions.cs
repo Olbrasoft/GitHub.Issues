@@ -34,7 +34,8 @@ public static class ServiceCollectionExtensions
                     {
                         npgsqlOptions.UseVector();
                         npgsqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.PostgreSQL");
-                    });
+                    })
+                    .UseSnakeCaseNamingConvention(); // PostgreSQL convention: snake_case
                     break;
 
                 case DatabaseProvider.SqlServer:
@@ -42,6 +43,7 @@ public static class ServiceCollectionExtensions
                     {
                         sqlOptions.MigrationsAssembly("Olbrasoft.GitHub.Issues.Migrations.SqlServer");
                     });
+                    // SQL Server: PascalCase (EF Core default, no convention needed)
                     break;
 
                 default:

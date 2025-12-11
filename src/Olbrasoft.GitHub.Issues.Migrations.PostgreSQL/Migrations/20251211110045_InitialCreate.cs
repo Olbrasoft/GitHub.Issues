@@ -1,11 +1,13 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -13,62 +15,65 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:vector", ",,");
+
             migrationBuilder.CreateTable(
                 name: "event_types",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false)
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    name = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_event_types", x => x.id);
+                    table.PrimaryKey("pk_event_types", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "repositories",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    github_id = table.Column<long>(type: "bigint", nullable: false),
-                    full_name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
-                    html_url = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
-                    last_synced_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    git_hub_id = table.Column<long>(type: "bigint", nullable: false),
+                    full_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    html_url = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    last_synced_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_repositories", x => x.id);
+                    table.PrimaryKey("pk_repositories", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "issues",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    repository_id = table.Column<int>(type: "int", nullable: false),
-                    number = table.Column<int>(type: "int", nullable: false),
-                    title = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: false),
-                    is_open = table.Column<bool>(type: "bit", nullable: false),
-                    url = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
-                    github_updated_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    embedding = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
-                    synced_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    parent_issue_id = table.Column<int>(type: "int", nullable: true)
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    repository_id = table.Column<int>(type: "integer", nullable: false),
+                    number = table.Column<int>(type: "integer", nullable: false),
+                    title = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    is_open = table.Column<bool>(type: "boolean", nullable: false),
+                    url = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    git_hub_updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    embedding = table.Column<Vector>(type: "vector(768)", nullable: false),
+                    synced_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    parent_issue_id = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_issues", x => x.id);
+                    table.PrimaryKey("pk_issues", x => x.id);
                     table.ForeignKey(
-                        name: "FK_issues_issues_parent_issue_id",
+                        name: "fk_issues_issues_parent_issue_id",
                         column: x => x.parent_issue_id,
                         principalTable: "issues",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_issues_repositories_repository_id",
+                        name: "fk_issues_repositories_repository_id",
                         column: x => x.repository_id,
                         principalTable: "repositories",
                         principalColumn: "id",
@@ -79,17 +84,17 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 name: "labels",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    repository_id = table.Column<int>(type: "int", nullable: false),
-                    name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
-                    color = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: false, defaultValue: "ededed")
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    repository_id = table.Column<int>(type: "integer", nullable: false),
+                    name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    color = table.Column<string>(type: "character varying(6)", maxLength: 6, nullable: false, defaultValue: "ededed")
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_labels", x => x.id);
+                    table.PrimaryKey("pk_labels", x => x.id);
                     table.ForeignKey(
-                        name: "FK_labels_repositories_repository_id",
+                        name: "fk_labels_repositories_repository_id",
                         column: x => x.repository_id,
                         principalTable: "repositories",
                         principalColumn: "id",
@@ -100,26 +105,26 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 name: "issue_events",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    github_event_id = table.Column<long>(type: "bigint", nullable: false),
-                    issue_id = table.Column<int>(type: "int", nullable: false),
-                    event_type_id = table.Column<int>(type: "int", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    actor_id = table.Column<int>(type: "int", nullable: true),
-                    actor_login = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    git_hub_event_id = table.Column<long>(type: "bigint", nullable: false),
+                    issue_id = table.Column<int>(type: "integer", nullable: false),
+                    event_type_id = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    actor_id = table.Column<int>(type: "integer", nullable: true),
+                    actor_login = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_issue_events", x => x.id);
+                    table.PrimaryKey("pk_issue_events", x => x.id);
                     table.ForeignKey(
-                        name: "FK_issue_events_event_types_event_type_id",
+                        name: "fk_issue_events_event_types_event_type_id",
                         column: x => x.event_type_id,
                         principalTable: "event_types",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_issue_events_issues_issue_id",
+                        name: "fk_issue_events_issues_issue_id",
                         column: x => x.issue_id,
                         principalTable: "issues",
                         principalColumn: "id",
@@ -130,20 +135,20 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 name: "issue_labels",
                 columns: table => new
                 {
-                    issue_id = table.Column<int>(type: "int", nullable: false),
-                    label_id = table.Column<int>(type: "int", nullable: false)
+                    issue_id = table.Column<int>(type: "integer", nullable: false),
+                    label_id = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_issue_labels", x => new { x.issue_id, x.label_id });
+                    table.PrimaryKey("pk_issue_labels", x => new { x.issue_id, x.label_id });
                     table.ForeignKey(
-                        name: "FK_issue_labels_issues_issue_id",
+                        name: "fk_issue_labels_issues_issue_id",
                         column: x => x.issue_id,
                         principalTable: "issues",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_issue_labels_labels_label_id",
+                        name: "fk_issue_labels_labels_label_id",
                         column: x => x.label_id,
                         principalTable: "labels",
                         principalColumn: "id");
@@ -199,59 +204,59 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_event_types_name",
+                name: "ix_event_types_name",
                 table: "event_types",
                 column: "name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_issue_events_event_type_id",
+                name: "ix_issue_events_event_type_id",
                 table: "issue_events",
                 column: "event_type_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_issue_events_github_event_id",
+                name: "ix_issue_events_git_hub_event_id",
                 table: "issue_events",
-                column: "github_event_id",
+                column: "git_hub_event_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_issue_events_issue_id",
+                name: "ix_issue_events_issue_id",
                 table: "issue_events",
                 column: "issue_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_issue_labels_label_id",
+                name: "ix_issue_labels_label_id",
                 table: "issue_labels",
                 column: "label_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_issues_parent_issue_id",
+                name: "ix_issues_parent_issue_id",
                 table: "issues",
                 column: "parent_issue_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_issues_repository_id_number",
+                name: "ix_issues_repository_id_number",
                 table: "issues",
                 columns: new[] { "repository_id", "number" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_labels_repository_id_name",
+                name: "ix_labels_repository_id_name",
                 table: "labels",
                 columns: new[] { "repository_id", "name" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_repositories_full_name",
+                name: "ix_repositories_full_name",
                 table: "repositories",
                 column: "full_name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_repositories_github_id",
+                name: "ix_repositories_git_hub_id",
                 table: "repositories",
-                column: "github_id",
+                column: "git_hub_id",
                 unique: true);
         }
 

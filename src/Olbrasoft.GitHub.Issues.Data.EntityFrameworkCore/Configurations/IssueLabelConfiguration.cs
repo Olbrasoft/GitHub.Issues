@@ -8,15 +8,7 @@ public class IssueLabelConfiguration : IEntityTypeConfiguration<IssueLabel>
 {
     public void Configure(EntityTypeBuilder<IssueLabel> builder)
     {
-        builder.ToTable("issue_labels");
-
         builder.HasKey(il => new { il.IssueId, il.LabelId });
-
-        builder.Property(il => il.IssueId)
-            .HasColumnName("issue_id");
-
-        builder.Property(il => il.LabelId)
-            .HasColumnName("label_id");
 
         builder.HasOne(il => il.Issue)
             .WithMany(i => i.IssueLabels)

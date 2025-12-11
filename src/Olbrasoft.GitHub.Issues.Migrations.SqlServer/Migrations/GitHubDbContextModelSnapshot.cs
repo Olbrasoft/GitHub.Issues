@@ -26,23 +26,21 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("name");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("event_types", (string)null);
+                    b.ToTable("EventTypes");
 
                     b.HasData(
                         new
@@ -261,51 +259,41 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<byte[]>("Embedding")
                         .IsRequired()
-                        .HasColumnType("varbinary(max)")
-                        .HasColumnName("embedding");
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("github_updated_at");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<bool>("IsOpen")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_open");
+                        .HasColumnType("bit");
 
                     b.Property<int>("Number")
-                        .HasColumnType("int")
-                        .HasColumnName("number");
+                        .HasColumnType("int");
 
                     b.Property<int?>("ParentIssueId")
-                        .HasColumnType("int")
-                        .HasColumnName("parent_issue_id");
+                        .HasColumnType("int");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int")
-                        .HasColumnName("repository_id");
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("SyncedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("synced_at");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("nvarchar(1024)")
-                        .HasColumnName("title");
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
-                        .HasColumnName("url");
+                        .HasColumnType("nvarchar(512)");
 
                     b.HasKey("Id");
 
@@ -314,42 +302,35 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.HasIndex("RepositoryId", "Number")
                         .IsUnique();
 
-                    b.ToTable("issues", (string)null);
+                    b.ToTable("Issues");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.IssueEvent", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("ActorId")
-                        .HasColumnType("int")
-                        .HasColumnName("actor_id");
+                        .HasColumnType("int");
 
                     b.Property<string>("ActorLogin")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("actor_login");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int>("EventTypeId")
-                        .HasColumnType("int")
-                        .HasColumnName("event_type_id");
+                        .HasColumnType("int");
 
                     b.Property<long>("GitHubEventId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("github_event_id");
+                        .HasColumnType("bigint");
 
                     b.Property<int>("IssueId")
-                        .HasColumnType("int")
-                        .HasColumnName("issue_id");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -360,32 +341,29 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 
                     b.HasIndex("IssueId");
 
-                    b.ToTable("issue_events", (string)null);
+                    b.ToTable("IssueEvents");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.IssueLabel", b =>
                 {
                     b.Property<int>("IssueId")
-                        .HasColumnType("int")
-                        .HasColumnName("issue_id");
+                        .HasColumnType("int");
 
                     b.Property<int>("LabelId")
-                        .HasColumnType("int")
-                        .HasColumnName("label_id");
+                        .HasColumnType("int");
 
                     b.HasKey("IssueId", "LabelId");
 
                     b.HasIndex("LabelId");
 
-                    b.ToTable("issue_labels", (string)null);
+                    b.ToTable("IssueLabels");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Label", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -394,55 +372,47 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(6)
                         .HasColumnType("nvarchar(6)")
-                        .HasDefaultValue("ededed")
-                        .HasColumnName("color");
+                        .HasDefaultValue("ededed");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("name");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int")
-                        .HasColumnName("repository_id");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RepositoryId", "Name")
                         .IsUnique();
 
-                    b.ToTable("labels", (string)null);
+                    b.ToTable("Labels");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Repository", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("full_name");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<long>("GitHubId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("github_id");
+                        .HasColumnType("bigint");
 
                     b.Property<string>("HtmlUrl")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
-                        .HasColumnName("html_url");
+                        .HasColumnType("nvarchar(512)");
 
                     b.Property<DateTimeOffset?>("LastSyncedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("last_synced_at");
+                        .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
 
@@ -452,7 +422,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.HasIndex("GitHubId")
                         .IsUnique();
 
-                    b.ToTable("repositories", (string)null);
+                    b.ToTable("Repositories");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Issue", b =>

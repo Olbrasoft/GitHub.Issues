@@ -9,7 +9,7 @@ using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
     partial class GitHubDbContextModelSnapshot : ModelSnapshot
@@ -39,10 +39,12 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .HasColumnType("character varying(50)")
                         .HasColumnName("name");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_event_types");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_event_types_name");
 
                     b.ToTable("event_types", (string)null);
 
@@ -269,12 +271,13 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<Vector>("Embedding")
+                        .IsRequired()
                         .HasColumnType("vector(768)")
                         .HasColumnName("embedding");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("github_updated_at");
+                        .HasColumnName("git_hub_updated_at");
 
                     b.Property<bool>("IsOpen")
                         .HasColumnType("boolean")
@@ -308,12 +311,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .HasColumnType("character varying(512)")
                         .HasColumnName("url");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_issues");
 
-                    b.HasIndex("ParentIssueId");
+                    b.HasIndex("ParentIssueId")
+                        .HasDatabaseName("ix_issues_parent_issue_id");
 
                     b.HasIndex("RepositoryId", "Number")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_issues_repository_id_number");
 
                     b.ToTable("issues", (string)null);
                 });
@@ -346,20 +352,24 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 
                     b.Property<long>("GitHubEventId")
                         .HasColumnType("bigint")
-                        .HasColumnName("github_event_id");
+                        .HasColumnName("git_hub_event_id");
 
                     b.Property<int>("IssueId")
                         .HasColumnType("integer")
                         .HasColumnName("issue_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_issue_events");
 
-                    b.HasIndex("EventTypeId");
+                    b.HasIndex("EventTypeId")
+                        .HasDatabaseName("ix_issue_events_event_type_id");
 
                     b.HasIndex("GitHubEventId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_issue_events_git_hub_event_id");
 
-                    b.HasIndex("IssueId");
+                    b.HasIndex("IssueId")
+                        .HasDatabaseName("ix_issue_events_issue_id");
 
                     b.ToTable("issue_events", (string)null);
                 });
@@ -374,9 +384,11 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .HasColumnType("integer")
                         .HasColumnName("label_id");
 
-                    b.HasKey("IssueId", "LabelId");
+                    b.HasKey("IssueId", "LabelId")
+                        .HasName("pk_issue_labels");
 
-                    b.HasIndex("LabelId");
+                    b.HasIndex("LabelId")
+                        .HasDatabaseName("ix_issue_labels_label_id");
 
                     b.ToTable("issue_labels", (string)null);
                 });
@@ -408,10 +420,12 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .HasColumnType("integer")
                         .HasColumnName("repository_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_labels");
 
                     b.HasIndex("RepositoryId", "Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_labels_repository_id_name");
 
                     b.ToTable("labels", (string)null);
                 });
@@ -433,7 +447,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
 
                     b.Property<long>("GitHubId")
                         .HasColumnType("bigint")
-                        .HasColumnName("github_id");
+                        .HasColumnName("git_hub_id");
 
                     b.Property<string>("HtmlUrl")
                         .IsRequired()
@@ -445,13 +459,16 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_synced_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_repositories");
 
                     b.HasIndex("FullName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_repositories_full_name");
 
                     b.HasIndex("GitHubId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_repositories_git_hub_id");
 
                     b.ToTable("repositories", (string)null);
                 });
@@ -461,13 +478,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "ParentIssue")
                         .WithMany("SubIssues")
                         .HasForeignKey("ParentIssueId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_issues_issues_parent_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Repository", "Repository")
                         .WithMany("Issues")
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issues_repositories_repository_id");
 
                     b.Navigation("ParentIssue");
 
@@ -480,13 +499,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .WithMany("IssueEvents")
                         .HasForeignKey("EventTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_events_event_types_event_type_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "Issue")
                         .WithMany("Events")
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_events_issues_issue_id");
 
                     b.Navigation("EventType");
 
@@ -499,13 +520,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .WithMany("IssueLabels")
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_labels_issues_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Label", "Label")
                         .WithMany("IssueLabels")
                         .HasForeignKey("LabelId")
                         .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_labels_labels_label_id");
 
                     b.Navigation("Issue");
 
@@ -518,7 +541,8 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL
                         .WithMany("Labels")
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_labels_repositories_repository_id");
 
                     b.Navigation("Repository");
                 });

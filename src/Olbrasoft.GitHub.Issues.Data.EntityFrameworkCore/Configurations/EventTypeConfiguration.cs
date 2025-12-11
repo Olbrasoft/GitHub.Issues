@@ -8,15 +8,9 @@ public class EventTypeConfiguration : IEntityTypeConfiguration<EventType>
 {
     public void Configure(EntityTypeBuilder<EventType> builder)
     {
-        builder.ToTable("event_types");
-
         builder.HasKey(e => e.Id);
 
-        builder.Property(e => e.Id)
-            .HasColumnName("id");
-
         builder.Property(e => e.Name)
-            .HasColumnName("name")
             .HasMaxLength(50)
             .IsRequired();
 
