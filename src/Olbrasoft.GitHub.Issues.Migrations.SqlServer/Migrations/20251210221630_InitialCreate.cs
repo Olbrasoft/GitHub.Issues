@@ -54,7 +54,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     is_open = table.Column<bool>(type: "bit", nullable: false),
                     url = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
                     github_updated_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    embedding = table.Column<byte[]>(type: "varbinary(max)", nullable: true),
+                    embedding = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
                     synced_at = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     parent_issue_id = table.Column<int>(type: "int", nullable: true)
                 },

@@ -12,8 +12,8 @@ using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
-    [Migration("20251211001849_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251211002554_MakeEmbeddingNullable")]
+    partial class MakeEmbeddingNullable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
