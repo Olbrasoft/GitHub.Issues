@@ -195,6 +195,14 @@ footer {
     color: #0366d6;
 }
 
+.exact-match {
+    color: #28a745;
+    font-weight: 600;
+    background-color: #d4edda;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+}
+
 /* Page size select */
 .page-size-select {
     padding: 0.5rem;

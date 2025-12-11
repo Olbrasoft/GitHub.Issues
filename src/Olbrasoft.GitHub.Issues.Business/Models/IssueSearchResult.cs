@@ -39,6 +39,9 @@ public class IssueSearchResult
     /// <summary>Cosine similarity score (0.0-1.0) from vector search.</summary>
     public double Similarity { get; set; }
 
+    /// <summary>Whether this result is from exact issue number match (vs semantic search).</summary>
+    public bool IsExactMatch { get; set; }
+
     /// <summary>Full issue body content (fetched from GitHub GraphQL API).</summary>
     public string? Body { get; set; }
 

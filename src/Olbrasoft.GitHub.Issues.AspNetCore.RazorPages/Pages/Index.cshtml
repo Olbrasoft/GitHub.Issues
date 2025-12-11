@@ -106,7 +106,14 @@
                         }
                         <div class="result-meta">
                             <span class="repository">@result.RepositoryName</span>
-                            <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                            @if (result.IsExactMatch)
+                            {
+                                <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
+                            }
+                            else
+                            {
+                                <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                            }
                         </div>
                         <div class="result-actions">
                             <a href="/Issue/Detail/@result.Id" class="detail-link">Zobrazit detail</a>

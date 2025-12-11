@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 using Olbrasoft.Mediation;
+using static Olbrasoft.GitHub.Issues.Business.Services.IssueNumberParser;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -37,16 +38,74 @@ public class IssueSearchService : Service, IIssueSearchService
         IReadOnlyList<int>? repositoryIds = null,
         CancellationToken cancellationToken = default)
     {
-        IssueSearchPageDto searchPage;
+        // Parse query for issue number patterns (e.g., #123, issue 123, repo#123)
+        var parsedNumbers = Parse(query);
+        var semanticQuery = GetSemanticQuery(query);
+        var hasIssueNumbers = parsedNumbers.Count > 0;
+        var hasSemanticQuery = !string.IsNullOrWhiteSpace(semanticQuery);
 
-        if (string.IsNullOrWhiteSpace(query))
+        var allResults = new List<IssueSearchResult>();
+        var exactMatchIds = new HashSet<int>();
+
+        // First: Find exact matches by issue number
+        if (hasIssueNumbers)
         {
-            // Empty query - list issues from selected repositories (no semantic search)
-            if (repositoryIds is not { Count: > 0 })
+            var issueNumbers = parsedNumbers.Select(p => p.Number).ToList();
+            var repoFilter = parsedNumbers.FirstOrDefault(p => p.RepositoryName != null)?.RepositoryName;
+
+            var exactQuery = new IssuesByNumbersQuery(Mediator)
             {
-                return new SearchResultPage();
+                IssueNumbers = issueNumbers,
+                RepositoryName = repoFilter,
+                RepositoryIds = repositoryIds,
+                State = state
+            };
+
+            var exactMatches = await exactQuery.ToResultAsync(cancellationToken);
+            foreach (var dto in exactMatches)
+            {
+                var result = MapToSearchResult(dto, isExactMatch: true);
+                allResults.Add(result);
+                exactMatchIds.Add(dto.Id);
             }
 
+            _logger.LogDebug("Found {Count} exact matches for issue numbers: {Numbers}",
+                exactMatches.Count, string.Join(", ", issueNumbers));
+        }
+
+        // Second: Semantic search if there's query text
+        if (hasSemanticQuery && semanticQuery != null)
+        {
+            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(
+                semanticQuery, EmbeddingInputType.Query, cancellationToken);
+
+            if (queryEmbedding != null)
+            {
+                var searchQuery = new IssueSearchQuery(Mediator)
+                {
+                    QueryEmbedding = queryEmbedding,
+                    State = state,
+                    Page = 1, // Get more results to filter out duplicates
+                    PageSize = pageSize + exactMatchIds.Count,
+                    RepositoryIds = repositoryIds
+                };
+
+                var semanticPage = await searchQuery.ToResultAsync(cancellationToken);
+
+                // Add semantic results, excluding already found exact matches
+                foreach (var dto in semanticPage.Results.Where(d => !exactMatchIds.Contains(d.Id)))
+                {
+                    allResults.Add(MapToSearchResult(dto, isExactMatch: false));
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Failed to generate embedding for query: {Query}", semanticQuery);
+            }
+        }
+        // Third: List issues without search (just browsing)
+        else if (!hasIssueNumbers && repositoryIds is { Count: > 0 })
+        {
             var listQuery = new IssueListQuery(Mediator)
             {
                 State = state,
@@ -54,58 +113,61 @@ public class IssueSearchService : Service, IIssueSearchService
                 PageSize = pageSize,
                 RepositoryIds = repositoryIds
             };
-            searchPage = await listQuery.ToResultAsync(cancellationToken);
-        }
-        else
-        {
-            // Has query - use semantic vector search
-            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, EmbeddingInputType.Query, cancellationToken);
 
-            if (queryEmbedding == null)
+            var listPage = await listQuery.ToResultAsync(cancellationToken);
+            foreach (var dto in listPage.Results)
             {
-                _logger.LogWarning("Failed to generate embedding for query: {Query}", query);
-                return new SearchResultPage();
+                allResults.Add(MapToSearchResult(dto, isExactMatch: false));
             }
 
-            var searchQuery = new IssueSearchQuery(Mediator)
+            // For list queries, return paginated results directly
+            await FetchBodiesAsync(allResults, cancellationToken);
+            return new SearchResultPage
             {
-                QueryEmbedding = queryEmbedding,
-                State = state,
-                Page = page,
-                PageSize = pageSize,
-                RepositoryIds = repositoryIds
+                Results = allResults,
+                TotalCount = listPage.TotalCount,
+                Page = listPage.Page,
+                PageSize = listPage.PageSize,
+                TotalPages = listPage.TotalPages
             };
-            searchPage = await searchQuery.ToResultAsync(cancellationToken);
+        }
+        else if (!hasIssueNumbers && !hasSemanticQuery)
+        {
+            return new SearchResultPage();
         }
 
-        // Map DTOs to presentation models
-        var results = searchPage.Results.Select(dto =>
-        {
-            var parts = dto.RepositoryFullName.Split('/');
-            return new IssueSearchResult
-            {
-                Id = dto.Id,
-                IssueNumber = dto.IssueNumber,
-                Title = dto.Title,
-                IsOpen = dto.IsOpen,
-                Url = dto.Url,
-                RepositoryName = dto.RepositoryFullName,
-                Owner = parts.Length == 2 ? parts[0] : string.Empty,
-                RepoName = parts.Length == 2 ? parts[1] : string.Empty,
-                Similarity = dto.Similarity
-            };
-        }).ToList();
+        // Apply pagination to combined results
+        var totalCount = allResults.Count;
+        var skip = (page - 1) * pageSize;
+        var pagedResults = allResults.Skip(skip).Take(pageSize).ToList();
 
-        // Fetch issue bodies from GitHub GraphQL API
-        await FetchBodiesAsync(results, cancellationToken);
+        await FetchBodiesAsync(pagedResults, cancellationToken);
 
         return new SearchResultPage
         {
-            Results = results,
-            TotalCount = searchPage.TotalCount,
-            Page = searchPage.Page,
-            PageSize = searchPage.PageSize,
-            TotalPages = searchPage.TotalPages
+            Results = pagedResults,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+        };
+    }
+
+    private static IssueSearchResult MapToSearchResult(IssueSearchResultDto dto, bool isExactMatch)
+    {
+        var parts = dto.RepositoryFullName.Split('/');
+        return new IssueSearchResult
+        {
+            Id = dto.Id,
+            IssueNumber = dto.IssueNumber,
+            Title = dto.Title,
+            IsOpen = dto.IsOpen,
+            Url = dto.Url,
+            RepositoryName = dto.RepositoryFullName,
+            Owner = parts.Length == 2 ? parts[0] : string.Empty,
+            RepoName = parts.Length == 2 ? parts[1] : string.Empty,
+            Similarity = dto.Similarity,
+            IsExactMatch = isExactMatch
         };
     }
 
