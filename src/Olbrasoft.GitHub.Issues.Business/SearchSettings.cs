@@ -6,9 +6,9 @@ namespace Olbrasoft.GitHub.Issues.Business;
 public class SearchSettings
 {
     /// <summary>
-    /// Default number of results per page. Default: 10
+    /// Default number of results per page. Default: 25
     /// </summary>
-    public int DefaultPageSize { get; set; } = 10;
+    public int DefaultPageSize { get; set; } = 25;
 
     /// <summary>
     /// Available page size options for the UI dropdown. Default: [10, 25, 50]
