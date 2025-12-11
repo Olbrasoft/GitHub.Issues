@@ -356,6 +356,86 @@ app.MapPost("/api/issues/{id:int}/generate-summary", (
     return Results.Accepted();
 });
 
+// Generate AI summaries for multiple issues (progressive loading via SignalR)
+// Supports language preference: "en", "cs", or "both"
+app.MapPost("/api/summaries/generate", async (
+    HttpRequest request,
+    IServiceScopeFactory scopeFactory,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    // Parse request body
+    List<int> issueIds;
+    string language;
+    try
+    {
+        using var reader = new StreamReader(request.Body);
+        var body = await reader.ReadToEndAsync(ct);
+        var json = JsonDocument.Parse(body);
+
+        if (!json.RootElement.TryGetProperty("issueIds", out var idsElement) ||
+            idsElement.ValueKind != JsonValueKind.Array)
+        {
+            return Results.BadRequest(new { error = "Missing issueIds array" });
+        }
+
+        issueIds = idsElement.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.Number)
+            .Select(e => e.GetInt32())
+            .ToList();
+
+        // Language preference: "en", "cs", or "both" (default)
+        language = json.RootElement.TryGetProperty("language", out var langElement)
+            ? langElement.GetString() ?? "both"
+            : "both";
+
+        // Validate language
+        if (language is not ("en" or "cs" or "both"))
+        {
+            return Results.BadRequest(new { error = "Invalid language. Use 'en', 'cs', or 'both'" });
+        }
+    }
+    catch (JsonException)
+    {
+        return Results.BadRequest(new { error = "Invalid JSON" });
+    }
+
+    if (issueIds.Count == 0)
+    {
+        return Results.Ok(new { message = "No issues to process" });
+    }
+
+    logger.LogInformation("API: Starting summary generation for {Count} issues, language={Language}: [{Ids}]",
+        issueIds.Count, language, string.Join(", ", issueIds));
+
+    // Fire and forget - generate summary for each issue in background with its own DI scope
+    foreach (var issueId in issueIds)
+    {
+        var capturedId = issueId;
+        var capturedLanguage = language;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                logger.LogInformation("Background task: Creating scope for issue {Id}", capturedId);
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
+
+                logger.LogInformation("Background task: Calling GenerateSummaryAsync for issue {Id}, language={Language}",
+                    capturedId, capturedLanguage);
+                await issueDetailService.GenerateSummaryAsync(capturedId, capturedLanguage, CancellationToken.None);
+                logger.LogInformation("Background task: GenerateSummaryAsync completed for issue {Id}", capturedId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background summary generation failed for issue {Id}", capturedId);
+            }
+        });
+    }
+
+    return Results.Accepted(value: new { message = $"Started summary generation for {issueIds.Count} issues", language });
+});
+
 // Translate issue titles to Czech (progressive loading via SignalR)
 // Takes array of issue IDs, translates each in background, sends via SignalR
 app.MapPost("/api/issues/translate-titles", async (

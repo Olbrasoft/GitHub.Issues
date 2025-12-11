@@ -153,10 +153,20 @@ public class IssueDetailService : IIssueDetailService
     /// <summary>
     /// Generates AI summary for issue and sends notification via SignalR.
     /// Called from background task when SummaryPending = true.
+    /// Default behavior: generates both English and Czech summaries.
     /// </summary>
-    public async Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default)
+    public Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default)
+        => GenerateSummaryAsync(issueId, "both", cancellationToken);
+
+    /// <summary>
+    /// Generates AI summary for issue with language preference and sends notification via SignalR.
+    /// </summary>
+    /// <param name="issueId">Database issue ID</param>
+    /// <param name="language">Language preference: "en" (English only), "cs" (Czech only), "both" (English first, then Czech)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task GenerateSummaryAsync(int issueId, string language, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("[GenerateSummary] START for issue {Id}", issueId);
+        _logger.LogInformation("[GenerateSummary] START for issue {Id}, language={Language}", issueId, language);
 
         var issue = await _dbContext.Issues
             .Include(i => i.Repository)
@@ -197,38 +207,61 @@ public class IssueDetailService : IIssueDetailService
             _logger.LogWarning("[GenerateSummary] Summarization failed for issue {Id}: {Error}", issueId, summarizeResult.Error);
             return;
         }
-        _logger.LogInformation("[GenerateSummary] Summarization succeeded via {Provider}", summarizeResult.Provider);
+        _logger.LogInformation("[GenerateSummary] Summarization succeeded via {Provider}/{Model}", summarizeResult.Provider, summarizeResult.Model);
+
+        var enProvider = $"{summarizeResult.Provider}/{summarizeResult.Model}";
+
+        // Send English summary if requested
+        if (language is "en" or "both")
+        {
+            _logger.LogInformation("[GenerateSummary] Sending English summary via SignalR...");
+            await _summaryNotifier.NotifySummaryReadyAsync(
+                new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider, "en"),
+                cancellationToken);
+        }
+
+        // If only English requested, cache and finish
+        if (language == "en")
+        {
+            await CacheSummaryAsync(issueId, summarizeResult.Summary, enProvider + " (EN)", cancellationToken);
+            _logger.LogInformation("[GenerateSummary] COMPLETE (EN only) for issue {Id}", issueId);
+            return;
+        }
 
         // Step 2: Translate to Czech
         _logger.LogInformation("[GenerateSummary] Step 2: Calling AI translation...");
-        string summary;
-        string summaryProvider;
-
         var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+
         if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
         {
-            summary = translateResult.Translation;
-            summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} → {translateResult.Provider}/{translateResult.Model}";
-            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}", translateResult.Provider);
+            var csProvider = $"{enProvider} → {translateResult.Provider}/{translateResult.Model}";
+            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}/{Model}", translateResult.Provider, translateResult.Model);
+
+            // Send Czech summary
+            _logger.LogInformation("[GenerateSummary] Sending Czech summary via SignalR...");
+            await _summaryNotifier.NotifySummaryReadyAsync(
+                new SummaryNotificationDto(issueId, translateResult.Translation, csProvider, "cs"),
+                cancellationToken);
+
+            // Cache Czech version (primary)
+            await CacheSummaryAsync(issueId, translateResult.Translation, csProvider, cancellationToken);
+            _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via {Provider}", issueId, csProvider);
         }
         else
         {
             // Translation failed - use English summary as fallback
             _logger.LogWarning("[GenerateSummary] Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
-            summary = summarizeResult.Summary;
-            summaryProvider = $"{summarizeResult.Provider}/{summarizeResult.Model} (EN)";
+
+            // If we haven't sent English yet (cs-only mode), send it now as fallback
+            if (language == "cs")
+            {
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
+                    cancellationToken);
+            }
+
+            await CacheSummaryAsync(issueId, summarizeResult.Summary, enProvider + " (EN)", cancellationToken);
+            _logger.LogInformation("[GenerateSummary] COMPLETE (EN fallback) for issue {Id}", issueId);
         }
-
-        // Cache the result
-        _logger.LogInformation("[GenerateSummary] Caching summary...");
-        await CacheSummaryAsync(issueId, summary, summaryProvider, cancellationToken);
-
-        // Send notification via SignalR
-        _logger.LogInformation("[GenerateSummary] Sending SignalR notification...");
-        await _summaryNotifier.NotifySummaryReadyAsync(
-            new SummaryNotificationDto(issueId, summary, summaryProvider),
-            cancellationToken);
-
-        _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via {Provider}", issueId, summaryProvider);
     }
 }

@@ -19,6 +19,14 @@ public interface IIssueDetailService
     /// Should be called from background task when SummaryPending = true.
     /// </summary>
     Task GenerateSummaryAsync(int issueId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generates AI summary for issue with language preference and sends notification via SignalR.
+    /// </summary>
+    /// <param name="issueId">Database issue ID</param>
+    /// <param name="language">Language preference: "en" (English only), "cs" (Czech only), "both" (English first, then Czech)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task GenerateSummaryAsync(int issueId, string language, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
