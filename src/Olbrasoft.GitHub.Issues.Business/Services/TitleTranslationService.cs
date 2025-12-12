@@ -76,6 +76,12 @@ public class TitleTranslationService : ITitleTranslationService
         if (!result.Success || string.IsNullOrWhiteSpace(result.Translation))
         {
             _logger.LogWarning("[TitleTranslation] Translation failed for issue {Id}: {Error}", issueId, result.Error);
+
+            // Send notification with original title so the UI can stop showing spinner
+            await _notifier.NotifyTitleTranslatedAsync(
+                new TitleTranslationNotificationDto(issueId, issue.Title, targetLanguage, "failed"),
+                cancellationToken);
+
             return;
         }
 
