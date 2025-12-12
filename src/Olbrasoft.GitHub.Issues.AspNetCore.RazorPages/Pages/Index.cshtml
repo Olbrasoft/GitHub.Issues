@@ -142,13 +142,16 @@
                         </div>
                         <div class="result-meta">
                             <span class="repository">@result.RepositoryName</span>
-                            @if (result.IsExactMatch)
+                            @if (!string.IsNullOrWhiteSpace(Model.Query))
                             {
-                                <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
-                            }
-                            else
-                            {
-                                <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                                @if (result.IsExactMatch)
+                                {
+                                    <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
+                                }
+                                else
+                                {
+                                    <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                                }
                             }
                         </div>
                         <div class="result-actions">
