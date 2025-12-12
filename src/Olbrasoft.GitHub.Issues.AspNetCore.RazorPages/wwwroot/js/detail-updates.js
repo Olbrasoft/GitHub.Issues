@@ -1,4 +1,4 @@
-// SignalR client for progressive summary loading on issue detail page
+// SignalR client for progressive summary loading and title translation on issue detail page
 (function () {
     'use strict';
 
@@ -7,6 +7,7 @@
     let summaryLanguage = 'both'; // default: English + Czech
     let englishReceived = false;  // Track if English summary already received
     let czechReceived = false;    // Track if Czech translation already received
+    let selectedLanguage = 'cs';  // Default language for translations
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -24,25 +25,31 @@
         issueId = parseInt(container.dataset.issueId, 10);
         const summaryPending = container.dataset.summaryPending === 'true';
         summaryLanguage = container.dataset.summaryLanguage || 'both';
+        selectedLanguage = container.dataset.selectedLanguage || 'cs';
 
-        console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending, 'Language:', summaryLanguage);
+        console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending, 'Selected language:', selectedLanguage);
 
         if (!issueId || isNaN(issueId)) {
             console.log('[detail-updates] Invalid issue ID');
             return;
         }
 
-        // Only connect to SignalR if summary is pending
-        if (summaryPending) {
-            console.log('[detail-updates] Summary is pending, initializing SignalR...');
-            initializeSignalR();
+        // Always connect to SignalR for title translation (if language != en) or summary pending
+        const needsTranslation = selectedLanguage !== 'en';
+        if (summaryPending || needsTranslation) {
+            console.log('[detail-updates] Initializing SignalR (summaryPending:', summaryPending, ', needsTranslation:', needsTranslation, ')');
+            initializeSignalR(summaryPending, needsTranslation);
         } else {
-            console.log('[detail-updates] Summary not pending, skipping SignalR');
+            console.log('[detail-updates] No SignalR needed (English language, summary ready)');
         }
     }
 
-    function initializeSignalR() {
+    function initializeSignalR(summaryPending, needsTranslation) {
         console.log('[detail-updates] Creating SignalR connection to /hubs/issues...');
+        // Store flags for later use
+        window._detailSummaryPending = summaryPending;
+        window._detailNeedsTranslation = needsTranslation;
+
         // Create SignalR connection
         connection = new signalR.HubConnectionBuilder()
             .withUrl('/hubs/issues')
@@ -52,6 +59,9 @@
 
         // Handle incoming summary
         connection.on('SummaryReceived', handleSummaryReceived);
+
+        // Handle incoming title translation
+        connection.on('TitleTranslated', handleTitleTranslated);
 
         // Handle connection state changes
         connection.onreconnecting(function (error) {
@@ -76,8 +86,16 @@
             await connection.start();
             console.log('SignalR connected for detail page');
             await subscribeToIssue();
-            // Trigger summary generation after subscribing
-            triggerSummaryGeneration();
+
+            // Trigger title translation if language is not English
+            if (window._detailNeedsTranslation) {
+                triggerTitleTranslation();
+            }
+
+            // Trigger summary generation if pending
+            if (window._detailSummaryPending) {
+                triggerSummaryGeneration();
+            }
         } catch (err) {
             console.error('SignalR connection error:', err);
             // Retry connection after 5 seconds
@@ -121,6 +139,74 @@
         .catch(err => {
             console.error('Error triggering summary generation:', err);
         });
+    }
+
+    function triggerTitleTranslation() {
+        if (!issueId) {
+            return;
+        }
+
+        console.log('[detail-updates] Triggering title translation for issue', issueId, 'language:', selectedLanguage);
+
+        // Add translating indicator to title
+        const titleElement = document.querySelector('.issue-header h1');
+        if (titleElement) {
+            titleElement.classList.add('title-translating');
+        }
+
+        // Fire-and-forget API call to trigger title translation
+        fetch('/api/issues/translate-titles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ issueIds: [issueId], targetLanguage: selectedLanguage })
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('[detail-updates] Title translation triggered for issue', issueId);
+            } else {
+                console.error('[detail-updates] Failed to trigger title translation:', response.status);
+                if (titleElement) {
+                    titleElement.classList.remove('title-translating');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('[detail-updates] Error triggering title translation:', err);
+            if (titleElement) {
+                titleElement.classList.remove('title-translating');
+            }
+        });
+    }
+
+    function handleTitleTranslated(data) {
+        console.log('[detail-updates] TitleTranslated received:', data);
+
+        if (data.issueId !== issueId) {
+            console.log('[detail-updates] Title translation for different issue, ignoring');
+            return;
+        }
+
+        // Only apply translation if it matches the selected language
+        if (data.language && data.language !== selectedLanguage) {
+            console.log('[detail-updates] Ignoring translation for different language:', data.language, 'vs', selectedLanguage);
+            return;
+        }
+
+        const titleElement = document.querySelector('.issue-header h1');
+        if (titleElement) {
+            titleElement.textContent = data.translatedTitle;
+            titleElement.classList.remove('title-translating');
+            titleElement.classList.add('title-translated');
+
+            // Remove highlight after animation
+            setTimeout(function() {
+                titleElement.classList.remove('title-translated');
+            }, 2000);
+
+            console.log('[detail-updates] Title updated for issue', issueId);
+        }
     }
 
     function handleSummaryReceived(data) {
