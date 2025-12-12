@@ -193,6 +193,62 @@ public static class IssueEndpoints
             return Results.Accepted(value: new { message = $"Translating {issueIds.Count} titles to {targetLanguage}" });
         });
 
+        // Fetch issue bodies from GitHub GraphQL (for progressive loading)
+        app.MapPost("/api/issues/fetch-bodies", async (
+            HttpRequest request,
+            IServiceScopeFactory scopeFactory,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            List<int> issueIds;
+
+            try
+            {
+                using var reader = new StreamReader(request.Body);
+                var body = await reader.ReadToEndAsync(ct);
+                var json = JsonDocument.Parse(body);
+
+                if (!json.RootElement.TryGetProperty("issueIds", out var idsElement) ||
+                    idsElement.ValueKind != JsonValueKind.Array)
+                {
+                    return Results.BadRequest(new { error = "Missing issueIds array" });
+                }
+
+                issueIds = idsElement.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.Number)
+                    .Select(e => e.GetInt32())
+                    .ToList();
+            }
+            catch (JsonException)
+            {
+                return Results.BadRequest(new { error = "Invalid JSON" });
+            }
+
+            if (issueIds.Count == 0)
+            {
+                return Results.Ok(new { message = "No issues to fetch" });
+            }
+
+            logger.LogInformation("API: Starting body fetch for {Count} issues", issueIds.Count);
+
+            // Run body fetch in background (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
+                    await issueDetailService.FetchBodiesAsync(issueIds, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Background body fetch failed for issues");
+                }
+            });
+
+            return Results.Accepted(value: new { message = $"Fetching bodies for {issueIds.Count} issues" });
+        });
+
         return app;
     }
 }

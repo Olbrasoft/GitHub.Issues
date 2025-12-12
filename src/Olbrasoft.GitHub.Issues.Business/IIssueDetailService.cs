@@ -27,6 +27,13 @@ public interface IIssueDetailService
     /// <param name="language">Language preference: "en" (English only), "cs" (Czech only), "both" (English first, then Czech)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task GenerateSummaryAsync(int issueId, string language, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches bodies for multiple issues from GitHub GraphQL API and sends previews via SignalR.
+    /// </summary>
+    /// <param name="issueIds">List of database issue IDs to fetch bodies for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task FetchBodiesAsync(IEnumerable<int> issueIds, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
