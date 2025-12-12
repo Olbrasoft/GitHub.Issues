@@ -36,7 +36,20 @@ public class PromptLoader : IPromptLoader
     {
         _environment = environment;
         _logger = logger;
-        _promptsPath = Path.Combine(_environment.ContentRootPath, "Prompts");
+
+        // Try multiple paths for Azure compatibility
+        var possiblePaths = new[]
+        {
+            Path.Combine(_environment.ContentRootPath, "Prompts"),
+            Path.Combine(AppContext.BaseDirectory, "Prompts"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Prompts")
+        };
+
+        _promptsPath = possiblePaths.FirstOrDefault(Directory.Exists)
+            ?? possiblePaths[0]; // Fallback to first option
+
+        _logger.LogInformation("PromptLoader using path: {Path} (exists: {Exists})",
+            _promptsPath, Directory.Exists(_promptsPath));
 
         // In development, set up file watcher for hot reload
         if (_environment.IsDevelopment())
