@@ -1,17 +1,16 @@
-// SignalR client for real-time issue updates, progressive Czech translations, and AI summaries
+// SignalR client for real-time issue updates, progressive translations, and AI summaries
 (function () {
     'use strict';
 
     let connection = null;
     let subscribedIssueIds = [];
-    let translateToCzech = true; // Will be read from checkbox after DOM is ready
+    let selectedLanguage = 'cs'; // Default to Czech, will be read from page
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
-        // Read translation preference from checkbox AFTER DOM is ready
-        const translateCheckbox = document.getElementById('translateToCzechCheckbox');
-        translateToCzech = translateCheckbox ? translateCheckbox.checked : true;
-        console.log('[issue-updates] Translation preference:', translateToCzech);
+        // Read language preference from page variable set by server
+        selectedLanguage = window.selectedLanguage || 'cs';
+        console.log('[issue-updates] Selected language:', selectedLanguage);
 
         initializeSignalR();
     });
@@ -65,11 +64,11 @@
             await connection.start();
             console.log('[issue-updates] SignalR connected');
             await subscribeToVisibleIssues();
-            // Trigger title translations only if checkbox is checked
-            if (translateToCzech) {
+            // Trigger title translations if language is not English
+            if (selectedLanguage !== 'en') {
                 triggerTitleTranslations();
             } else {
-                console.log('[issue-updates] Skipping title translations (checkbox unchecked)');
+                console.log('[issue-updates] Skipping title translations (English selected)');
             }
         } catch (err) {
             console.error('[issue-updates] SignalR connection error:', err);
@@ -128,7 +127,7 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ issueIds: subscribedIssueIds })
+            body: JSON.stringify({ issueIds: subscribedIssueIds, targetLanguage: selectedLanguage })
         })
         .then(response => {
             if (response.ok) {
@@ -161,8 +160,9 @@
         const match = currentText.match(/^(#\d+)\s/);
         const issueNumberPrefix = match ? match[1] + ' ' : '';
 
-        // Update title with Czech translation
-        titleLink.textContent = issueNumberPrefix + data.czechTitle;
+        // Update title with translated text (supports any language)
+        const translatedTitle = data.translatedTitle || data.czechTitle; // Support old and new property name
+        titleLink.textContent = issueNumberPrefix + translatedTitle;
         titleLink.classList.remove('title-translating');
         titleLink.dataset.translating = '';
 
@@ -172,7 +172,7 @@
             titleLink.classList.remove('title-translated');
         }, 2000);
 
-        console.log('[issue-updates] Title updated for issue', data.issueId, ':', data.czechTitle);
+        console.log('[issue-updates] Title updated for issue', data.issueId, ':', translatedTitle);
     }
 
     function handleSummaryReceived(data) {
@@ -190,32 +190,36 @@
         const summaryCsDiv = container.querySelector('.ai-summary-cs');
 
         // Determine language from data.language field or provider
-        // Backend sends language: "en" or "cs"
-        const isEnglish = data.language === 'en' || (!data.language && (!data.provider || !data.provider.toLowerCase().includes('cs')));
+        // Backend sends language: "en", "de", "cs"
+        const summaryLanguage = data.language || 'en';
+        const isTargetLanguage = summaryLanguage === selectedLanguage;
+        const isEnglish = summaryLanguage === 'en';
 
         if (isEnglish && summaryEnDiv) {
-            // English summary received - always show it (Phase 2)
+            // English summary received - show it if English is selected, or as fallback
             summaryEnDiv.textContent = data.summary;
-            summaryEnDiv.style.display = 'block';
+            summaryEnDiv.style.display = selectedLanguage === 'en' ? 'block' : 'none';
 
-            // Hide body preview when we have AI summary
-            if (bodyPreview) {
+            // Hide body preview when we have AI summary (only if this is the target language)
+            if (selectedLanguage === 'en' && bodyPreview) {
                 bodyPreview.style.display = 'none';
             }
 
-            // Add animation
-            summaryEnDiv.classList.add('summary-received');
-            setTimeout(function() {
-                summaryEnDiv.classList.remove('summary-received');
-            }, 2000);
+            // Add animation only if this is the target language
+            if (selectedLanguage === 'en') {
+                summaryEnDiv.classList.add('summary-received');
+                setTimeout(function() {
+                    summaryEnDiv.classList.remove('summary-received');
+                }, 2000);
+            }
 
             console.log('[issue-updates] English summary set for issue', data.issueId);
-        } else if (!isEnglish && summaryCsDiv && translateToCzech) {
-            // Czech translation received (Phase 3) - only show if checkbox is checked
+        } else if (!isEnglish && summaryCsDiv && isTargetLanguage) {
+            // Translated summary received - show if it matches selected language
             summaryCsDiv.textContent = data.summary;
             summaryCsDiv.style.display = 'block';
 
-            // Hide English summary when Czech arrives (replace, don't stack)
+            // Hide English summary when translation arrives (replace, don't stack)
             if (summaryEnDiv) {
                 summaryEnDiv.style.display = 'none';
             }
@@ -229,7 +233,7 @@
                 summaryCsDiv.classList.remove('summary-received');
             }, 2000);
 
-            console.log('[issue-updates] Czech summary set for issue', data.issueId);
+            console.log('[issue-updates] Translated summary set for issue', data.issueId, 'language:', summaryLanguage);
         }
     }
 

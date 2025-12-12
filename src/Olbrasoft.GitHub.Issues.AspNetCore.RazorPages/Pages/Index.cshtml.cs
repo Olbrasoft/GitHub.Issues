@@ -23,7 +23,7 @@ public class IndexModel : PageModel
     private const string SessionKeyRepos = "Search.Repos";
     private const string SessionKeyState = "Search.State";
     private const string SessionKeyPageSize = "Search.PageSize";
-    private const string SessionKeyTranslateToCzech = "Search.TranslateToCzech";
+    private const string SessionKeyLanguage = "Search.Language";
 
     public IndexModel(IIssueSearchService searchService, IOptions<SearchSettings> searchSettings, IOptions<AiSummarySettings> aiSummarySettings, IMediator mediator)
     {
@@ -49,11 +49,11 @@ public class IndexModel : PageModel
     public string? Repos { get; set; }
 
     /// <summary>
-    /// When true, summaries are translated to Czech after English generation.
-    /// Default: true (Czech user preference).
+    /// Target language for translations (en, de, cs).
+    /// Default: cs (Czech user preference).
     /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public bool TranslateToCzech { get; set; } = true;
+    [BindProperty(SupportsGet = true, Name = "Lang")]
+    public string Language { get; set; } = "cs";
 
     public SearchResultPage SearchResult { get; set; } = new();
 
@@ -93,8 +93,11 @@ public class IndexModel : PageModel
             PageSize = _searchSettings.DefaultPageSize;
         }
 
-        // TranslateToCzech defaults to true (Czech user preference)
-        // No need to set from settings - the property default handles it
+        // Validate Language (must be one of: en, de, cs)
+        if (!IsValidLanguage(Language))
+        {
+            Language = "cs"; // Default to Czech
+        }
 
         // Ensure valid page number (always start at page 1 for new searches)
         if (PageNumber < 1)
@@ -139,7 +142,7 @@ public class IndexModel : PageModel
         HttpContext.Session.Remove(SessionKeyRepos);
         HttpContext.Session.Remove(SessionKeyState);
         HttpContext.Session.Remove(SessionKeyPageSize);
-        HttpContext.Session.Remove(SessionKeyTranslateToCzech);
+        HttpContext.Session.Remove(SessionKeyLanguage);
 
         return RedirectToPage();
     }
@@ -153,7 +156,7 @@ public class IndexModel : PageModel
                request.Query.ContainsKey("Repos") ||
                request.Query.ContainsKey("State") ||
                request.Query.ContainsKey("PageSize") ||
-               request.Query.ContainsKey("TranslateToCzech");
+               request.Query.ContainsKey("Lang");
     }
 
     private void SaveSearchStateToSession()
@@ -177,8 +180,9 @@ public class IndexModel : PageModel
         if (PageSize > 0)
             session.SetInt32(SessionKeyPageSize, PageSize);
 
-        // Store TranslateToCzech as 1/0 in session
-        session.SetInt32(SessionKeyTranslateToCzech, TranslateToCzech ? 1 : 0);
+        // Store Language preference
+        if (!string.IsNullOrEmpty(Language))
+            session.SetString(SessionKeyLanguage, Language);
     }
 
     private void LoadSearchStateFromSession()
@@ -202,10 +206,15 @@ public class IndexModel : PageModel
         if (savedPageSize.HasValue && savedPageSize.Value > 0)
             PageSize = savedPageSize.Value;
 
-        // Load TranslateToCzech (default: true if not in session)
-        var savedTranslateToCzech = session.GetInt32(SessionKeyTranslateToCzech);
-        if (savedTranslateToCzech.HasValue)
-            TranslateToCzech = savedTranslateToCzech.Value == 1;
+        // Load Language preference (default: "cs" if not in session)
+        var savedLanguage = session.GetString(SessionKeyLanguage);
+        if (!string.IsNullOrEmpty(savedLanguage) && IsValidLanguage(savedLanguage))
+            Language = savedLanguage;
+    }
+
+    private static bool IsValidLanguage(string? language)
+    {
+        return language is "en" or "de" or "cs";
     }
 
     private static IReadOnlyList<int> ParseRepositoryIds(string? repos)
