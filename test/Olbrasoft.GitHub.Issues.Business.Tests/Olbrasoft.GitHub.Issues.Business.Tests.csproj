@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>
