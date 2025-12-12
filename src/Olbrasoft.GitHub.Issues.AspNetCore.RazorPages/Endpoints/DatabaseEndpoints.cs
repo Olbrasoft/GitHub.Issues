@@ -33,16 +33,55 @@ public static class DatabaseEndpoints
             var testText = "This is a test issue for embedding generation";
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            // Get API keys from config
-            var apiKey1 = config["Embedding:CohereApiKey"];
-            var apiKey2 = config["Embedding:CohereApiKey2"];
+            // Get API keys from config - check all possible locations
             var keys = new List<(string key, string name)>();
-            if (!string.IsNullOrEmpty(apiKey1)) keys.Add((apiKey1, "CohereApiKey"));
-            if (!string.IsNullOrEmpty(apiKey2)) keys.Add((apiKey2, "CohereApiKey2"));
+
+            // New structure: Embedding:Cohere:ApiKeys (array)
+            var cohereSection = config.GetSection("Embedding:Cohere:ApiKeys");
+            var arrayKeys = cohereSection.Get<string[]>() ?? [];
+            for (int i = 0; i < arrayKeys.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(arrayKeys[i]))
+                    keys.Add((arrayKeys[i], $"Cohere:ApiKeys[{i}]"));
+            }
+
+            // Legacy: Embedding:CohereApiKeys (array)
+            var legacyArraySection = config.GetSection("Embedding:CohereApiKeys");
+            var legacyArrayKeys = legacyArraySection.Get<string[]>() ?? [];
+            for (int i = 0; i < legacyArrayKeys.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(legacyArrayKeys[i]))
+                    keys.Add((legacyArrayKeys[i], $"CohereApiKeys[{i}]"));
+            }
+
+            // Legacy: Embedding:CohereApiKey (single)
+            var singleKey = config["Embedding:CohereApiKey"];
+            if (!string.IsNullOrEmpty(singleKey))
+                keys.Add((singleKey, "CohereApiKey"));
+
+            // Azure App Settings style: Embedding__CohereApiKey
+            var azureKey = config["Embedding__CohereApiKey"];
+            if (!string.IsNullOrEmpty(azureKey))
+                keys.Add((azureKey, "Embedding__CohereApiKey"));
+
+            // Direct CohereApiKey at root
+            var rootKey = config["CohereApiKey"];
+            if (!string.IsNullOrEmpty(rootKey))
+                keys.Add((rootKey, "CohereApiKey (root)"));
 
             if (keys.Count == 0)
             {
-                return Results.Ok(new { success = false, error = "No Cohere API keys configured" });
+                // List what config sections exist for debugging
+                var embeddingSection = config.GetSection("Embedding");
+                var children = embeddingSection.GetChildren().Select(c => c.Key).ToList();
+                return Results.Ok(new
+                {
+                    success = false,
+                    error = "No Cohere API keys found",
+                    embeddingSectionExists = embeddingSection.Exists(),
+                    embeddingChildren = children,
+                    providerConfigured = config["Embedding:Provider"]
+                });
             }
 
             var results = new List<object>();
