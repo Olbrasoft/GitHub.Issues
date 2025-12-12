@@ -408,4 +408,131 @@ public class SyncPipelineIntegrationTests : IDisposable
     }
 
     #endregion
+
+    #region End-to-End GitHub Sync Test
+
+    /// <summary>
+    /// END-TO-END TEST: Create issue on GitHub, verify sync returns it, cleanup.
+    /// This test verifies the complete sync pipeline works correctly.
+    /// NO translations, NO embeddings - just GitHub API sync verification.
+    /// </summary>
+    [Fact]
+    public async Task EndToEnd_CreateIssue_SyncReturnsIt_Cleanup()
+    {
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (string.IsNullOrEmpty(githubToken))
+        {
+            Console.WriteLine("SKIP: GITHUB_TOKEN not set");
+            return;
+        }
+
+        Console.WriteLine("=== END-TO-END SYNC TEST ===\n");
+
+        int? createdIssueNumber = null;
+
+        try
+        {
+            // STEP 1: Create test issue on GitHub
+            Console.WriteLine("STEP 1: Creating test issue on GitHub...");
+
+            using var createRequest = new HttpRequestMessage(HttpMethod.Post,
+                $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues");
+            createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", githubToken);
+            createRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            createRequest.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+            createRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("Integration-Test", "1.0"));
+            createRequest.Content = JsonContent.Create(new
+            {
+                title = $"[TEST] Sync integration test - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
+                body = "This is a test issue created by integration test. Will be deleted automatically.",
+                labels = new[] { "test" }
+            });
+
+            using var createClient = new HttpClient();
+            var createResponse = await createClient.SendAsync(createRequest);
+            var createContent = await createResponse.Content.ReadAsStringAsync();
+
+            if (!createResponse.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"  FAILED to create issue: {createResponse.StatusCode}");
+                Console.WriteLine($"  Response: {createContent}");
+                Assert.Fail("Failed to create test issue on GitHub");
+                return;
+            }
+
+            using var createDoc = JsonDocument.Parse(createContent);
+            createdIssueNumber = createDoc.RootElement.GetProperty("number").GetInt32();
+            var createdTitle = createDoc.RootElement.GetProperty("title").GetString();
+
+            Console.WriteLine($"  SUCCESS: Created issue #{createdIssueNumber}: {createdTitle}\n");
+
+            // Wait a moment for GitHub to index
+            await Task.Delay(2000);
+
+            // STEP 2: Use our GitHubIssueApiClient to fetch issues
+            Console.WriteLine("STEP 2: Fetching issues using GitHubIssueApiClient...");
+
+            var syncSettings = Options.Create(new SyncSettings { GitHubApiPageSize = 100 });
+            var loggerMock = new Mock<ILogger<GitHubIssueApiClient>>();
+            var apiClient = new GitHubIssueApiClient(_githubClient, syncSettings, loggerMock.Object);
+
+            var issues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: null);
+
+            Console.WriteLine($"  Fetched {issues.Count} items from GitHub\n");
+
+            // STEP 3: Verify our new issue is in the results
+            Console.WriteLine("STEP 3: Verifying new issue is in sync results...");
+
+            var foundIssue = issues.FirstOrDefault(i => i.Number == createdIssueNumber);
+
+            if (foundIssue != null)
+            {
+                Console.WriteLine($"  ✅ SUCCESS: Issue #{createdIssueNumber} found in sync results!");
+                Console.WriteLine($"     Title: {foundIssue.Title}");
+                Console.WriteLine($"     State: {foundIssue.State}");
+                Console.WriteLine($"     IsPullRequest: {foundIssue.IsPullRequest}");
+            }
+            else
+            {
+                Console.WriteLine($"  ❌ FAIL: Issue #{createdIssueNumber} NOT FOUND in sync results!");
+                Console.WriteLine($"  All issue numbers returned: {string.Join(", ", issues.Select(i => i.Number).OrderBy(n => n))}");
+                Assert.Fail($"Sync did not return the newly created issue #{createdIssueNumber}");
+            }
+
+            Assert.NotNull(foundIssue);
+            Assert.Equal(createdIssueNumber, foundIssue.Number);
+        }
+        finally
+        {
+            // STEP 4: Cleanup - close the test issue
+            if (createdIssueNumber.HasValue)
+            {
+                Console.WriteLine($"\nSTEP 4: Cleaning up - closing issue #{createdIssueNumber}...");
+
+                using var closeRequest = new HttpRequestMessage(HttpMethod.Patch,
+                    $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues/{createdIssueNumber}");
+                closeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", githubToken);
+                closeRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+                closeRequest.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+                closeRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("Integration-Test", "1.0"));
+                closeRequest.Content = JsonContent.Create(new { state = "closed" });
+
+                using var closeClient = new HttpClient();
+                var closeResponse = await closeClient.SendAsync(closeRequest);
+
+                if (closeResponse.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"  SUCCESS: Issue #{createdIssueNumber} closed.\n");
+                }
+                else
+                {
+                    Console.WriteLine($"  WARNING: Failed to close issue #{createdIssueNumber}: {closeResponse.StatusCode}\n");
+                }
+            }
+        }
+
+        Console.WriteLine("=== END-TO-END TEST PASSED ===");
+    }
+
+    #endregion
 }
