@@ -417,6 +417,12 @@
                         <span class="sync-stat-label">Beze změny:</span>
                         <span class="sync-stat-value">${stats.unchanged || 0}</span>
                     </div>
+                    ${stats.embeddingsFailed > 0 ? `
+                    <div class="sync-stat-row sync-stat-warning">
+                        <span class="sync-stat-label">Selhalo embeddingů:</span>
+                        <span class="sync-stat-value">${stats.embeddingsFailed}</span>
+                    </div>
+                    ` : ''}
                 </div>
             `;
 

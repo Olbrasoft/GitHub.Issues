@@ -138,6 +138,7 @@ public static class SyncEndpoints
         created = stats.Created,
         updated = stats.Updated,
         unchanged = stats.Unchanged,
+        embeddingsFailed = stats.EmbeddingsFailed,
         sinceTimestamp = stats.SinceTimestamp
     };
 }
