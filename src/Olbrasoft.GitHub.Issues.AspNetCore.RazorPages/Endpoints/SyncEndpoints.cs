@@ -115,7 +115,16 @@ public static class SyncEndpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "Sync failed");
-                return Results.BadRequest(new { success = false, message = ex.Message });
+                var errorMessage = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" Inner: {ex.InnerException.Message}";
+                    if (ex.InnerException.InnerException != null)
+                    {
+                        errorMessage += $" Inner2: {ex.InnerException.InnerException.Message}";
+                    }
+                }
+                return Results.BadRequest(new { success = false, message = errorMessage });
             }
         }).RequireAuthorization("OwnerOnly");
 
