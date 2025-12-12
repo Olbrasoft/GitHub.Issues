@@ -9,9 +9,7 @@ namespace Olbrasoft.GitHub.Issues.Data.Entities;
 /// PostgreSQL: Uses pgvector extension with float[] mapped to vector type
 /// SQL Server: Uses native VECTOR type via EFCore.SqlServer.VectorSearch
 ///
-/// Embedding dimensions configured per environment:
-/// - Local (Ollama nomic-embed-text): 768 dimensions
-/// - Azure (Cohere): 1024 dimensions
+/// Embedding dimensions: 1024 (Cohere embed-multilingual-v3.0)
 /// </remarks>
 public class Issue
 {
@@ -22,7 +20,7 @@ public class Issue
     public bool IsOpen { get; set; } = true;
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
-    public float[]? Embedding { get; set; }
+    public float[] Embedding { get; set; } = [];
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;

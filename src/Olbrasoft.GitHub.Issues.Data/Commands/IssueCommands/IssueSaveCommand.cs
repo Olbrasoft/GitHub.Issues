@@ -16,7 +16,7 @@ public class IssueSaveCommand : BaseCommand<Issue>
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public DateTimeOffset SyncedAt { get; set; }
-    public float[]? Embedding { get; set; }
+    public float[] Embedding { get; set; } = [];
 
     public IssueSaveCommand(ICommandExecutor executor) : base(executor)
     {

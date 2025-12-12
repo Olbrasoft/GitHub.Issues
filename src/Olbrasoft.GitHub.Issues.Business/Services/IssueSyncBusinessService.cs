@@ -42,7 +42,7 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
         string url,
         DateTimeOffset gitHubUpdatedAt,
         DateTimeOffset syncedAt,
-        float[]? embedding = null,
+        float[] embedding,
         CancellationToken ct = default)
     {
         var command = new IssueSaveCommand(Mediator)

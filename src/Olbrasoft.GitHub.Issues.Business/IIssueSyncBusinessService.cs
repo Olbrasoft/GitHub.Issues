@@ -18,7 +18,7 @@ public interface IIssueSyncBusinessService
     Task<Dictionary<int, Issue>> GetIssuesByRepositoryAsync(int repositoryId, CancellationToken ct = default);
 
     /// <summary>
-    /// Saves (creates or updates) an issue.
+    /// Saves (creates or updates) an issue. Embedding is required.
     /// </summary>
     Task<Issue> SaveIssueAsync(
         int repositoryId,
@@ -28,7 +28,7 @@ public interface IIssueSyncBusinessService
         string url,
         DateTimeOffset gitHubUpdatedAt,
         DateTimeOffset syncedAt,
-        float[]? embedding = null,
+        float[] embedding,
         CancellationToken ct = default);
 
     /// <summary>
