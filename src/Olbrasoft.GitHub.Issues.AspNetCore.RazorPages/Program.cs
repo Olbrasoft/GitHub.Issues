@@ -4,6 +4,9 @@ using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add detailed error logging in all environments
+builder.Services.AddProblemDetails();
+
 // Add core services
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR(options =>
@@ -33,12 +36,26 @@ builder.Services.AddGitHubHttpClients(builder.Configuration);
 var app = builder.Build();
 
 // Apply pending database migrations on startup
-await app.ApplyMigrationsAsync();
+try
+{
+    await app.ApplyMigrationsAsync();
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Failed to apply migrations");
+}
 
 // Configure pipeline
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    // Temporarily show detailed errors for debugging
+    app.UseDeveloperExceptionPage();
+    // app.UseExceptionHandler("/Error");
 }
 
 app.UseStaticFiles();
