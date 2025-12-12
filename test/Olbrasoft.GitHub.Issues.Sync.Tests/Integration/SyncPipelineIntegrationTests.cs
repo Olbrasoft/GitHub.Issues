@@ -62,6 +62,13 @@ public class SyncPipelineIntegrationTests : IDisposable
     [Fact]
     public async Task Phase1A_GitHubApi_RawHttp_ReturnsIssues()
     {
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (string.IsNullOrEmpty(githubToken))
+        {
+            Console.WriteLine("SKIP: GITHUB_TOKEN not set (required for this integration test)");
+            return;
+        }
+
         Console.WriteLine("=== PHASE 1A: GitHub API - Raw HTTP ===\n");
 
         // Act
@@ -106,6 +113,13 @@ public class SyncPipelineIntegrationTests : IDisposable
     [Fact]
     public async Task Phase1B_GitHubIssueApiClient_ReturnsAllIssues()
     {
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (string.IsNullOrEmpty(githubToken))
+        {
+            Console.WriteLine("SKIP: GITHUB_TOKEN not set (required for this integration test)");
+            return;
+        }
+
         Console.WriteLine("=== PHASE 1B: GitHubIssueApiClient Service ===\n");
 
         // Arrange
@@ -305,7 +319,12 @@ public class SyncPipelineIntegrationTests : IDisposable
     [Fact]
     public async Task Phase3_FullPipeline_GitHubPlusCohere()
     {
-        Console.WriteLine("=== PHASE 3: Full Pipeline (GitHub + Cohere) ===\n");
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (string.IsNullOrEmpty(githubToken))
+        {
+            Console.WriteLine("SKIP: GITHUB_TOKEN not set (required for this integration test)");
+            return;
+        }
 
         var apiKey = Environment.GetEnvironmentVariable("COHERE_API_KEY_1");
         if (string.IsNullOrEmpty(apiKey))
@@ -313,6 +332,8 @@ public class SyncPipelineIntegrationTests : IDisposable
             Console.WriteLine("SKIP: COHERE_API_KEY_1 not set");
             return;
         }
+
+        Console.WriteLine("=== PHASE 3: Full Pipeline (GitHub + Cohere) ===\n");
 
         // Step 1: Fetch issues from GitHub
         Console.WriteLine("Step 1: Fetching issues from GitHub...");
