@@ -408,4 +408,160 @@ public class SyncPipelineIntegrationTests : IDisposable
     }
 
     #endregion
+
+    #region End-to-End GitHub Sync Test
+
+    /// <summary>
+    /// END-TO-END TEST: Create issue on GitHub, verify INCREMENTAL sync returns it, cleanup.
+    /// This test verifies that newly created issues are returned by incremental sync.
+    /// NO translations, NO embeddings - just GitHub API sync verification.
+    /// </summary>
+    [Fact]
+    public async Task EndToEnd_CreateIssue_IncrementalSyncReturnsIt_Cleanup()
+    {
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (string.IsNullOrEmpty(githubToken))
+        {
+            Console.WriteLine("SKIP: GITHUB_TOKEN not set");
+            return;
+        }
+
+        Console.WriteLine("=== END-TO-END INCREMENTAL SYNC TEST ===");
+        Console.WriteLine($"Repository: {TestOwner}/{TestRepo}\n");
+
+        int? createdIssueNumber = null;
+
+        try
+        {
+            // STEP 1: Record timestamp BEFORE creating issue
+            var timestampBeforeCreate = DateTimeOffset.UtcNow.AddSeconds(-5); // Small buffer
+            Console.WriteLine($"STEP 1: Recording timestamp: {timestampBeforeCreate:u}");
+
+            // STEP 2: Create test issue on GitHub
+            Console.WriteLine("\nSTEP 2: Creating test issue on GitHub...");
+
+            using var createRequest = new HttpRequestMessage(HttpMethod.Post,
+                $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues");
+            createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", githubToken);
+            createRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            createRequest.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+            createRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("Integration-Test", "1.0"));
+            createRequest.Content = JsonContent.Create(new
+            {
+                title = $"[TEST] Incremental sync test - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
+                body = "This is a test issue for incremental sync verification. Will be deleted automatically.",
+                labels = new[] { "test" }
+            });
+
+            using var createClient = new HttpClient();
+            var createResponse = await createClient.SendAsync(createRequest);
+            var createContent = await createResponse.Content.ReadAsStringAsync();
+
+            if (!createResponse.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"  FAILED to create issue: {createResponse.StatusCode}");
+                Console.WriteLine($"  Response: {createContent}");
+                Assert.Fail("Failed to create test issue on GitHub");
+                return;
+            }
+
+            using var createDoc = JsonDocument.Parse(createContent);
+            createdIssueNumber = createDoc.RootElement.GetProperty("number").GetInt32();
+            var createdTitle = createDoc.RootElement.GetProperty("title").GetString();
+            var createdAt = createDoc.RootElement.GetProperty("created_at").GetDateTimeOffset();
+
+            Console.WriteLine($"  SUCCESS: Created issue #{createdIssueNumber}");
+            Console.WriteLine($"     Title: {createdTitle}");
+            Console.WriteLine($"     Created at: {createdAt:u}");
+
+            // Wait for GitHub to index
+            await Task.Delay(2000);
+
+            // STEP 3: Use INCREMENTAL sync (with since parameter)
+            Console.WriteLine($"\nSTEP 3: Running INCREMENTAL sync (since: {timestampBeforeCreate:u})...");
+
+            var syncSettings = Options.Create(new SyncSettings { GitHubApiPageSize = 100 });
+            var loggerMock = new Mock<ILogger<GitHubIssueApiClient>>();
+            var apiClient = new GitHubIssueApiClient(_githubClient, syncSettings, loggerMock.Object);
+
+            // INCREMENTAL SYNC - only issues updated AFTER timestampBeforeCreate
+            var incrementalIssues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: timestampBeforeCreate);
+
+            // Filter out PRs - we only care about issues
+            var actualIssues = incrementalIssues.Where(i => !i.IsPullRequest).ToList();
+
+            Console.WriteLine($"  Total items returned: {incrementalIssues.Count}");
+            Console.WriteLine($"  Issues (excluding PRs): {actualIssues.Count}");
+
+            if (actualIssues.Count > 0)
+            {
+                Console.WriteLine("  Issues returned:");
+                foreach (var issue in actualIssues.OrderByDescending(i => i.UpdatedAt))
+                {
+                    Console.WriteLine($"    #{issue.Number}: {issue.Title} (updated: {issue.UpdatedAt:u})");
+                }
+            }
+
+            // STEP 4: Verify our new issue is in the incremental results
+            Console.WriteLine("\nSTEP 4: Verifying new issue is in INCREMENTAL sync results...");
+
+            var foundIssue = actualIssues.FirstOrDefault(i => i.Number == createdIssueNumber);
+
+            if (foundIssue != null)
+            {
+                Console.WriteLine($"  ✅ SUCCESS: Issue #{createdIssueNumber} found in incremental sync!");
+            }
+            else
+            {
+                Console.WriteLine($"  ❌ FAIL: Issue #{createdIssueNumber} NOT FOUND in incremental sync!");
+                Console.WriteLine($"  Issues returned: {string.Join(", ", actualIssues.Select(i => $"#{i.Number}").DefaultIfEmpty("none"))}");
+                Assert.Fail($"Incremental sync did not return newly created issue #{createdIssueNumber}");
+            }
+
+            Assert.NotNull(foundIssue);
+            Assert.Equal(createdIssueNumber, foundIssue.Number);
+
+            // STEP 5: Compare with FULL sync to show difference
+            Console.WriteLine("\nSTEP 5: Running FULL sync for comparison...");
+            var fullIssues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: null);
+            var fullActualIssues = fullIssues.Where(i => !i.IsPullRequest).ToList();
+            var fullPrs = fullIssues.Where(i => i.IsPullRequest).ToList();
+
+            Console.WriteLine($"  Full sync total: {fullIssues.Count} items");
+            Console.WriteLine($"    - Issues: {fullActualIssues.Count}");
+            Console.WriteLine($"    - Pull Requests: {fullPrs.Count}");
+        }
+        finally
+        {
+            // STEP 6: Cleanup - close the test issue
+            if (createdIssueNumber.HasValue)
+            {
+                Console.WriteLine($"\nSTEP 6: Cleaning up - closing issue #{createdIssueNumber}...");
+
+                using var closeRequest = new HttpRequestMessage(HttpMethod.Patch,
+                    $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues/{createdIssueNumber}");
+                closeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", githubToken);
+                closeRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+                closeRequest.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+                closeRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("Integration-Test", "1.0"));
+                closeRequest.Content = JsonContent.Create(new { state = "closed" });
+
+                using var closeClient = new HttpClient();
+                var closeResponse = await closeClient.SendAsync(closeRequest);
+
+                if (closeResponse.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"  SUCCESS: Issue #{createdIssueNumber} closed.");
+                }
+                else
+                {
+                    Console.WriteLine($"  WARNING: Failed to close issue: {closeResponse.StatusCode}");
+                }
+            }
+        }
+
+        Console.WriteLine("\n=== END-TO-END INCREMENTAL SYNC TEST PASSED ===");
+    }
+
+    #endregion
 }
