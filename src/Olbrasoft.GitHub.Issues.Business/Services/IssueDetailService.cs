@@ -10,7 +10,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for fetching issue details including body from GraphQL and AI summary.
-/// Uses two-step process: English summarization (LLM) → Translation (DeepL/Azure).
+/// Uses two-step process: English summarization (LLM) → Translation (DeepL with Cohere fallback).
 /// Summary generation is progressive - page loads immediately, summary arrives via SignalR.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
@@ -19,6 +19,7 @@ public class IssueDetailService : IIssueDetailService
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslator _translator;
+    private readonly ITranslationService? _fallbackTranslator;
     private readonly ISummaryNotifier _summaryNotifier;
     private readonly IBodyNotifier _bodyNotifier;
     private readonly BodyPreviewSettings _bodyPreviewSettings;
@@ -32,12 +33,14 @@ public class IssueDetailService : IIssueDetailService
         ISummaryNotifier summaryNotifier,
         IBodyNotifier bodyNotifier,
         IOptions<BodyPreviewSettings> bodyPreviewSettings,
-        ILogger<IssueDetailService> logger)
+        ILogger<IssueDetailService> logger,
+        ITranslationService? fallbackTranslator = null)
     {
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
         _summarizationService = summarizationService;
         _translator = translator;
+        _fallbackTranslator = fallbackTranslator;
         _summaryNotifier = summaryNotifier;
         _bodyNotifier = bodyNotifier;
         _bodyPreviewSettings = bodyPreviewSettings.Value;
@@ -197,9 +200,30 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to target language using Translation Service (DeepL/Azure)
+        // Step 2: Translate to target language using Translation Service (DeepL with Cohere fallback)
         _logger.LogInformation("[GenerateSummary] Step 2: Calling Translation Service...");
         var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
+
+        // If primary translator fails, try Cohere fallback (only for Czech)
+        if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
+        {
+            _logger.LogWarning("[GenerateSummary] Primary translation failed: {Error}. Trying Cohere fallback...", translateResult.Error);
+
+            var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+            if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
+            {
+                var csProvider = $"{enProvider} → {fallbackResult.Provider}";
+                _logger.LogInformation("[GenerateSummary] Fallback translation succeeded via {Provider}", fallbackResult.Provider);
+
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, fallbackResult.Translation, csProvider, "cs"),
+                    cancellationToken);
+
+                _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via fallback {Provider}", issueId, csProvider);
+                return;
+            }
+            _logger.LogWarning("[GenerateSummary] Fallback translation also failed: {Error}", fallbackResult.Error);
+        }
 
         if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
         {
@@ -216,8 +240,8 @@ public class IssueDetailService : IIssueDetailService
         }
         else
         {
-            // Translation failed - use English summary as fallback
-            _logger.LogWarning("[GenerateSummary] Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
+            // All translation attempts failed - use English summary as fallback
+            _logger.LogWarning("[GenerateSummary] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
 
             // If we haven't sent English yet (cs-only mode), send it now as fallback
             if (language == "cs")
@@ -273,9 +297,30 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to target language using Translation Service (DeepL/Azure)
+        // Step 2: Translate to target language using Translation Service (DeepL with Cohere fallback)
         _logger.LogInformation("[GenerateSummaryFromBody] Calling Translation Service...");
         var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
+
+        // If primary translator fails, try Cohere fallback (only for Czech)
+        if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
+        {
+            _logger.LogWarning("[GenerateSummaryFromBody] Primary translation failed: {Error}. Trying Cohere fallback...", translateResult.Error);
+
+            var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+            if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
+            {
+                var csProvider = $"{enProvider} → {fallbackResult.Provider}";
+                _logger.LogInformation("[GenerateSummaryFromBody] Fallback translation succeeded via {Provider}", fallbackResult.Provider);
+
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, fallbackResult.Translation, csProvider, "cs"),
+                    cancellationToken);
+
+                _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE for issue {Id} via fallback {Provider}", issueId, csProvider);
+                return;
+            }
+            _logger.LogWarning("[GenerateSummaryFromBody] Fallback translation also failed: {Error}", fallbackResult.Error);
+        }
 
         if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
         {
@@ -292,8 +337,8 @@ public class IssueDetailService : IIssueDetailService
         }
         else
         {
-            // Translation failed - use English summary as fallback
-            _logger.LogWarning("[GenerateSummaryFromBody] Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
+            // All translation attempts failed - use English summary as fallback
+            _logger.LogWarning("[GenerateSummaryFromBody] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
 
             // If we haven't sent English yet (cs-only mode), send it now as fallback
             if (language == "cs")
