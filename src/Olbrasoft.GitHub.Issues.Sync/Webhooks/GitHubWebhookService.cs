@@ -1,8 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
-using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Webhooks;
 
@@ -15,35 +13,22 @@ public class GitHubWebhookService : IGitHubWebhookService
     private readonly IRepositorySyncBusinessService _repositoryService;
     private readonly IIssueSyncBusinessService _issueService;
     private readonly ILabelSyncBusinessService _labelService;
-    private readonly IGitHubIssueApiClient _apiClient;
-    private readonly IEmbeddingService _embeddingService;
-    private readonly IEmbeddingTextBuilder _textBuilder;
+    private readonly IIssueEmbeddingGenerator _embeddingGenerator;
     private readonly IIssueUpdateNotifier _updateNotifier;
     private readonly ILogger<GitHubWebhookService> _logger;
-
-    // Actions that require embedding regeneration
-    private static readonly HashSet<string> EmbeddingRequiredActions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "opened",
-        "edited"
-    };
 
     public GitHubWebhookService(
         IRepositorySyncBusinessService repositoryService,
         IIssueSyncBusinessService issueService,
         ILabelSyncBusinessService labelService,
-        IGitHubIssueApiClient apiClient,
-        IEmbeddingService embeddingService,
-        IEmbeddingTextBuilder textBuilder,
+        IIssueEmbeddingGenerator embeddingGenerator,
         IIssueUpdateNotifier updateNotifier,
         ILogger<GitHubWebhookService> logger)
     {
         _repositoryService = repositoryService;
         _issueService = issueService;
         _labelService = labelService;
-        _apiClient = apiClient;
-        _embeddingService = embeddingService;
-        _textBuilder = textBuilder;
+        _embeddingGenerator = embeddingGenerator;
         _updateNotifier = updateNotifier;
         _logger = logger;
     }
@@ -132,7 +117,7 @@ public class GitHubWebhookService : IGitHubWebhookService
         var labelNames = issue.Labels.Select(l => l.Name).ToList();
 
         // Generate embedding for new issue (includes comments and labels)
-        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
         if (embedding == null)
         {
             _logger.LogError("Failed to generate embedding for issue #{Number} - cannot save issue", issue.Number);
@@ -190,7 +175,7 @@ public class GitHubWebhookService : IGitHubWebhookService
         var labelNames = issue.Labels.Select(l => l.Name).ToList();
 
         // Generate new embedding for edited issue (includes comments and labels)
-        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
         if (embedding == null)
         {
             _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update issue", issue.Number);
@@ -322,7 +307,7 @@ public class GitHubWebhookService : IGitHubWebhookService
         // Labels are part of embedding, so regenerate it
         var (owner, repo) = ParseRepoFullName(repoFullName);
         var labelNames = issue.Labels.Select(l => l.Name).ToList();
-        var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
         if (embedding == null)
         {
             _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update labels", issue.Number);
@@ -362,50 +347,6 @@ public class GitHubWebhookService : IGitHubWebhookService
             RepositoryFullName = repoFullName,
             EmbeddingGenerated = embedding != null
         };
-    }
-
-    private async Task<float[]?> GenerateEmbeddingAsync(
-        string owner,
-        string repo,
-        int issueNumber,
-        string title,
-        string? body,
-        IReadOnlyList<string> labelNames,
-        CancellationToken ct)
-    {
-        try
-        {
-            // Fetch comments from GitHub API
-            IReadOnlyList<string>? comments = null;
-            try
-            {
-                comments = await _apiClient.FetchIssueCommentsAsync(owner, repo, issueNumber, ct);
-                _logger.LogDebug("Fetched {Count} comments for issue #{Number}", comments.Count, issueNumber);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch comments for issue #{Number}, embedding without comments", issueNumber);
-            }
-
-            // Build text with title, body, labels, and comments
-            var text = _textBuilder.CreateEmbeddingText(title, body, labelNames, comments);
-            var embedding = await _embeddingService.GenerateEmbeddingAsync(
-                text,
-                EmbeddingInputType.Document,
-                ct);
-
-            if (embedding == null)
-            {
-                _logger.LogWarning("Failed to generate embedding for issue #{Number}", issueNumber);
-            }
-
-            return embedding;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating embedding for issue #{Number}", issueNumber);
-            return null;
-        }
     }
 
     // ===== Issue Comment Event Handler =====
@@ -469,7 +410,7 @@ public class GitHubWebhookService : IGitHubWebhookService
             // Regenerate embedding with updated comments (fetched from GitHub API)
             var (owner, repoName) = ParseRepoFullName(repo.FullName);
             var labelNames = issue.Labels.Select(l => l.Name).ToList();
-            var embedding = await GenerateEmbeddingAsync(owner, repoName, issue.Number, issue.Title, issue.Body, labelNames, ct);
+            var embedding = await _embeddingGenerator.GenerateEmbeddingAsync(owner, repoName, issue.Number, issue.Title, issue.Body, labelNames, ct);
             if (embedding == null)
             {
                 _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update after comment", issue.Number);

@@ -27,6 +27,8 @@ public static class HttpClientExtensions
         services.AddHttpClient<IGitHubIssueApiClient, GitHubIssueApiClient>(ConfigureGitHubClient)
             .ConfigureHttpClient((sp, client) => AddGitHubAuthorization(sp, client));
 
+        // Issue embedding generator (shared between sync and webhook services)
+        services.AddScoped<IIssueEmbeddingGenerator, IssueEmbeddingGenerator>();
         services.AddScoped<IIssueSyncService, IssueSyncService>();
 
         // Event API client

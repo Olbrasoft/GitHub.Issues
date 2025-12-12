@@ -3,7 +3,6 @@ using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
-using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Services;
 
@@ -15,21 +14,18 @@ public class IssueSyncService : IIssueSyncService
 {
     private readonly IGitHubIssueApiClient _apiClient;
     private readonly IIssueSyncBusinessService _issueSyncBusiness;
-    private readonly IEmbeddingService _embeddingService;
-    private readonly IEmbeddingTextBuilder _textBuilder;
+    private readonly IIssueEmbeddingGenerator _embeddingGenerator;
     private readonly ILogger<IssueSyncService> _logger;
 
     public IssueSyncService(
         IGitHubIssueApiClient apiClient,
         IIssueSyncBusinessService issueSyncBusiness,
-        IEmbeddingService embeddingService,
-        IEmbeddingTextBuilder textBuilder,
+        IIssueEmbeddingGenerator embeddingGenerator,
         ILogger<IssueSyncService> logger)
     {
         _apiClient = apiClient;
         _issueSyncBusiness = issueSyncBusiness;
-        _embeddingService = embeddingService;
-        _textBuilder = textBuilder;
+        _embeddingGenerator = embeddingGenerator;
         _logger = logger;
     }
 
@@ -77,8 +73,17 @@ public class IssueSyncService : IIssueSyncService
             var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < ghIssue.UpdatedAt;
 
             // Generate embedding for new/changed issues (includes comments)
-            var embedding = await GetEmbeddingAsync(ghIssue, existingIssue, isNew, hasChanged, owner, repo, cancellationToken);
-            stats.ApiCalls++; // Count comment API call if made
+            float[]? embedding;
+            if (isNew || hasChanged)
+            {
+                embedding = await _embeddingGenerator.GenerateEmbeddingAsync(
+                    owner, repo, ghIssue.Number, ghIssue.Title, ghIssue.Body, ghIssue.LabelNames, cancellationToken);
+                stats.ApiCalls++; // Count comment API call
+            }
+            else
+            {
+                embedding = existingIssue!.Embedding;
+            }
             if (embedding == null)
             {
                 _logger.LogWarning(
@@ -131,53 +136,6 @@ public class IssueSyncService : IIssueSyncService
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
 
         return stats;
-    }
-
-    private async Task<float[]?> GetEmbeddingAsync(
-        GitHubIssueDto ghIssue,
-        Issue? existingIssue,
-        bool isNew,
-        bool hasChanged,
-        string owner,
-        string repo,
-        CancellationToken cancellationToken)
-    {
-        if (isNew || hasChanged)
-        {
-            // Fetch comments for full-content embedding
-            IReadOnlyList<string>? comments = null;
-            try
-            {
-                comments = await _apiClient.FetchIssueCommentsAsync(owner, repo, ghIssue.Number, cancellationToken);
-                _logger.LogDebug("Fetched {Count} comments for issue #{Number}", comments.Count, ghIssue.Number);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch comments for issue #{Number}, embedding without comments", ghIssue.Number);
-            }
-
-            // Build text with title, body, labels, and comments
-            var textToEmbed = _textBuilder.CreateEmbeddingText(
-                ghIssue.Title,
-                ghIssue.Body,
-                ghIssue.LabelNames,
-                comments);
-
-            var embedding = await _embeddingService.GenerateEmbeddingAsync(
-                textToEmbed,
-                EmbeddingInputType.Document,
-                cancellationToken);
-
-            if (hasChanged && embedding != null)
-            {
-                _logger.LogDebug("Re-embedded changed issue #{Number}: {Title}", ghIssue.Number, ghIssue.Title);
-            }
-
-            return embedding;
-        }
-
-        // Unchanged - keep existing embedding
-        return existingIssue!.Embedding;
     }
 
     private async Task UpdateParentChildRelationshipsAsync(
