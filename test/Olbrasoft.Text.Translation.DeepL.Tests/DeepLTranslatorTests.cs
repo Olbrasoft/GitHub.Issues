@@ -117,7 +117,7 @@ public class DeepLTranslatorTests
 
         // Assert
         Assert.False(result.Success);
-        Assert.Contains("401", result.Error);
+        Assert.Contains("Unauthorized", result.Error);
         Assert.Equal("DeepL", result.Provider);
     }
 }
