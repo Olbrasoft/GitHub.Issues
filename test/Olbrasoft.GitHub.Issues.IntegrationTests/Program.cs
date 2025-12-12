@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Text.Transformation.Abstractions;
@@ -5,8 +6,15 @@ using Olbrasoft.Text.Transformation.Cohere;
 
 Console.WriteLine("=== Cohere Embedding Integration Test ===\n");
 
-// Cohere API key from user secrets
-var cohereApiKey = "Q7cIEjriLEX9rF50F1dHZs6MR1CTvtKePwYYmVq2";
+// Load API key from user secrets
+var configuration = new ConfigurationBuilder()
+    .AddUserSecrets<Program>()
+    .AddEnvironmentVariables()
+    .Build();
+
+var cohereApiKey = configuration["Embeddings:CohereApiKeys:0"]
+    ?? Environment.GetEnvironmentVariable("COHERE_API_KEY")
+    ?? throw new InvalidOperationException("Cohere API key not found. Set via user secrets or COHERE_API_KEY env var.");
 
 // Configure settings
 var settings = new EmbeddingSettings
