@@ -35,6 +35,8 @@
     // Update hidden input with selected repo IDs
     function updateHiddenInput() {
         hiddenInput.value = selectedRepos.map(r => r.id).join(',');
+        // Also update window.initialSelectedRepos so sync modal picks up current selection
+        window.initialSelectedRepos = selectedRepos.map(r => ({ id: r.id, fullName: r.fullName }));
     }
 
     // Add a repository

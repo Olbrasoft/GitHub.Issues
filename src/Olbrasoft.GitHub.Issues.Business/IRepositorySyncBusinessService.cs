@@ -21,4 +21,9 @@ public interface IRepositorySyncBusinessService
     /// Updates the LastSyncedAt timestamp for a repository.
     /// </summary>
     Task<bool> UpdateLastSyncedAsync(int repositoryId, DateTimeOffset lastSyncedAt, CancellationToken ct = default);
+
+    /// <summary>
+    /// Resets the LastSyncedAt timestamp to NULL for a repository (forces full sync).
+    /// </summary>
+    Task<bool> ResetLastSyncedAsync(string fullName, CancellationToken ct = default);
 }

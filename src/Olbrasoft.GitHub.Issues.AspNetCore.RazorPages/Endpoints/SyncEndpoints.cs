@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Endpoints;
@@ -125,6 +126,54 @@ public static class SyncEndpoints
                     }
                 }
                 return Results.BadRequest(new { success = false, message = errorMessage });
+            }
+        }).RequireAuthorization("OwnerOnly");
+
+        app.MapPost("/api/data/reset-sync", async (
+            HttpRequest request,
+            IRepositorySyncBusinessService repositoryBusiness,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                string? fullName = null;
+
+                if (request.ContentLength > 0)
+                {
+                    using var reader = new StreamReader(request.Body);
+                    var body = await reader.ReadToEndAsync(ct);
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        var json = JsonDocument.Parse(body);
+                        if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+                        {
+                            fullName = repoElement.GetString();
+                        }
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(fullName))
+                {
+                    return Results.BadRequest(new { success = false, message = "Repository full name is required" });
+                }
+
+                logger.LogInformation("Resetting LastSyncedAt for repository: {FullName}", fullName);
+                var success = await repositoryBusiness.ResetLastSyncedAsync(fullName, ct);
+
+                if (success)
+                {
+                    return Results.Ok(new { success = true, message = $"LastSyncedAt reset for {fullName}" });
+                }
+                else
+                {
+                    return Results.NotFound(new { success = false, message = $"Repository {fullName} not found" });
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Reset sync failed");
+                return Results.BadRequest(new { success = false, message = ex.Message });
             }
         }).RequireAuthorization("OwnerOnly");
 

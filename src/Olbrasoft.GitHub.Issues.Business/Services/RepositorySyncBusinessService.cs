@@ -44,4 +44,13 @@ public class RepositorySyncBusinessService : Service, IRepositorySyncBusinessSer
         };
         return await command.ToResultAsync(ct);
     }
+
+    public async Task<bool> ResetLastSyncedAsync(string fullName, CancellationToken ct = default)
+    {
+        var command = new RepositoryResetLastSyncedCommand(Mediator)
+        {
+            FullName = fullName
+        };
+        return await command.ToResultAsync(ct);
+    }
 }
