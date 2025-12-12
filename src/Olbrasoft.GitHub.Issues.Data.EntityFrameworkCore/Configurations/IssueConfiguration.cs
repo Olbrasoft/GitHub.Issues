@@ -31,9 +31,9 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .IsRequired();
 
         // Embedding column - provider-specific configuration applied in DbContext.OnModelCreating
-        // Required - issues without embeddings are skipped during sync (useless for semantic search)
-        builder.Property(i => i.Embedding)
-            .IsRequired();
+        // Optional - issues can be synced without embeddings if embedding service fails
+        // Issues without embeddings won't appear in semantic search but can still be found by title/number
+        builder.Property(i => i.Embedding);
 
         builder.Property(i => i.SyncedAt)
             .IsRequired();
