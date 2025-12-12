@@ -134,12 +134,14 @@
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (isDropdownVisible() && selectedIndex >= 0 && items[selectedIndex]) {
-                // Dropdown is open and item is selected - add the repo
+                // Dropdown is open and item is selected - add the repo and submit
                 const item = items[selectedIndex];
                 addRepo({
                     id: parseInt(item.dataset.id),
                     fullName: item.dataset.fullname
                 });
+                // Auto-submit after selecting from dropdown
+                submitSearchForm();
             } else if (!isDropdownVisible() || !e.target.value.trim()) {
                 // Dropdown is closed or input is empty - submit search
                 submitSearchForm();
