@@ -82,14 +82,9 @@
                     }
                 }
             </select>
-
-            <label for="languageSelect">Jazyk:</label>
-            <select name="Lang" id="languageSelect" class="language-select">
-                @if (Model.Language == "en") { <option value="en" selected>English</option> } else { <option value="en">English</option> }
-                @if (Model.Language == "de") { <option value="de" selected>Deutsch</option> } else { <option value="de">Deutsch</option> }
-                @if (Model.Language == "cs") { <option value="cs" selected>Čeština</option> } else { <option value="cs">Čeština</option> }
-            </select>
         </div>
+        <!-- Language is now in the site header (_Layout.cshtml) -->
+        <input type="hidden" name="Lang" value="@Model.Language" />
         <input type="hidden" name="PageNum" value="1" />
     </form>
 </div>
@@ -243,8 +238,8 @@
         window.initialSelectedRepos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.SelectedRepositories.Select(r => new { id = r.Id, fullName = r.FullName })));
 
-        // Initialize language setting for SignalR client
-        window.selectedLanguage = '@Model.Language';
+        // Initialize language setting for SignalR client (use header language or server-side value)
+        window.selectedLanguage = window.siteLanguage || '@Model.Language';
 
         // Clear search function - clears session and reloads page
         function clearSearch() {

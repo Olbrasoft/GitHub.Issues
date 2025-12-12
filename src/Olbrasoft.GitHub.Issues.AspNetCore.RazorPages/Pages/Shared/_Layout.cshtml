@@ -15,6 +15,16 @@
     <header>
         <nav>
             <a href="/" class="brand">GitHub Issues Search</a>
+            <div class="header-language-selector">
+                <label for="headerLanguageSelect">
+                    <span class="language-icon">🌐</span>
+                </label>
+                <select id="headerLanguageSelect" class="header-language-select" title="Select language">
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="cs">Čeština</option>
+                </select>
+            </div>
         </nav>
     </header>
 
@@ -27,6 +37,7 @@
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/header-language.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
