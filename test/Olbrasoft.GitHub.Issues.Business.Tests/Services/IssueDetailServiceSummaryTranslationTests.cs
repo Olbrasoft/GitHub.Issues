@@ -290,6 +290,70 @@ public class IssueDetailServiceSummaryTranslationTests
         Assert.Equal("en", capturedNotification.Language);
     }
 
+    [Fact]
+    public async Task GenerateSummaryFromBodyAsync_WhenBothModeAndTranslationFails_SendsEnglishAsCzechFallback()
+    {
+        // Arrange
+        const int issueId = 1;
+        const string body = "This is a test issue body";
+        const string englishSummary = "Summary of the issue";
+
+        // Setup summarization to succeed
+        _summarizationServiceMock
+            .Setup(x => x.SummarizeAsync(body, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SummarizationResult
+            {
+                Success = true,
+                Summary = englishSummary,
+                Provider = "TestProvider",
+                Model = "TestModel"
+            });
+
+        // Setup primary translator (DeepL) to FAIL
+        _primaryTranslatorMock
+            .Setup(x => x.TranslateAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslatorResult { Success = false, Error = "DeepL API key not configured" });
+
+        // Setup fallback translator (Cohere) to ALSO FAIL
+        _fallbackTranslatorMock
+            .Setup(x => x.TranslateToCzechAsync(englishSummary, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationResult { Success = false, Error = "Cohere API error" });
+
+        // Capture notifications
+        var notifications = new List<SummaryNotificationDto>();
+        _summaryNotifierMock
+            .Setup(x => x.NotifySummaryReadyAsync(It.IsAny<SummaryNotificationDto>(), It.IsAny<CancellationToken>()))
+            .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => notifications.Add(dto))
+            .Returns(Task.CompletedTask);
+
+        using var dbContext = CreateInMemoryDbContext();
+        var service = new IssueDetailService(
+            dbContext,
+            _graphQLClientMock.Object,
+            _summarizationServiceMock.Object,
+            _primaryTranslatorMock.Object,
+            _summaryNotifierMock.Object,
+            _bodyNotifierMock.Object,
+            Options.Create(_bodyPreviewSettings),
+            _loggerMock.Object,
+            _fallbackTranslatorMock.Object);
+
+        // Act - Use "both" language mode
+        await service.GenerateSummaryFromBodyAsync(issueId, body, "both");
+
+        // Assert - Should have 2 notifications: English first, then Czech fallback
+        Assert.Equal(2, notifications.Count);
+
+        // First notification should be English summary
+        Assert.Equal(englishSummary, notifications[0].Summary);
+        Assert.Equal("en", notifications[0].Language);
+
+        // Second notification should be English text with "cs" language (fallback)
+        Assert.Equal(englishSummary, notifications[1].Summary);
+        Assert.Equal("cs", notifications[1].Language);
+        Assert.Contains("překlad nedostupný", notifications[1].Provider);
+    }
+
     private static GitHubDbContext CreateInMemoryDbContext()
     {
         var options = new DbContextOptionsBuilder<GitHubDbContext>()
