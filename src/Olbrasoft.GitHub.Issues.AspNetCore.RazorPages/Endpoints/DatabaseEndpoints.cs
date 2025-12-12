@@ -23,6 +23,45 @@ public static class DatabaseEndpoints
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         }).RequireAuthorization("OwnerOnly");
 
+        // Diagnostic endpoint: Test embedding service
+        app.MapGet("/api/database/test-embedding", async (
+            Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.IEmbeddingService embeddingService,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            var testText = "This is a test issue for embedding generation";
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                var embedding = await embeddingService.GenerateEmbeddingAsync(testText,
+                    Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingInputType.Document, ct);
+                stopwatch.Stop();
+
+                return Results.Ok(new
+                {
+                    success = embedding != null,
+                    isConfigured = embeddingService.IsConfigured,
+                    embeddingLength = embedding?.Length ?? 0,
+                    latencyMs = stopwatch.ElapsedMilliseconds,
+                    testText = testText
+                });
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                logger.LogError(ex, "Embedding test failed");
+                return Results.Ok(new
+                {
+                    success = false,
+                    isConfigured = embeddingService.IsConfigured,
+                    error = ex.Message,
+                    innerError = ex.InnerException?.Message,
+                    latencyMs = stopwatch.ElapsedMilliseconds
+                });
+            }
+        });
+
         // Diagnostic endpoint: Find issues without embeddings
         app.MapGet("/api/database/issues-without-embeddings", async (
             GitHubDbContext db,
