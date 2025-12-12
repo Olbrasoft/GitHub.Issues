@@ -83,15 +83,12 @@
                 }
             </select>
 
-            <label class="translate-checkbox-label">
-                <input type="checkbox"
-                       id="translateToCzechCheckbox"
-                       class="translate-checkbox"
-                       @(Model.TranslateToCzech ? "checked" : "")
-                       onchange="updateTranslateHiddenField(this)" />
-                Přeložit do češtiny
-            </label>
-            <input type="hidden" name="TranslateToCzech" id="translateToCzechHidden" value="@(Model.TranslateToCzech ? "true" : "false")" />
+            <label for="languageSelect">Jazyk:</label>
+            <select name="Lang" id="languageSelect" class="language-select">
+                @if (Model.Language == "en") { <option value="en" selected>English</option> } else { <option value="en">English</option> }
+                @if (Model.Language == "de") { <option value="de" selected>Deutsch</option> } else { <option value="de">Deutsch</option> }
+                @if (Model.Language == "cs") { <option value="cs" selected>Čeština</option> } else { <option value="cs">Čeština</option> }
+            </select>
         </div>
         <input type="hidden" name="PageNum" value="1" />
     </form>
@@ -99,7 +96,7 @@
 
 @if (Model.HasSearchCriteria)
 {
-    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&TranslateToCzech={Model.TranslateToCzech}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
+    var currentUrl = $"/?Query={Uri.EscapeDataString(Model.Query ?? "")}&State={Model.State}&Lang={Model.Language}&PageNum={Model.PageNumber}&PageSize={Model.PageSize}" +
                      (string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}");
     var returnUrlEncoded = Uri.EscapeDataString(currentUrl);
 
@@ -171,14 +168,14 @@
                 <div class="pagination">
                     @if (Model.PageNumber > 1)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&TranslateToCzech=@Model.TranslateToCzech&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Lang=@Model.Language&PageNum=@(Model.PageNumber - 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">« Předchozí</a>
                     }
 
                     <span class="page-info">Stránka @Model.PageNumber z @Model.SearchResult.TotalPages</span>
 
                     @if (Model.PageNumber < Model.SearchResult.TotalPages)
                     {
-                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&TranslateToCzech=@Model.TranslateToCzech&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
+                        <a href="?Query=@Uri.EscapeDataString(Model.Query ?? "")&State=@Model.State&Lang=@Model.Language&PageNum=@(Model.PageNumber + 1)&PageSize=@Model.PageSize@(string.IsNullOrEmpty(Model.Repos) ? "" : $"&Repos={Model.Repos}")" class="page-link">Další »</a>
                     }
                 </div>
             }
@@ -245,14 +242,12 @@
         window.initialSelectedRepos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.SelectedRepositories.Select(r => new { id = r.Id, fullName = r.FullName })));
 
+        // Initialize language setting for SignalR client
+        window.selectedLanguage = '@Model.Language';
+
         // Clear search function - clears session and reloads page
         function clearSearch() {
             document.getElementById('clearSearchForm').submit();
-        }
-
-        // Update hidden field when checkbox changes (prevents duplicate URL params)
-        function updateTranslateHiddenField(checkbox) {
-            document.getElementById('translateToCzechHidden').value = checkbox.checked ? 'true' : 'false';
         }
     </script>
     <script src="~/js/repo-filter.js"></script>

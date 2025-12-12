@@ -256,6 +256,16 @@ footer {
     margin-left: 1rem;
 }
 
+/* Language select */
+.language-select {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+    margin-left: 0.5rem;
+}
+
 /* Results header */
 .results-header {
     display: flex;
