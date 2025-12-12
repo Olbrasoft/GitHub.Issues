@@ -320,19 +320,19 @@
             return;
         }
 
-        console.log('[issue-updates] Fetching bodies for issues:', issueIds);
+        console.log('[issue-updates] Fetching bodies and summaries for issues:', issueIds, 'language:', selectedLanguage);
 
-        // Fire-and-forget API call to fetch bodies
+        // Fire-and-forget API call to fetch bodies and generate summaries
         fetch('/api/issues/fetch-bodies', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ issueIds: issueIds })
+            body: JSON.stringify({ issueIds: issueIds, language: selectedLanguage })
         })
         .then(function(response) {
             if (response.ok) {
-                console.log('[issue-updates] Body fetch triggered for', issueIds.length, 'issues');
+                console.log('[issue-updates] Body fetch and summarization triggered for', issueIds.length, 'issues');
             } else {
                 console.error('[issue-updates] Failed to trigger body fetch:', response.status);
                 // Remove from fetched set so we can retry
