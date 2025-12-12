@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Olbrasoft.GitHub.Issues.Business.Models.OpenAi;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -156,7 +156,7 @@ public class AiSummarizationService : IAiSummarizationService
             Temperature = _summarization.Temperature
         };
 
-        var json = JsonSerializer.Serialize(request, JsonContext.Default.OpenAiRequest);
+        var json = JsonSerializer.Serialize(request, OpenAiJsonContext.Default.OpenAiRequest);
         var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, combo.Endpoint + "chat/completions");
@@ -174,7 +174,7 @@ public class AiSummarizationService : IAiSummarizationService
         }
 
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        var openAiResponse = JsonSerializer.Deserialize(responseBody, JsonContext.Default.OpenAiResponse);
+        var openAiResponse = JsonSerializer.Deserialize(responseBody, OpenAiJsonContext.Default.OpenAiResponse);
 
         var summary = openAiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
 
@@ -224,47 +224,4 @@ public class AiSummarizationService : IAiSummarizationService
 
         return result.Trim();
     }
-}
-
-// OpenAI-compatible API models with source generation for AOT compatibility
-internal class OpenAiRequest
-{
-    [JsonPropertyName("model")]
-    public string Model { get; set; } = string.Empty;
-
-    [JsonPropertyName("messages")]
-    public OpenAiMessage[] Messages { get; set; } = [];
-
-    [JsonPropertyName("max_tokens")]
-    public int MaxTokens { get; set; }
-
-    [JsonPropertyName("temperature")]
-    public double Temperature { get; set; }
-}
-
-internal class OpenAiMessage
-{
-    [JsonPropertyName("role")]
-    public string Role { get; set; } = string.Empty;
-
-    [JsonPropertyName("content")]
-    public string Content { get; set; } = string.Empty;
-}
-
-internal class OpenAiResponse
-{
-    [JsonPropertyName("choices")]
-    public OpenAiChoice[]? Choices { get; set; }
-}
-
-internal class OpenAiChoice
-{
-    [JsonPropertyName("message")]
-    public OpenAiMessage? Message { get; set; }
-}
-
-[JsonSerializable(typeof(OpenAiRequest))]
-[JsonSerializable(typeof(OpenAiResponse))]
-internal partial class JsonContext : JsonSerializerContext
-{
 }
