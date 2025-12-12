@@ -155,14 +155,19 @@
             return;
         }
 
+        // Only apply translation if it matches the selected language
+        if (data.language && data.language !== selectedLanguage) {
+            console.log('[issue-updates] Ignoring translation for different language:', data.language, 'vs', selectedLanguage);
+            return;
+        }
+
         // Extract issue number from current title (format: "#123 Title text")
         const currentText = titleLink.textContent;
         const match = currentText.match(/^(#\d+)\s/);
         const issueNumberPrefix = match ? match[1] + ' ' : '';
 
-        // Update title with translated text (supports any language)
-        const translatedTitle = data.translatedTitle || data.czechTitle; // Support old and new property name
-        titleLink.textContent = issueNumberPrefix + translatedTitle;
+        // Update title with translated text
+        titleLink.textContent = issueNumberPrefix + data.translatedTitle;
         titleLink.classList.remove('title-translating');
         titleLink.dataset.translating = '';
 
@@ -172,7 +177,7 @@
             titleLink.classList.remove('title-translated');
         }, 2000);
 
-        console.log('[issue-updates] Title updated for issue', data.issueId, ':', translatedTitle);
+        console.log('[issue-updates] Title updated for issue', data.issueId, 'language:', data.language);
     }
 
     function handleSummaryReceived(data) {

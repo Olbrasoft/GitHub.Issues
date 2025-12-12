@@ -5,7 +5,7 @@ namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 
 /// <summary>
 /// SignalR implementation of ITitleTranslationNotifier.
-/// Sends Czech title translation to subscribed clients when ready.
+/// Sends title translation to subscribed clients when ready.
 /// </summary>
 public class SignalRTitleTranslationNotifier : ITitleTranslationNotifier
 {
@@ -25,16 +25,17 @@ public class SignalRTitleTranslationNotifier : ITitleTranslationNotifier
         var groupName = $"issue-{notification.IssueId}";
 
         _logger.LogInformation(
-            "[SignalR] Broadcasting TitleTranslated to group {Group} for issue {Id}",
-            groupName, notification.IssueId);
+            "[SignalR] Broadcasting TitleTranslated to group {Group} for issue {Id}, language: {Lang}",
+            groupName, notification.IssueId, notification.Language);
 
         await _hubContext.Clients.Group(groupName).SendAsync(
             "TitleTranslated",
             new
             {
-                IssueId = notification.IssueId,
-                CzechTitle = notification.CzechTitle,
-                Provider = notification.Provider
+                issueId = notification.IssueId,
+                translatedTitle = notification.TranslatedTitle,
+                language = notification.Language,
+                provider = notification.Provider
             },
             cancellationToken);
 

@@ -114,7 +114,7 @@ public static class IssueEndpoints
             return Results.Accepted(value: new { message = $"Started summary generation for {issueIds.Count} issues", language });
         });
 
-        // Translate issue titles to Czech
+        // Translate issue titles to target language
         app.MapPost("/api/issues/translate-titles", async (
             HttpRequest request,
             IServiceScopeFactory scopeFactory,
@@ -122,6 +122,7 @@ public static class IssueEndpoints
             CancellationToken ct) =>
         {
             List<int> issueIds;
+            string targetLanguage;
 
             try
             {
@@ -139,6 +140,17 @@ public static class IssueEndpoints
                     .Where(e => e.ValueKind == JsonValueKind.Number)
                     .Select(e => e.GetInt32())
                     .ToList();
+
+                // Parse target language (default to Czech for backward compatibility)
+                targetLanguage = json.RootElement.TryGetProperty("targetLanguage", out var langElement)
+                    ? langElement.GetString() ?? "cs"
+                    : "cs";
+
+                // Validate language code
+                if (targetLanguage is not ("en" or "de" or "cs"))
+                {
+                    return Results.BadRequest(new { error = "Invalid targetLanguage. Use 'en', 'de', or 'cs'" });
+                }
             }
             catch (JsonException)
             {
@@ -150,26 +162,35 @@ public static class IssueEndpoints
                 return Results.Ok(new { message = "No issues to translate" });
             }
 
-            logger.LogInformation("API: Starting title translation for {Count} issues", issueIds.Count);
+            // Skip translation for English (titles are already in English)
+            if (targetLanguage == "en")
+            {
+                logger.LogInformation("API: Skipping title translation - target language is English");
+                return Results.Ok(new { message = "Skipped - titles are already in English" });
+            }
+
+            logger.LogInformation("API: Starting title translation for {Count} issues to {Lang}", issueIds.Count, targetLanguage);
 
             foreach (var issueId in issueIds)
             {
+                var capturedId = issueId;
+                var capturedLang = targetLanguage;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         await using var scope = scopeFactory.CreateAsyncScope();
                         var translationService = scope.ServiceProvider.GetRequiredService<ITitleTranslationService>();
-                        await translationService.TranslateTitleAsync(issueId, CancellationToken.None);
+                        await translationService.TranslateTitleAsync(capturedId, capturedLang, CancellationToken.None);
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Background title translation failed for issue {Id}", issueId);
+                        logger.LogError(ex, "Background title translation failed for issue {Id}", capturedId);
                     }
                 });
             }
 
-            return Results.Accepted(value: new { message = $"Translating {issueIds.Count} titles" });
+            return Results.Accepted(value: new { message = $"Translating {issueIds.Count} titles to {targetLanguage}" });
         });
 
         return app;
