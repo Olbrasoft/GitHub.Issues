@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.Sync.Webhooks;
+using Olbrasoft.GitHub.Issues.Sync.Webhooks.Handlers;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 
@@ -41,6 +42,14 @@ public static class HttpClientExtensions
         services.Configure<WebhookSettings>(configuration.GetSection("GitHubApp"));
         services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
         services.AddScoped<IIssueUpdateNotifier, Hubs.SignalRIssueUpdateNotifier>();
+
+        // Webhook event handlers (Strategy Pattern)
+        services.AddScoped<IWebhookEventHandler<GitHubIssueWebhookPayload>, IssueEventHandler>();
+        services.AddScoped<IWebhookEventHandler<GitHubIssueCommentWebhookPayload>, IssueCommentEventHandler>();
+        services.AddScoped<IWebhookEventHandler<GitHubRepositoryWebhookPayload>, RepositoryEventHandler>();
+        services.AddScoped<IWebhookEventHandler<GitHubLabelWebhookPayload>, LabelEventHandler>();
+
+        // Webhook orchestrator
         services.AddScoped<IGitHubWebhookService, GitHubWebhookService>();
 
         return services;
