@@ -1,19 +1,20 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
+using Olbrasoft.Text.Translation.DeepL;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for translating issue titles using dedicated translation services.
-/// Primary: DeepL. Fallback: Cohere (AI-based).
+/// Primary: Azure Translator. Fallback: DeepL.
+/// Note: Cohere (AI-based) removed per Issue #209 - translations must use proper translators.
 /// </summary>
 public class TitleTranslationService : ITitleTranslationService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly ITranslator _translator;
-    private readonly ITranslationService? _fallbackTranslator;
+    private readonly DeepLTranslator? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
     private readonly ILogger<TitleTranslationService> _logger;
 
@@ -22,7 +23,7 @@ public class TitleTranslationService : ITitleTranslationService
         ITranslator translator,
         ITitleTranslationNotifier notifier,
         ILogger<TitleTranslationService> logger,
-        ITranslationService? fallbackTranslator = null)
+        DeepLTranslator? fallbackTranslator = null)
     {
         _dbContext = dbContext;
         _translator = translator;
@@ -78,31 +79,26 @@ public class TitleTranslationService : ITitleTranslationService
 
         var result = await _translator.TranslateAsync(issue.Title, targetLanguage, null, cancellationToken);
 
-        // If primary translator fails, try fallback (Cohere)
+        // If primary translator fails, try fallback (DeepL)
         if ((!result.Success || string.IsNullOrWhiteSpace(result.Translation)) && _fallbackTranslator != null)
         {
-            _logger.LogWarning("[TitleTranslation] Primary translation failed: {Error}. Trying fallback...", result.Error);
+            _logger.LogWarning("[TitleTranslation] Primary translation failed: {Error}. Trying DeepL fallback...", result.Error);
 
-            // Note: ITranslationService.TranslateToCzechAsync only supports Czech
-            // For other languages, we'd need to extend the interface
-            if (targetLanguage == "cs")
+            var fallbackResult = await _fallbackTranslator.TranslateAsync(issue.Title, targetLanguage, null, cancellationToken);
+            if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
             {
-                var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(issue.Title, cancellationToken);
-                if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
-                {
-                    _logger.LogInformation("[TitleTranslation] Fallback succeeded via {Provider}: '{Translation}'",
-                        fallbackResult.Provider, fallbackResult.Translation);
+                _logger.LogInformation("[TitleTranslation] Fallback succeeded via {Provider}: '{Translation}'",
+                    fallbackResult.Provider, fallbackResult.Translation);
 
-                    await _notifier.NotifyTitleTranslatedAsync(
-                        new TitleTranslationNotificationDto(issueId, fallbackResult.Translation, targetLanguage, fallbackResult.Provider ?? "fallback"),
-                        cancellationToken);
+                await _notifier.NotifyTitleTranslatedAsync(
+                    new TitleTranslationNotificationDto(issueId, fallbackResult.Translation, targetLanguage, fallbackResult.Provider ?? "DeepL"),
+                    cancellationToken);
 
-                    _logger.LogInformation("[TitleTranslation] COMPLETE for issue {Id} (via fallback)", issueId);
-                    return;
-                }
-
-                _logger.LogWarning("[TitleTranslation] Fallback also failed: {Error}", fallbackResult.Error);
+                _logger.LogInformation("[TitleTranslation] COMPLETE for issue {Id} (via fallback)", issueId);
+                return;
             }
+
+            _logger.LogWarning("[TitleTranslation] Fallback also failed: {Error}", fallbackResult.Error);
         }
 
         if (!result.Success || string.IsNullOrWhiteSpace(result.Translation))
