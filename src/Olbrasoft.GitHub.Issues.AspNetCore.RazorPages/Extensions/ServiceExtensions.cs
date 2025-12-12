@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Strategies;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
@@ -123,6 +124,11 @@ public static class ServiceExtensions
         // Note: Cohere was removed as fallback per Issue #209 - translations must use proper translators
         services.AddHttpClient<DeepLTranslator>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
+
+        // Search strategies (Strategy Pattern)
+        services.AddScoped<ISearchStrategy, ExactMatchSearchStrategy>();
+        services.AddScoped<ISearchStrategy, SemanticSearchStrategy>();
+        services.AddScoped<ISearchStrategy, RepositoryBrowseStrategy>();
 
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();

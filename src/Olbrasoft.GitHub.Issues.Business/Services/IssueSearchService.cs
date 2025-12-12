@@ -1,34 +1,29 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business.Models;
-using Olbrasoft.GitHub.Issues.Data.Dtos;
-using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
-using Olbrasoft.Text.Transformation.Abstractions;
+using Olbrasoft.GitHub.Issues.Business.Strategies;
 using Olbrasoft.Mediation;
 using static Olbrasoft.GitHub.Issues.Business.Services.IssueNumberParser;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
-/// Service for searching issues using semantic vector search.
+/// Service for searching issues using various strategies (semantic, exact match, text, browse).
+/// Uses Strategy Pattern to support multiple search approaches.
 /// </summary>
 public class IssueSearchService : Service, IIssueSearchService
 {
-    private readonly IEmbeddingService _embeddingService;
+    private readonly IEnumerable<ISearchStrategy> _strategies;
     private readonly ILogger<IssueSearchService> _logger;
-    private readonly AiSummarySettings _aiSummarySettings;
 
     public IssueSearchService(
         IMediator mediator,
-        IEmbeddingService embeddingService,
-        ILogger<IssueSearchService> logger,
-        IOptions<AiSummarySettings> aiSummarySettings)
+        IEnumerable<ISearchStrategy> strategies,
+        ILogger<IssueSearchService> logger)
         : base(mediator)
     {
-        _embeddingService = embeddingService;
+        // Order strategies by priority (highest first)
+        _strategies = strategies.OrderByDescending(s => s.Priority).ToList();
         _logger = logger;
-        _aiSummarySettings = aiSummarySettings.Value;
     }
 
     public async Task<SearchResultPage> SearchAsync(
@@ -39,122 +34,56 @@ public class IssueSearchService : Service, IIssueSearchService
         IReadOnlyList<int>? repositoryIds = null,
         CancellationToken cancellationToken = default)
     {
-        // Parse query for issue number patterns (e.g., #123, issue 123, repo#123)
+        // Parse query and build criteria
         var parsedNumbers = Parse(query);
         var semanticQuery = GetSemanticQuery(query);
-        var hasIssueNumbers = parsedNumbers.Count > 0;
-        var hasSemanticQuery = !string.IsNullOrWhiteSpace(semanticQuery);
 
-        var allResults = new List<IssueSearchResult>();
-        var exactMatchIds = new HashSet<int>();
-
-        // First: Find exact matches by issue number
-        if (hasIssueNumbers)
+        var criteria = new SearchCriteria
         {
-            var issueNumbers = parsedNumbers.Select(p => p.Number).ToList();
-            var repoFilter = parsedNumbers.FirstOrDefault(p => p.RepositoryName != null)?.RepositoryName;
+            Query = query,
+            ParsedIssueNumbers = parsedNumbers,
+            SemanticQuery = semanticQuery,
+            State = state,
+            Page = page,
+            PageSize = pageSize,
+            RepositoryIds = repositoryIds
+        };
 
-            var exactQuery = new IssuesByNumbersQuery(Mediator)
-            {
-                IssueNumbers = issueNumbers,
-                RepositoryName = repoFilter,
-                RepositoryIds = repositoryIds,
-                State = state
-            };
+        // Check if any strategy can handle this search
+        var applicableStrategies = _strategies.Where(s => s.CanHandle(criteria)).ToList();
 
-            var exactMatches = await exactQuery.ToResultAsync(cancellationToken);
-            foreach (var dto in exactMatches)
-            {
-                var result = MapToSearchResult(dto, isExactMatch: true, _aiSummarySettings.MaxLength);
-                allResults.Add(result);
-                exactMatchIds.Add(dto.Id);
-            }
-
-            _logger.LogDebug("Found {Count} exact matches for issue numbers: {Numbers}",
-                exactMatches.Count, string.Join(", ", issueNumbers));
-        }
-
-        // Second: Semantic search if there's query text
-        if (hasSemanticQuery && semanticQuery != null)
+        if (applicableStrategies.Count == 0)
         {
-            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(
-                semanticQuery, EmbeddingInputType.Query, cancellationToken);
-
-            if (queryEmbedding != null)
-            {
-                var searchQuery = new IssueSearchQuery(Mediator)
-                {
-                    QueryEmbedding = queryEmbedding,
-                    State = state,
-                    Page = 1, // Get more results to filter out duplicates
-                    PageSize = pageSize + exactMatchIds.Count,
-                    RepositoryIds = repositoryIds
-                };
-
-                var semanticPage = await searchQuery.ToResultAsync(cancellationToken);
-
-                // Add semantic results, excluding already found exact matches
-                foreach (var dto in semanticPage.Results.Where(d => !exactMatchIds.Contains(d.Id)))
-                {
-                    allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
-                }
-            }
-            else
-            {
-                // Fallback to text-based search when embedding is unavailable
-                _logger.LogWarning("Embedding unavailable, falling back to text search for query: {Query}", semanticQuery);
-
-                var textSearchQuery = new IssueTextSearchQuery(Mediator)
-                {
-                    SearchText = semanticQuery,
-                    State = state,
-                    Page = 1,
-                    PageSize = pageSize + exactMatchIds.Count,
-                    RepositoryIds = repositoryIds
-                };
-
-                var textPage = await textSearchQuery.ToResultAsync(cancellationToken);
-
-                foreach (var dto in textPage.Results.Where(d => !exactMatchIds.Contains(d.Id)))
-                {
-                    allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
-                }
-
-                _logger.LogInformation("Text search returned {Count} results for query: {Query}",
-                    textPage.TotalCount, semanticQuery);
-            }
-        }
-        // Third: List issues without search (just browsing)
-        else if (!hasIssueNumbers && repositoryIds is { Count: > 0 })
-        {
-            var listQuery = new IssueListQuery(Mediator)
-            {
-                State = state,
-                Page = page,
-                PageSize = pageSize,
-                RepositoryIds = repositoryIds
-            };
-
-            var listPage = await listQuery.ToResultAsync(cancellationToken);
-            foreach (var dto in listPage.Results)
-            {
-                allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
-            }
-
-            // For list queries, return paginated results directly
-            // Note: Body fetch moved to progressive loading via SignalR (Issue #173)
-            return new SearchResultPage
-            {
-                Results = allResults,
-                TotalCount = listPage.TotalCount,
-                Page = listPage.Page,
-                PageSize = listPage.PageSize,
-                TotalPages = listPage.TotalPages
-            };
-        }
-        else if (!hasIssueNumbers && !hasSemanticQuery)
-        {
+            _logger.LogDebug("No applicable search strategy for query: {Query}", query);
             return new SearchResultPage();
+        }
+
+        // Execute strategies in priority order, accumulating results
+        var allResults = new List<IssueSearchResult>();
+        var allFoundIds = new HashSet<int>();
+
+        foreach (var strategy in applicableStrategies)
+        {
+            var result = await strategy.ExecuteAsync(criteria, allFoundIds, cancellationToken);
+
+            allResults.AddRange(result.Results);
+            foreach (var id in result.FoundIds)
+            {
+                allFoundIds.Add(id);
+            }
+
+            // If strategy returns a terminal result, use it directly
+            if (result.IsTerminal)
+            {
+                return new SearchResultPage
+                {
+                    Results = result.Results,
+                    TotalCount = result.TotalCount ?? result.Results.Count,
+                    Page = criteria.Page,
+                    PageSize = criteria.PageSize,
+                    TotalPages = (int)Math.Ceiling((double)(result.TotalCount ?? result.Results.Count) / criteria.PageSize)
+                };
+            }
         }
 
         // Apply pagination to combined results
@@ -162,7 +91,6 @@ public class IssueSearchService : Service, IIssueSearchService
         var skip = (page - 1) * pageSize;
         var pagedResults = allResults.Skip(skip).Take(pageSize).ToList();
 
-        // Note: Body fetch moved to progressive loading via SignalR (Issue #173)
         return new SearchResultPage
         {
             Results = pagedResults,
@@ -172,25 +100,4 @@ public class IssueSearchService : Service, IIssueSearchService
             TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
         };
     }
-
-    private static IssueSearchResult MapToSearchResult(IssueSearchResultDto dto, bool isExactMatch, int previewMaxLength)
-    {
-        var parts = dto.RepositoryFullName.Split('/');
-        return new IssueSearchResult
-        {
-            Id = dto.Id,
-            IssueNumber = dto.IssueNumber,
-            Title = dto.Title,
-            IsOpen = dto.IsOpen,
-            Url = dto.Url,
-            RepositoryName = dto.RepositoryFullName,
-            Owner = parts.Length == 2 ? parts[0] : string.Empty,
-            RepoName = parts.Length == 2 ? parts[1] : string.Empty,
-            Similarity = dto.Similarity,
-            IsExactMatch = isExactMatch,
-            Labels = dto.Labels,
-            PreviewMaxLength = previewMaxLength
-        };
-    }
-
 }
