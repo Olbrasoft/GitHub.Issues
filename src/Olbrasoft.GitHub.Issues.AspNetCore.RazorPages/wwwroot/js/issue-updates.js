@@ -9,6 +9,7 @@
     let bodyObserver = null; // Intersection Observer for body fetching
     let isSignalRSubscribed = false; // Track if SignalR subscription is complete
     let pendingBodyFetches = []; // Queue for body fetches pending subscription
+    let keepAliveInterval = null; // Client-side keep-alive interval
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -52,16 +53,22 @@
         connection.onreconnecting(function (error) {
             console.log('[issue-updates] SignalR reconnecting...', error);
             isSignalRSubscribed = false; // Reset subscription flag during reconnection
+            updateConnectionStatus(false);
+            stopKeepAlive();
         });
 
         connection.onreconnected(function (connectionId) {
             console.log('[issue-updates] SignalR reconnected:', connectionId);
+            updateConnectionStatus(true);
+            startKeepAlive();
             // Re-subscribe to issues after reconnection
             subscribeToVisibleIssues();
         });
 
         connection.onclose(function (error) {
             console.log('[issue-updates] SignalR connection closed:', error);
+            updateConnectionStatus(false);
+            stopKeepAlive();
         });
 
         // Start connection
@@ -72,6 +79,8 @@
         try {
             await connection.start();
             console.log('[issue-updates] SignalR connected');
+            updateConnectionStatus(true);
+            startKeepAlive();
             await subscribeToVisibleIssues();
             // Trigger title translations if language is not English
             if (selectedLanguage !== 'en') {
@@ -81,8 +90,44 @@
             }
         } catch (err) {
             console.error('[issue-updates] SignalR connection error:', err);
+            updateConnectionStatus(false);
             // Retry connection after 5 seconds
             setTimeout(startConnection, 5000);
+        }
+    }
+
+    function startKeepAlive() {
+        // Clear any existing interval
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+        }
+
+        // Send ping every 30 seconds to keep connection alive through proxies
+        keepAliveInterval = setInterval(function() {
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                // Use invoke with a no-op to keep the connection active
+                // This helps bypass Azure/proxy idle timeouts
+                connection.invoke('SubscribeToIssues', [])
+                    .catch(function(err) {
+                        console.log('[issue-updates] Keep-alive ping failed:', err);
+                    });
+            }
+        }, 30000);
+    }
+
+    function stopKeepAlive() {
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+        }
+    }
+
+    function updateConnectionStatus(connected) {
+        const statusIndicator = document.querySelector('.signalr-status');
+        if (statusIndicator) {
+            statusIndicator.classList.toggle('connected', connected);
+            statusIndicator.classList.toggle('disconnected', !connected);
+            statusIndicator.title = connected ? 'Připojeno (real-time updates)' : 'Odpojeno (reconnecting...)';
         }
     }
 

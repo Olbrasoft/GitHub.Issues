@@ -1017,3 +1017,33 @@ footer {
     gap: 4px;
     margin-top: 8px;
 }
+
+/* SignalR connection status indicator */
+.signalr-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: background-color 0.3s ease;
+}
+
+.signalr-status.connected {
+    background-color: #28a745;
+    box-shadow: 0 0 4px #28a745;
+}
+
+.signalr-status.disconnected {
+    background-color: #dc3545;
+    animation: pulse-disconnected 1.5s infinite;
+}
+
+@keyframes pulse-disconnected {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
