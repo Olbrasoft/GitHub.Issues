@@ -5,7 +5,13 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
+using Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible;
 using Olbrasoft.Mediation;
+using EmbeddingSettings = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingSettings;
+using IServiceManager = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.IServiceManager;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 
@@ -41,10 +47,10 @@ public static class ServiceExtensions
         services.AddHttpClient<GitHubGraphQLClient>();
         services.AddScoped<IGitHubGraphQLClient>(sp => sp.GetRequiredService<GitHubGraphQLClient>());
 
-        // AI services
-        services.AddHttpClient<IAiSummarizationService, AiSummarizationService>()
+        // AI services - Text.Transformation
+        services.AddHttpClient<ISummarizationService, OpenAICompatibleSummarizationService>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
-        services.AddHttpClient<IAiTranslationService, AiTranslationService>()
+        services.AddHttpClient<ITranslationService, CohereTranslationService>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
 
         // Business services

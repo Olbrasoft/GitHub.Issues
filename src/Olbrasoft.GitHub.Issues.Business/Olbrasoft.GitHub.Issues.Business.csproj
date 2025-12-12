@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data\Olbrasoft.GitHub.Issues.Data.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

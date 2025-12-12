@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.Services;
 

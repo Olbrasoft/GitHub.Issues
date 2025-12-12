@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -11,13 +12,13 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 public class TitleTranslationService : ITitleTranslationService
 {
     private readonly GitHubDbContext _dbContext;
-    private readonly IAiTranslationService _translationService;
+    private readonly ITranslationService _translationService;
     private readonly ITitleTranslationNotifier _notifier;
     private readonly ILogger<TitleTranslationService> _logger;
 
     public TitleTranslationService(
         GitHubDbContext dbContext,
-        IAiTranslationService translationService,
+        ITranslationService translationService,
         ITitleTranslationNotifier notifier,
         ILogger<TitleTranslationService> logger)
     {

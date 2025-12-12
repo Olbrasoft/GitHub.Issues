@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Webhooks;
 

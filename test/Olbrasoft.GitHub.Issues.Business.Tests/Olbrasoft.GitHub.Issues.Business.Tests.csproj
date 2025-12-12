@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
+    <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
