@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
@@ -54,9 +55,18 @@ public static class HttpClientExtensions
     private static void AddGitHubAuthorization(IServiceProvider sp, HttpClient client)
     {
         var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+        var logger = sp.GetService<ILogger<GitHubSettings>>();
+
         if (!string.IsNullOrEmpty(settings.Value.Token))
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.Value.Token);
+            logger?.LogDebug("GitHub API client configured with Bearer token (length: {Length})", settings.Value.Token.Length);
+        }
+        else
+        {
+            logger?.LogWarning("GitHub API client configured WITHOUT authentication token. " +
+                "Set 'GitHub__Token' environment variable or 'GitHub:Token' in appsettings.json. " +
+                "Without token, API rate limit is 60 requests/hour.");
         }
     }
 }

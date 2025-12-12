@@ -60,6 +60,11 @@ public class CohereEmbeddingService : IEmbeddingService
         }
     }
 
+    // Retry configuration for rate limiting
+    private const int MaxRetryAttempts = 5;
+    private const int InitialBackoffMs = 1000; // 1 second
+    private const int MaxBackoffMs = 30000; // 30 seconds
+
     public async Task<float[]?> GenerateEmbeddingAsync(string text, EmbeddingInputType inputType = EmbeddingInputType.Document, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -75,45 +80,67 @@ public class CohereEmbeddingService : IEmbeddingService
 
         var inputTypeString = inputType == EmbeddingInputType.Query ? "search_query" : "search_document";
 
-        // Try with round-robin key, then retry with next key on 429
-        var startKeyIndex = GetNextKeyIndex();
-        var triedKeys = new HashSet<int>();
-
-        for (var attempt = 0; attempt < _apiKeys.Count; attempt++)
+        // Retry loop with exponential backoff
+        for (var retryAttempt = 0; retryAttempt < MaxRetryAttempts; retryAttempt++)
         {
-            var keyIndex = (startKeyIndex + attempt) % _apiKeys.Count;
-            if (triedKeys.Contains(keyIndex))
+            // Try all API keys in round-robin order
+            var startKeyIndex = GetNextKeyIndex();
+            var allKeysRateLimited = true;
+
+            for (var keyAttempt = 0; keyAttempt < _apiKeys.Count; keyAttempt++)
             {
-                break;
+                var keyIndex = (startKeyIndex + keyAttempt) % _apiKeys.Count;
+                var apiKey = _apiKeys[keyIndex];
+                var maskedKey = MaskApiKey(apiKey);
+
+                var result = await TryGenerateEmbeddingAsync(text, inputTypeString, apiKey, maskedKey, cancellationToken);
+
+                if (result.Success)
+                {
+                    return result.Embedding;
+                }
+
+                // Check if we should try the next key
+                if (result.StatusCode == 429)
+                {
+                    // Rate limited - continue to next key, will retry with backoff if all exhausted
+                    continue;
+                }
+                else if (result.StatusCode == 401)
+                {
+                    // Invalid token - log warning and try next key
+                    _logger.LogWarning("Cohere API key ...{MaskedKey} is INVALID (401). Trying next key.", maskedKey);
+                    allKeysRateLimited = false;
+                    continue;
+                }
+                else
+                {
+                    // Other errors - don't retry
+                    allKeysRateLimited = false;
+                    return null;
+                }
+
             }
-            triedKeys.Add(keyIndex);
 
-            var apiKey = _apiKeys[keyIndex];
-            var maskedKey = MaskApiKey(apiKey);
-
-            var result = await TryGenerateEmbeddingAsync(text, inputTypeString, apiKey, maskedKey, cancellationToken);
-
-            if (result.Success)
+            // If all keys are rate limited, wait and retry
+            if (allKeysRateLimited && retryAttempt < MaxRetryAttempts - 1)
             {
-                return result.Embedding;
-            }
+                var backoffMs = Math.Min(InitialBackoffMs * (int)Math.Pow(2, retryAttempt), MaxBackoffMs);
+                _logger.LogWarning("All Cohere API keys rate limited, waiting {BackoffMs}ms before retry {Attempt}/{MaxAttempts}",
+                    backoffMs, retryAttempt + 1, MaxRetryAttempts);
 
-            // Only retry with different key on rate limit (429)
-            if (result.StatusCode != 429)
-            {
-                return null;
-            }
-
-            if (attempt < _apiKeys.Count - 1)
-            {
-                var nextKeyIndex = (keyIndex + 1) % _apiKeys.Count;
-                var nextMaskedKey = MaskApiKey(_apiKeys[nextKeyIndex]);
-                _logger.LogWarning("Cohere rate limit: key=...{MaskedKey}, switching to ...{NextMaskedKey}",
-                    maskedKey, nextMaskedKey);
+                try
+                {
+                    await Task.Delay(backoffMs, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return null;
+                }
             }
         }
 
-        _logger.LogError("All Cohere API keys exhausted (rate limited)");
+        _logger.LogError("All Cohere API keys exhausted after {MaxAttempts} retry attempts", MaxRetryAttempts);
         return null;
     }
 

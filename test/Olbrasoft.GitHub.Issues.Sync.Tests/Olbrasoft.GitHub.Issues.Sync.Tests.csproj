@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Sync\Olbrasoft.GitHub.Issues.Sync.csproj" />
+    <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.csproj" />
   </ItemGroup>
 
 </Project>
