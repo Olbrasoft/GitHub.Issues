@@ -112,9 +112,21 @@ public class EmbeddingSettingsTests
     {
         var settings = new EmbeddingSettings();
 
+        settings.CohereModel = "custom-model";
+
+        Assert.Equal("custom-model", settings.CohereModel);
+        Assert.Equal("custom-model", settings.Cohere.Model);
+    }
+
+    [Fact]
+    public void Model_IsIndependentFromCohereModel()
+    {
+        var settings = new EmbeddingSettings();
+
         settings.Model = "custom-model";
 
         Assert.Equal("custom-model", settings.Model);
-        Assert.Equal("custom-model", settings.CohereModel);
+        // CohereModel is separate (delegates to Cohere.Model)
+        Assert.Equal("embed-multilingual-v3.0", settings.CohereModel);
     }
 }
