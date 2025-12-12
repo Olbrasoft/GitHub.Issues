@@ -134,7 +134,7 @@ public static class ServiceExtensions
             var arrayKeys = cohereSection.Get<string[]>() ?? [];
             keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            // 2. Embeddings:Cohere:ApiKeys (legacy)
+            // 2. Embeddings:Cohere:ApiKeys (legacy nested)
             if (keys.Count == 0)
             {
                 cohereSection = configuration.GetSection("Embeddings:Cohere:ApiKeys");
@@ -142,14 +142,22 @@ public static class ServiceExtensions
                 keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
             }
 
-            // 3. AiProviders:Cohere:Keys
+            // 3. Embeddings:CohereApiKeys (legacy flat - Azure config style)
+            if (keys.Count == 0)
+            {
+                cohereSection = configuration.GetSection("Embeddings:CohereApiKeys");
+                arrayKeys = cohereSection.Get<string[]>() ?? [];
+                keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+            }
+
+            // 4. AiProviders:Cohere:Keys
             if (keys.Count == 0)
             {
                 var aiProviderKeys = configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
                 keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
             }
 
-            // 4. Single key fallbacks
+            // 5. Single key fallbacks
             if (keys.Count == 0)
             {
                 var singleKey = configuration["Embeddings:CohereApiKey"]
