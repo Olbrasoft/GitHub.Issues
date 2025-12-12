@@ -29,4 +29,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Copy prompt files to output -->
+  <ItemGroup>
+    <Content Include="Prompts\**\*.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

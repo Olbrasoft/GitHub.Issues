@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
@@ -103,6 +104,12 @@ public static class ServiceExtensions
             var syncSettings = sp.GetRequiredService<IOptions<SyncSettings>>();
             return new EmbeddingTextBuilder(syncSettings.Value.MaxEmbeddingTextLength);
         });
+
+        // Prompt loader for external markdown prompts
+        services.AddSingleton<IPromptLoader, PromptLoader>();
+
+        // Post-configure to load prompts from files (overrides appsettings if files exist)
+        services.AddSingleton<IPostConfigureOptions<SummarizationSettings>, SummarizationPromptsPostConfigure>();
 
         return services;
     }
