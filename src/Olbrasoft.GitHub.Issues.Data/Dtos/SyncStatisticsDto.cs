@@ -31,6 +31,11 @@ public class SyncStatisticsDto
     public int Unchanged { get; set; }
 
     /// <summary>
+    /// Number of issues where embedding generation failed (still synced without embedding).
+    /// </summary>
+    public int EmbeddingsFailed { get; set; }
+
+    /// <summary>
     /// The timestamp used for incremental sync (null if full sync).
     /// </summary>
     public DateTimeOffset? SinceTimestamp { get; set; }
@@ -45,5 +50,6 @@ public class SyncStatisticsDto
         Created += other.Created;
         Updated += other.Updated;
         Unchanged += other.Unchanged;
+        EmbeddingsFailed += other.EmbeddingsFailed;
     }
 }
