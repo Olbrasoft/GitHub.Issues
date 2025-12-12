@@ -25,7 +25,8 @@
         issueId = parseInt(container.dataset.issueId, 10);
         const summaryPending = container.dataset.summaryPending === 'true';
         summaryLanguage = container.dataset.summaryLanguage || 'both';
-        selectedLanguage = container.dataset.selectedLanguage || 'cs';
+        // Use header language selector if available, otherwise fall back to data attribute
+        selectedLanguage = window.siteLanguage || container.dataset.selectedLanguage || 'cs';
 
         console.log('[detail-updates] Issue ID:', issueId, 'Summary pending:', summaryPending, 'Selected language:', selectedLanguage);
 

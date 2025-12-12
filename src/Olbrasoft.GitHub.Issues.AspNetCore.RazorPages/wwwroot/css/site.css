@@ -19,6 +19,47 @@ header {
 header nav {
     max-width: 1200px;
     margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Header language selector */
+.header-language-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-language-selector label {
+    display: flex;
+    align-items: center;
+}
+
+.language-icon {
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+
+.header-language-select {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    border: 1px solid #444d56;
+    border-radius: 6px;
+    background-color: #3a3f47;
+    color: white;
+    outline: none;
+    cursor: pointer;
+}
+
+.header-language-select:hover {
+    border-color: #586069;
+    background-color: #444d56;
+}
+
+.header-language-select:focus {
+    border-color: #0366d6;
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.3);
 }
 
 header .brand {
