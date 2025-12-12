@@ -16,20 +16,17 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 public class IssueSearchService : Service, IIssueSearchService
 {
     private readonly IEmbeddingService _embeddingService;
-    private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ILogger<IssueSearchService> _logger;
     private readonly AiSummarySettings _aiSummarySettings;
 
     public IssueSearchService(
         IMediator mediator,
         IEmbeddingService embeddingService,
-        IGitHubGraphQLClient graphQLClient,
         ILogger<IssueSearchService> logger,
         IOptions<AiSummarySettings> aiSummarySettings)
         : base(mediator)
     {
         _embeddingService = embeddingService;
-        _graphQLClient = graphQLClient;
         _logger = logger;
         _aiSummarySettings = aiSummarySettings.Value;
     }
@@ -125,7 +122,7 @@ public class IssueSearchService : Service, IIssueSearchService
             }
 
             // For list queries, return paginated results directly
-            await FetchBodiesAsync(allResults, cancellationToken);
+            // Note: Body fetch moved to progressive loading via SignalR (Issue #173)
             return new SearchResultPage
             {
                 Results = allResults,
@@ -145,8 +142,7 @@ public class IssueSearchService : Service, IIssueSearchService
         var skip = (page - 1) * pageSize;
         var pagedResults = allResults.Skip(skip).Take(pageSize).ToList();
 
-        await FetchBodiesAsync(pagedResults, cancellationToken);
-
+        // Note: Body fetch moved to progressive loading via SignalR (Issue #173)
         return new SearchResultPage
         {
             Results = pagedResults,
@@ -177,25 +173,4 @@ public class IssueSearchService : Service, IIssueSearchService
         };
     }
 
-    private async Task FetchBodiesAsync(List<IssueSearchResult> results, CancellationToken cancellationToken)
-    {
-        if (results.Count == 0)
-            return;
-
-        var requests = results
-            .Where(r => !string.IsNullOrEmpty(r.Owner) && !string.IsNullOrEmpty(r.RepoName))
-            .Select(r => new IssueBodyRequest(r.Owner, r.RepoName, r.IssueNumber))
-            .ToList();
-
-        var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
-
-        foreach (var result in results)
-        {
-            var key = (result.Owner, result.RepoName, result.IssueNumber);
-            if (bodies.TryGetValue(key, out var body))
-            {
-                result.Body = body;
-            }
-        }
-    }
 }
