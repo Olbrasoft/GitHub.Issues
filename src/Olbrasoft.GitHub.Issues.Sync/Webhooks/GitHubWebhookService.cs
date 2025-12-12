@@ -133,6 +133,18 @@ public class GitHubWebhookService : IGitHubWebhookService
 
         // Generate embedding for new issue (includes comments and labels)
         var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        if (embedding == null)
+        {
+            _logger.LogError("Failed to generate embedding for issue #{Number} - cannot save issue", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = "Embedding generation failed - will retry",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repoFullName,
+                EmbeddingGenerated = false
+            };
+        }
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -179,6 +191,18 @@ public class GitHubWebhookService : IGitHubWebhookService
 
         // Generate new embedding for edited issue (includes comments and labels)
         var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        if (embedding == null)
+        {
+            _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update issue", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = "Embedding generation failed - will retry",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repoFullName,
+                EmbeddingGenerated = false
+            };
+        }
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -219,6 +243,17 @@ public class GitHubWebhookService : IGitHubWebhookService
 
         // Get existing issue to preserve embedding
         var existingIssue = await _issueService.GetIssueAsync(repositoryId, issue.Number, ct);
+        if (existingIssue?.Embedding == null || existingIssue.Embedding.Length == 0)
+        {
+            _logger.LogError("Issue #{Number} has no embedding - cannot update state without embedding", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = "Issue has no embedding - full sync required",
+                IssueNumber = issue.Number,
+                EmbeddingGenerated = false
+            };
+        }
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -228,7 +263,7 @@ public class GitHubWebhookService : IGitHubWebhookService
             issue.HtmlUrl,
             issue.UpdatedAt,
             DateTimeOffset.UtcNow,
-            existingIssue?.Embedding, // Preserve existing embedding
+            existingIssue.Embedding, // Preserve existing embedding
             ct);
 
         // Notify connected clients about the state change
@@ -288,6 +323,18 @@ public class GitHubWebhookService : IGitHubWebhookService
         var (owner, repo) = ParseRepoFullName(repoFullName);
         var labelNames = issue.Labels.Select(l => l.Name).ToList();
         var embedding = await GenerateEmbeddingAsync(owner, repo, issue.Number, issue.Title, issue.Body, labelNames, ct);
+        if (embedding == null)
+        {
+            _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update labels", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = false,
+                Message = "Embedding generation failed - will retry",
+                IssueNumber = issue.Number,
+                RepositoryFullName = repoFullName,
+                EmbeddingGenerated = false
+            };
+        }
 
         var savedIssue = await _issueService.SaveIssueAsync(
             repositoryId,
@@ -423,6 +470,18 @@ public class GitHubWebhookService : IGitHubWebhookService
             var (owner, repoName) = ParseRepoFullName(repo.FullName);
             var labelNames = issue.Labels.Select(l => l.Name).ToList();
             var embedding = await GenerateEmbeddingAsync(owner, repoName, issue.Number, issue.Title, issue.Body, labelNames, ct);
+            if (embedding == null)
+            {
+                _logger.LogError("Failed to generate embedding for issue #{Number} - cannot update after comment", issue.Number);
+                return new WebhookProcessingResult
+                {
+                    Success = false,
+                    Message = "Embedding generation failed - will retry",
+                    IssueNumber = issue.Number,
+                    RepositoryFullName = repo.FullName,
+                    EmbeddingGenerated = false
+                };
+            }
 
             var savedIssue = await _issueService.SaveIssueAsync(
                 repository.Id,

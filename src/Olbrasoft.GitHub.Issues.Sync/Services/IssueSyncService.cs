@@ -82,9 +82,10 @@ public class IssueSyncService : IIssueSyncService
             if (embedding == null)
             {
                 _logger.LogWarning(
-                    "Issue #{Number} ({Title}): Could not generate embedding - syncing without embedding.",
+                    "Issue #{Number} ({Title}): Could not generate embedding - SKIPPING issue (embedding is required).",
                     ghIssue.Number, ghIssue.Title);
                 stats.EmbeddingsFailed++;
+                continue; // Skip issue - embedding is required
             }
 
             // Save issue
