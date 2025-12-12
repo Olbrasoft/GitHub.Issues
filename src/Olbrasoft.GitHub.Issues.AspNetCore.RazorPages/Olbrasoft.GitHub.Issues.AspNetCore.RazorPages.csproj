@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.csproj" />
     <ProjectReference Include="..\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />
+    <ProjectReference Include="..\Olbrasoft.Text.Translation.Azure\Olbrasoft.Text.Translation.Azure.csproj" />
     <ProjectReference Include="..\Olbrasoft.Text.Translation.DeepL\Olbrasoft.Text.Translation.DeepL.csproj" />
   </ItemGroup>
 

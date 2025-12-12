@@ -11,6 +11,7 @@ using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
 using Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible;
 using Olbrasoft.Text.Translation;
+using Olbrasoft.Text.Translation.Azure;
 using Olbrasoft.Text.Translation.DeepL;
 using Olbrasoft.Mediation;
 using EmbeddingSettings = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingSettings;
@@ -44,7 +45,8 @@ public static class ServiceExtensions
             services.Configure<TranslationSettings>(configuration.GetSection("Translation"));
         }
 
-        // Configure dedicated translation service (DeepL)
+        // Configure dedicated translation services
+        services.Configure<AzureTranslatorSettings>(configuration.GetSection("AzureTranslator"));
         services.Configure<DeepLSettings>(configuration.GetSection("DeepL"));
 
         // Other settings (unchanged)
@@ -74,13 +76,15 @@ public static class ServiceExtensions
         services.AddHttpClient<ISummarizationService, OpenAICompatibleSummarizationService>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
 
-        // Translation service (DeepL) for title and summary translations
-        services.AddHttpClient<ITranslator, DeepLTranslator>()
+        // Translation service (Azure Translator) for title and summary translations
+        // Uses proper translation API, NOT LLM-based translation
+        services.AddHttpClient<ITranslator, AzureTranslator>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 
-        // Fallback translation service (Cohere AI) - used when DeepL fails or is not configured
-        services.AddHttpClient<ITranslationService, CohereTranslationService>()
-            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
+        // Fallback translation service (DeepL) - used when Azure Translator fails
+        // Note: Cohere was removed as fallback per Issue #209 - translations must use proper translators
+        services.AddHttpClient<DeepLTranslator>()
+            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();
