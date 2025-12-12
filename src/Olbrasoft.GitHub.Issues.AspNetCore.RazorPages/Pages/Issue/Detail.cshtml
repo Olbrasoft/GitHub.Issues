@@ -45,7 +45,7 @@
                 </div>
             }
 
-            <div id="ai-summary-container" data-issue-id="@Model.Issue.Id" data-summary-pending="@Model.SummaryPending.ToString().ToLower()" data-summary-language="@Model.Language">
+            <div id="ai-summary-container" data-issue-id="@Model.Issue.Id" data-summary-pending="@Model.SummaryPending.ToString().ToLower()" data-summary-language="@Model.Language" data-selected-language="@Model.Language">
                 @if (!string.IsNullOrEmpty(Model.Summary))
                 {
                     <div class="ai-summary">
@@ -380,6 +380,41 @@
         font-size: 12px;
         font-weight: 500;
         white-space: nowrap;
+    }
+
+    /* Title translation styles */
+    .title-translating {
+        opacity: 0.7;
+        position: relative;
+    }
+
+    .title-translating::after {
+        content: "...";
+        animation: ellipsis 1.5s infinite;
+    }
+
+    @@keyframes ellipsis {
+        0% { content: "."; }
+        33% { content: ".."; }
+        66% { content: "..."; }
+    }
+
+    .title-translated {
+        animation: titleHighlight 2s ease-out;
+    }
+
+    @@keyframes titleHighlight {
+        0% {
+            background-color: #d1fae5;
+            padding: 4px 8px;
+            margin: -4px -8px;
+            border-radius: 4px;
+        }
+        100% {
+            background-color: transparent;
+            padding: 0;
+            margin: 0;
+        }
     }
 </style>
 
