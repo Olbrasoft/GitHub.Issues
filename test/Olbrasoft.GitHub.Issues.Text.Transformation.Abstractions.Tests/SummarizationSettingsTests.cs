@@ -9,7 +9,7 @@ public class SummarizationSettingsTests
     {
         var settings = new SummarizationSettings();
 
-        Assert.Equal(150, settings.MaxTokens);
+        Assert.Equal(500, settings.MaxTokens);
         Assert.Equal(0.3, settings.Temperature);
         Assert.NotNull(settings.SystemPrompt);
         Assert.Contains("summarize", settings.SystemPrompt.ToLower());
