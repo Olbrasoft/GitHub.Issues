@@ -42,8 +42,49 @@ public static class ServiceExtensions
             services.Configure<TranslationSettings>(configuration.GetSection("Translation"));
         }
 
-        // Configure embedding provider settings from multiple possible locations
-        ConfigureEmbeddingSettings(services, configuration);
+        // Configure Cohere API keys from multiple possible locations
+        services.PostConfigure<EmbeddingSettings>(options =>
+        {
+            // Try to get Cohere API keys from various locations
+            var keys = new List<string>();
+
+            // 1. TextTransformation:Embeddings:Cohere:ApiKeys
+            var cohereSection = configuration.GetSection("TextTransformation:Embeddings:Cohere:ApiKeys");
+            var arrayKeys = cohereSection.Get<string[]>() ?? [];
+            keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+
+            // 2. Embeddings:CohereApiKeys (Azure config style)
+            if (keys.Count == 0)
+            {
+                cohereSection = configuration.GetSection("Embeddings:CohereApiKeys");
+                arrayKeys = cohereSection.Get<string[]>() ?? [];
+                keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+            }
+
+            // 3. AiProviders:Cohere:Keys
+            if (keys.Count == 0)
+            {
+                var aiProviderKeys = configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
+                keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+            }
+
+            // 4. Single key fallbacks
+            if (keys.Count == 0)
+            {
+                var singleKey = configuration["Embeddings:CohereApiKey"]
+                             ?? configuration["CohereApiKey"]
+                             ?? configuration["Cohere__ApiKey"];
+                if (!string.IsNullOrWhiteSpace(singleKey))
+                {
+                    keys.Add(singleKey);
+                }
+            }
+
+            if (keys.Count > 0)
+            {
+                options.Cohere.ApiKeys = keys.ToArray();
+            }
+        });
 
         // Configure dedicated translation services
         services.Configure<AzureTranslatorSettings>(configuration.GetSection("AzureTranslator"));
@@ -61,8 +102,9 @@ public static class ServiceExtensions
         services.AddMediation(typeof(Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries.IssueSearchQuery).Assembly)
             .UseRequestHandlerMediator();
 
-        // Register embedding services with fallback
-        AddEmbeddingServices(services, configuration);
+        // Register Cohere embedding service (primary)
+        services.AddHttpClient<CohereEmbeddingService>();
+        services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
 
         // Register core services
         services.AddHttpClient<GitHubGraphQLClient>();
@@ -116,112 +158,5 @@ public static class ServiceExtensions
         services.AddSingleton<IPostConfigureOptions<SummarizationSettings>, SummarizationPromptsPostConfigure>();
 
         return services;
-    }
-
-    /// <summary>
-    /// Configures embedding provider settings from multiple possible config locations.
-    /// </summary>
-    private static void ConfigureEmbeddingSettings(IServiceCollection services, IConfiguration configuration)
-    {
-        // Configure Cohere settings - check multiple locations
-        services.Configure<EmbeddingSettings>(options =>
-        {
-            // Try to get Cohere API keys from various locations
-            var keys = new List<string>();
-
-            // 1. TextTransformation:Embeddings:Cohere:ApiKeys
-            var cohereSection = configuration.GetSection("TextTransformation:Embeddings:Cohere:ApiKeys");
-            var arrayKeys = cohereSection.Get<string[]>() ?? [];
-            keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
-
-            // 2. Embeddings:Cohere:ApiKeys (legacy nested)
-            if (keys.Count == 0)
-            {
-                cohereSection = configuration.GetSection("Embeddings:Cohere:ApiKeys");
-                arrayKeys = cohereSection.Get<string[]>() ?? [];
-                keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
-            }
-
-            // 3. Embeddings:CohereApiKeys (legacy flat - Azure config style)
-            if (keys.Count == 0)
-            {
-                cohereSection = configuration.GetSection("Embeddings:CohereApiKeys");
-                arrayKeys = cohereSection.Get<string[]>() ?? [];
-                keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
-            }
-
-            // 4. AiProviders:Cohere:Keys
-            if (keys.Count == 0)
-            {
-                var aiProviderKeys = configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
-                keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
-            }
-
-            // 5. Single key fallbacks
-            if (keys.Count == 0)
-            {
-                var singleKey = configuration["Embeddings:CohereApiKey"]
-                             ?? configuration["CohereApiKey"]
-                             ?? configuration["Cohere__ApiKey"];
-                if (!string.IsNullOrWhiteSpace(singleKey))
-                {
-                    keys.Add(singleKey);
-                }
-            }
-
-            if (keys.Count > 0)
-            {
-                options.Cohere.ApiKeys = keys.ToArray();
-            }
-        });
-
-        // Configure Voyage settings
-        services.Configure<VoyageSettings>(options =>
-        {
-            options.ApiKey = configuration["Voyage:ApiKey"]
-                          ?? configuration["VoyageApiKey"]
-                          ?? configuration["Voyage__ApiKey"]
-                          ?? "";
-            options.Model = configuration["Voyage:Model"] ?? "voyage-multilingual-2";
-        });
-
-        // Configure Gemini settings
-        services.Configure<GeminiSettings>(options =>
-        {
-            options.ApiKey = configuration["Gemini:ApiKey"]
-                          ?? configuration["GeminiApiKey"]
-                          ?? configuration["Gemini__ApiKey"]
-                          ?? "";
-            options.Model = configuration["Gemini:Model"] ?? "text-embedding-004";
-        });
-    }
-
-    /// <summary>
-    /// Registers embedding services with fallback: Cohere → Voyage → Gemini.
-    /// </summary>
-    private static void AddEmbeddingServices(IServiceCollection services, IConfiguration configuration)
-    {
-        // Register individual embedding services
-        services.AddHttpClient<CohereEmbeddingService>();
-        services.AddHttpClient<VoyageEmbeddingService>();
-        services.AddHttpClient<GeminiEmbeddingService>();
-
-        // Register the fallback service as the main IEmbeddingService
-        services.AddScoped<IEmbeddingService>(sp =>
-        {
-            var providers = new List<IEmbeddingService>();
-
-            // Order: Cohere (1024d) → Voyage (1024d) → Gemini (768d)
-            var cohereService = sp.GetRequiredService<CohereEmbeddingService>();
-            var voyageService = sp.GetRequiredService<VoyageEmbeddingService>();
-            var geminiService = sp.GetRequiredService<GeminiEmbeddingService>();
-
-            providers.Add(cohereService);
-            providers.Add(voyageService);
-            providers.Add(geminiService);
-
-            var logger = sp.GetRequiredService<ILogger<FallbackEmbeddingService>>();
-            return new FallbackEmbeddingService(providers, logger);
-        });
     }
 }
