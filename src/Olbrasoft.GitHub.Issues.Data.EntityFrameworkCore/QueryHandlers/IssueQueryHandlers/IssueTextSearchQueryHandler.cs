@@ -57,14 +57,17 @@ public class IssueTextSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueText
 
     private IQueryable<Issue> BuildBaseQuery(string searchText, string state, IReadOnlyList<int>? repositoryIds)
     {
-        var pattern = $"%{searchText}%";
+        // Use lowercase pattern for case-insensitive search across all databases
+        // EF.Functions.Like works in both PostgreSQL and SQL Server
+        var lowerSearchText = searchText.ToLowerInvariant();
+        var pattern = $"%{lowerSearchText}%";
 
         // Search only in Title - issue body is fetched from GitHub on demand
         var query = Entities
             .Include(i => i.Repository)
             .Include(i => i.IssueLabels)
                 .ThenInclude(il => il.Label)
-            .Where(i => EF.Functions.ILike(i.Title, pattern));
+            .Where(i => EF.Functions.Like(i.Title.ToLower(), pattern));
 
         if (repositoryIds != null && repositoryIds.Count > 0)
         {
