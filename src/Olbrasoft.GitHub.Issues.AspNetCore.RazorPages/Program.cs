@@ -6,7 +6,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add core services
 builder.Services.AddRazorPages();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    // Increase timeouts to prevent disconnection on Azure/proxy environments
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+});
 
 // Add session support
 builder.Services.AddDistributedMemoryCache();
