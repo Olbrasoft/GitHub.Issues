@@ -9,12 +9,9 @@ public class EmbeddingSettingsTests
     {
         var settings = new EmbeddingSettings();
 
-        Assert.Equal(EmbeddingProvider.Ollama, settings.Provider);
-        Assert.Equal(768, settings.Dimensions);
-        Assert.Equal("http://localhost:11434", settings.OllamaBaseUrl);
-        Assert.Equal("nomic-embed-text", settings.OllamaModel);
-        Assert.Equal(30, settings.MaxStartupRetries);
-        Assert.Equal(1000, settings.StartupRetryDelayMs);
+        Assert.Equal(EmbeddingProvider.Cohere, settings.Provider);
+        Assert.Equal(1024, settings.Dimensions);
+        Assert.Equal("embed-multilingual-v3.0", settings.Model);
         Assert.Empty(settings.CohereApiKeys);
         Assert.Null(settings.CohereApiKey);
         Assert.Equal("embed-multilingual-v3.0", settings.CohereModel);
@@ -111,24 +108,13 @@ public class EmbeddingSettingsTests
     }
 
     [Fact]
-    public void LegacyBaseUrl_MapsToOllamaBaseUrl()
-    {
-        var settings = new EmbeddingSettings();
-
-        settings.BaseUrl = "http://custom:1234";
-
-        Assert.Equal("http://custom:1234", settings.OllamaBaseUrl);
-        Assert.Equal("http://custom:1234", settings.BaseUrl);
-    }
-
-    [Fact]
-    public void LegacyModel_MapsToOllamaModel()
+    public void CohereModel_CanBeSet()
     {
         var settings = new EmbeddingSettings();
 
         settings.Model = "custom-model";
 
-        Assert.Equal("custom-model", settings.OllamaModel);
         Assert.Equal("custom-model", settings.Model);
+        Assert.Equal("custom-model", settings.CohereModel);
     }
 }

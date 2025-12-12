@@ -2,12 +2,10 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
 using Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible;
 using Olbrasoft.Text.Translation;
@@ -15,7 +13,6 @@ using Olbrasoft.Text.Translation.Azure;
 using Olbrasoft.Text.Translation.DeepL;
 using Olbrasoft.Mediation;
 using EmbeddingSettings = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingSettings;
-using IServiceManager = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.IServiceManager;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 
@@ -61,12 +58,9 @@ public static class ServiceExtensions
         services.AddMediation(typeof(Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries.IssueSearchQuery).Assembly)
             .UseRequestHandlerMediator();
 
-        // Register embedding service based on provider
-        var embeddingSection = textTransformSection.Exists()
-            ? textTransformSection.GetSection("Embeddings")
-            : configuration.GetSection("Embeddings");
-        var embeddingSettings = embeddingSection.Get<EmbeddingSettings>() ?? new EmbeddingSettings();
-        services.AddEmbeddingServices(embeddingSettings);
+        // Register Cohere embedding service
+        services.AddHttpClient<CohereEmbeddingService>();
+        services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
 
         // Register core services
         services.AddHttpClient<GitHubGraphQLClient>();
@@ -118,27 +112,6 @@ public static class ServiceExtensions
 
         // Post-configure to load prompts from files (overrides appsettings if files exist)
         services.AddSingleton<IPostConfigureOptions<SummarizationSettings>, SummarizationPromptsPostConfigure>();
-
-        return services;
-    }
-
-    private static IServiceCollection AddEmbeddingServices(
-        this IServiceCollection services,
-        EmbeddingSettings embeddingSettings)
-    {
-        if (embeddingSettings.Provider == EmbeddingProvider.Cohere)
-        {
-            services.AddHttpClient<CohereEmbeddingService>();
-            services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
-        }
-        else
-        {
-            services.AddSingleton<IProcessRunner, ProcessRunner>();
-            services.AddSingleton<IServiceManager, SystemdServiceManager>();
-            services.AddHttpClient<OllamaEmbeddingService>();
-            services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
-            services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
-        }
 
         return services;
     }

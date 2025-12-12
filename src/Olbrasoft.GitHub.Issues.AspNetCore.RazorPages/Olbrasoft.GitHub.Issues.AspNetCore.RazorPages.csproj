@@ -13,7 +13,6 @@
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Sync\Olbrasoft.GitHub.Issues.Sync.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.csproj" />
-    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.Ollama\Olbrasoft.GitHub.Issues.Text.Transformation.Ollama.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.csproj" />
     <ProjectReference Include="..\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />

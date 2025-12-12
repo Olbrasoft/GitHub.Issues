@@ -2,75 +2,32 @@ namespace Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 /// <summary>
 /// Configuration for embedding services.
-/// Supports both flat legacy config and new hierarchical TextTransformation structure.
+/// Only Cohere provider is supported.
 /// </summary>
 public class EmbeddingSettings
 {
     /// <summary>
-    /// Which embedding provider to use. Default: Ollama
+    /// Which embedding provider to use. Only Cohere is supported.
     /// </summary>
-    public EmbeddingProvider Provider { get; set; } = EmbeddingProvider.Ollama;
+    public EmbeddingProvider Provider { get; set; } = EmbeddingProvider.Cohere;
 
     /// <summary>
-    /// Model name (applies to current provider).
+    /// Model name for embedding.
     /// </summary>
-    public string Model { get; set; } = "nomic-embed-text";
+    public string Model { get; set; } = "embed-multilingual-v3.0";
 
     /// <summary>
     /// Vector dimensions for the embedding model.
-    /// Ollama nomic-embed-text: 768, Cohere embed-multilingual-v3.0: 1024
+    /// Cohere embed-multilingual-v3.0: 1024
     /// </summary>
-    public int Dimensions { get; set; } = 768;
-
-    // === Nested provider-specific settings (new structure) ===
-
-    /// <summary>
-    /// Ollama-specific settings.
-    /// </summary>
-    public OllamaSettings Ollama { get; set; } = new();
+    public int Dimensions { get; set; } = 1024;
 
     /// <summary>
     /// Cohere-specific settings.
     /// </summary>
     public CohereEmbeddingSettings Cohere { get; set; } = new();
 
-    // === Legacy flat properties (for backward compatibility) ===
-
-    /// <summary>
-    /// Legacy: Ollama base URL. Use Ollama.BaseUrl instead.
-    /// </summary>
-    public string OllamaBaseUrl
-    {
-        get => Ollama.BaseUrl;
-        set => Ollama.BaseUrl = value;
-    }
-
-    /// <summary>
-    /// Legacy: Ollama model. Use Model instead.
-    /// </summary>
-    public string OllamaModel
-    {
-        get => Model;
-        set => Model = value;
-    }
-
-    /// <summary>
-    /// Maximum retries when waiting for Ollama to start. Default: 30 (30 seconds)
-    /// </summary>
-    public int MaxStartupRetries
-    {
-        get => Ollama.MaxStartupRetries;
-        set => Ollama.MaxStartupRetries = value;
-    }
-
-    /// <summary>
-    /// Delay between startup retry attempts in milliseconds. Default: 1000 (1 second)
-    /// </summary>
-    public int StartupRetryDelayMs
-    {
-        get => Ollama.StartupRetryDelayMs;
-        set => Ollama.StartupRetryDelayMs = value;
-    }
+    // === Legacy properties for backward compatibility ===
 
     /// <summary>
     /// Legacy: Cohere API keys. Use Cohere.ApiKeys instead.
@@ -96,15 +53,6 @@ public class EmbeddingSettings
     }
 
     /// <summary>
-    /// Legacy: maps to Ollama.BaseUrl for backward compatibility.
-    /// </summary>
-    public string BaseUrl
-    {
-        get => Ollama.BaseUrl;
-        set => Ollama.BaseUrl = value;
-    }
-
-    /// <summary>
     /// Gets all configured Cohere API keys (combines array and legacy single key).
     /// </summary>
     public IReadOnlyList<string> GetCohereApiKeys()
@@ -124,32 +72,6 @@ public class EmbeddingSettings
 
         return keys;
     }
-}
-
-/// <summary>
-/// Ollama-specific embedding settings.
-/// </summary>
-public class OllamaSettings
-{
-    /// <summary>
-    /// Base URL for Ollama API. Default: http://localhost:11434
-    /// </summary>
-    public string BaseUrl { get; set; } = "http://localhost:11434";
-
-    /// <summary>
-    /// Vector dimensions. Default: 768 (nomic-embed-text)
-    /// </summary>
-    public int Dimensions { get; set; } = 768;
-
-    /// <summary>
-    /// Maximum retries when waiting for Ollama to start. Default: 30
-    /// </summary>
-    public int MaxStartupRetries { get; set; } = 30;
-
-    /// <summary>
-    /// Delay between startup retry attempts in milliseconds. Default: 1000
-    /// </summary>
-    public int StartupRetryDelayMs { get; set; } = 1000;
 }
 
 /// <summary>

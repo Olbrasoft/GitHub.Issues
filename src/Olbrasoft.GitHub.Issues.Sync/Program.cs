@@ -8,10 +8,9 @@ using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
 using Olbrasoft.Mediation;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -32,20 +31,14 @@ builder.Services.AddCqrs(ServiceLifetime.Scoped, typeof(GitHubDbContext).Assembl
 // Register Mediator
 builder.Services.AddMediation(typeof(GitHubDbContext).Assembly).UseRequestHandlerMediator();
 
-// Configure process runner and service manager (DIP - abstractions for testability)
-builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
-builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
-
-// Configure embedding service (ISP - separate interfaces for different responsibilities)
-// Supports both new TextTransformation section and legacy flat structure
+// Configure embedding service (Cohere only)
 var textTransformSection = builder.Configuration.GetSection("TextTransformation");
 var embeddingSection = textTransformSection.Exists()
     ? textTransformSection.GetSection("Embeddings")
     : builder.Configuration.GetSection("Embeddings");
 builder.Services.Configure<EmbeddingSettings>(embeddingSection);
-builder.Services.AddHttpClient<OllamaEmbeddingService>();
-builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
-builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
+builder.Services.AddHttpClient<CohereEmbeddingService>();
+builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
 
 // Configure settings
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
@@ -74,7 +67,6 @@ var host = builder.Build();
 using var scope = host.Services.CreateScope();
 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 var syncService = scope.ServiceProvider.GetRequiredService<IGitHubSyncService>();
-var lifecycleManager = scope.ServiceProvider.GetRequiredService<IServiceLifecycleManager>();
 
 // Parse command line arguments
 if (args.Length == 0 || args[0].ToLowerInvariant() != "sync")
@@ -130,9 +122,6 @@ if (smartMode && sinceTimestamp.HasValue)
 
 try
 {
-    // Ensure embedding service is running before sync (auto-start if needed)
-    await lifecycleManager.EnsureRunningAsync();
-
     if (smartMode)
     {
         logger.LogInformation("Smart sync mode - using stored last_synced_at timestamps");
