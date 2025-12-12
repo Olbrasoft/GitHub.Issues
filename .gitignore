@@ -66,3 +66,7 @@ node_modules/
 # appsettings with secrets
 appsettings.Development.json
 appsettings.Local.json
+
+# Publish output
+publish/
+deploy.zip

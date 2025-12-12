@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />
   </ItemGroup>

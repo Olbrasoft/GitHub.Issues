@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Endpoints;
 
@@ -103,6 +104,55 @@ public static class DatabaseEndpoints
         });
 
         // Diagnostic endpoint: Test embedding service (uses DI)
+        app.MapGet("/api/database/test-embedding-di", async (
+            IEmbeddingService embeddingService,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            var testText = "This is a test issue for embedding generation";
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                var isConfigured = embeddingService.IsConfigured;
+                logger.LogInformation("Embedding service IsConfigured: {IsConfigured}", isConfigured);
+
+                if (!isConfigured)
+                {
+                    return Results.Ok(new
+                    {
+                        success = false,
+                        isConfigured,
+                        error = "Embedding service not configured - no API keys found",
+                        serviceType = embeddingService.GetType().Name
+                    });
+                }
+
+                var embedding = await embeddingService.GenerateEmbeddingAsync(testText, EmbeddingInputType.Document, ct);
+                stopwatch.Stop();
+
+                return Results.Ok(new
+                {
+                    success = embedding != null,
+                    isConfigured,
+                    latencyMs = stopwatch.ElapsedMilliseconds,
+                    dimensions = embedding?.Length,
+                    serviceType = embeddingService.GetType().Name
+                });
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                logger.LogError(ex, "Embedding test failed");
+                return Results.Ok(new
+                {
+                    success = false,
+                    error = ex.Message,
+                    latencyMs = stopwatch.ElapsedMilliseconds,
+                    serviceType = embeddingService.GetType().Name
+                });
+            }
+        });
 
         // Diagnostic endpoint: Find issues without embeddings
         app.MapGet("/api/database/issues-without-embeddings", async (
@@ -137,6 +187,32 @@ public static class DatabaseEndpoints
                 percentageWithoutEmbedding = totalIssues > 0 ? Math.Round(100.0 * totalWithoutEmbedding / totalIssues, 2) : 0,
                 issues = issuesWithoutEmbedding
             });
+        });
+
+        // Delete all issues without embeddings
+        app.MapDelete("/api/database/issues-without-embeddings", async (
+            GitHubDbContext db,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            var issuesToDelete = await db.Issues
+                .Where(i => i.Embedding == null)
+                .ToListAsync(ct);
+
+            var count = issuesToDelete.Count;
+            if (count == 0)
+            {
+                return Results.Ok(new { deleted = 0, message = "No issues without embeddings found" });
+            }
+
+            logger.LogInformation("Deleting {Count} issues without embeddings", count);
+
+            db.Issues.RemoveRange(issuesToDelete);
+            await db.SaveChangesAsync(ct);
+
+            logger.LogInformation("Deleted {Count} issues without embeddings", count);
+
+            return Results.Ok(new { deleted = count, message = $"Deleted {count} issues without embeddings" });
         });
 
         return app;

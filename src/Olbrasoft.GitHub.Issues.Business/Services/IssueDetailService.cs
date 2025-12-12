@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.DeepL;
 

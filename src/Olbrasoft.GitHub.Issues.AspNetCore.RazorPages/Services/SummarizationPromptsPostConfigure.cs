@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 

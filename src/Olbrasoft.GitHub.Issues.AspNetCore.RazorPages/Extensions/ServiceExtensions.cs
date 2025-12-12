@@ -5,14 +5,14 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
-using Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible;
+using Olbrasoft.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Cohere;
+using Olbrasoft.Text.Transformation.OpenAICompatible;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.Azure;
 using Olbrasoft.Text.Translation.DeepL;
 using Olbrasoft.Mediation;
-using EmbeddingSettings = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingSettings;
+using EmbeddingSettings = Olbrasoft.Text.Transformation.Abstractions.EmbeddingSettings;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 

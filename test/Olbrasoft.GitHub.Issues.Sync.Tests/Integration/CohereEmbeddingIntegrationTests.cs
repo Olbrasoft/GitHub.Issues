@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
+using Olbrasoft.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Cohere;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Tests.Integration;
 

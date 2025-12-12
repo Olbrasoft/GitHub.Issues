@@ -4,7 +4,7 @@ using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business.Models;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Mediation;
 using static Olbrasoft.GitHub.Issues.Business.Services.IssueNumberParser;
 

@@ -9,8 +9,8 @@ using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Sync.Services;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
+using Olbrasoft.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Cohere;
 using Olbrasoft.Mediation;
 
 var builder = Host.CreateApplicationBuilder(args);

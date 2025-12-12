@@ -31,19 +31,19 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Mig
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Migrations.SqlServer", "src\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj", "{56391E52-718B-4ACF-87BA-3C8194B3D2B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions", "src\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.csproj", "{669ED17A-6308-4581-87C4-894869886A36}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.Abstractions", "src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj", "{669ED17A-6308-4581-87C4-894869886A36}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation", "src\Olbrasoft.GitHub.Issues.Text.Transformation\Olbrasoft.GitHub.Issues.Text.Transformation.csproj", "{C3FFD0CE-D81C-4E03-8719-2F579BE7A853}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation", "src\Olbrasoft.Text.Transformation\Olbrasoft.Text.Transformation.csproj", "{C3FFD0CE-D81C-4E03-8719-2F579BE7A853}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Cohere", "src\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.csproj", "{FBE5FDEA-8998-4090-95D3-8A03699D4F97}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.Cohere", "src\Olbrasoft.Text.Transformation.Cohere\Olbrasoft.Text.Transformation.Cohere.csproj", "{FBE5FDEA-8998-4090-95D3-8A03699D4F97}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible", "src\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.csproj", "{723C856F-FFC2-4094-BA3F-C6AD56EFB5A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.OpenAICompatible", "src\Olbrasoft.Text.Transformation.OpenAICompatible\Olbrasoft.Text.Transformation.OpenAICompatible.csproj", "{723C856F-FFC2-4094-BA3F-C6AD56EFB5A2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests", "test\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests.csproj", "{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.Abstractions.Tests", "test\Olbrasoft.Text.Transformation.Abstractions.Tests\Olbrasoft.Text.Transformation.Abstractions.Tests.csproj", "{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests", "test\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests.csproj", "{11461EBB-464A-4D8D-808B-40FFACC8923E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.Cohere.Tests", "test\Olbrasoft.Text.Transformation.Cohere.Tests\Olbrasoft.Text.Transformation.Cohere.Tests.csproj", "{11461EBB-464A-4D8D-808B-40FFACC8923E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.Tests", "test\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.Tests\Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.Tests.csproj", "{89998554-957F-4A80-996F-9FF737D44160}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Transformation.OpenAICompatible.Tests", "test\Olbrasoft.Text.Transformation.OpenAICompatible.Tests\Olbrasoft.Text.Transformation.OpenAICompatible.Tests.csproj", "{89998554-957F-4A80-996F-9FF737D44160}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.Text.Translation.Abstractions", "src\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj", "{A85A1D79-26DA-4CB8-AA4F-2322163C661E}"
 EndProject

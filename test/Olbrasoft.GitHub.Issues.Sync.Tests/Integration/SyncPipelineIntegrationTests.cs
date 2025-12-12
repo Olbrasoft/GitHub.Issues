@@ -6,8 +6,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
-using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
+using Olbrasoft.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Transformation.Cohere;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Tests.Integration;
 
