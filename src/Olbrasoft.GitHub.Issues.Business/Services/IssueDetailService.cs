@@ -4,12 +4,13 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
-/// Service for fetching issue details including body from GraphQL and Czech AI summary.
-/// Uses two-step process: English summarization → Czech translation.
+/// Service for fetching issue details including body from GraphQL and AI summary.
+/// Uses two-step process: English summarization (LLM) → Translation (DeepL/Azure).
 /// Summary generation is progressive - page loads immediately, summary arrives via SignalR.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
@@ -17,7 +18,7 @@ public class IssueDetailService : IIssueDetailService
     private readonly GitHubDbContext _dbContext;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ISummarizationService _summarizationService;
-    private readonly ITranslationService _translationService;
+    private readonly ITranslator _translator;
     private readonly ISummaryNotifier _summaryNotifier;
     private readonly IBodyNotifier _bodyNotifier;
     private readonly BodyPreviewSettings _bodyPreviewSettings;
@@ -27,7 +28,7 @@ public class IssueDetailService : IIssueDetailService
         GitHubDbContext dbContext,
         IGitHubGraphQLClient graphQLClient,
         ISummarizationService summarizationService,
-        ITranslationService translationService,
+        ITranslator translator,
         ISummaryNotifier summaryNotifier,
         IBodyNotifier bodyNotifier,
         IOptions<BodyPreviewSettings> bodyPreviewSettings,
@@ -36,7 +37,7 @@ public class IssueDetailService : IIssueDetailService
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
         _summarizationService = summarizationService;
-        _translationService = translationService;
+        _translator = translator;
         _summaryNotifier = summaryNotifier;
         _bodyNotifier = bodyNotifier;
         _bodyPreviewSettings = bodyPreviewSettings.Value;
@@ -196,14 +197,14 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to Czech
-        _logger.LogInformation("[GenerateSummary] Step 2: Calling AI translation...");
-        var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+        // Step 2: Translate to target language using Translation Service (DeepL/Azure)
+        _logger.LogInformation("[GenerateSummary] Step 2: Calling Translation Service...");
+        var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
 
         if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
         {
-            var csProvider = $"{enProvider} → {translateResult.Provider}/{translateResult.Model}";
-            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}/{Model}", translateResult.Provider, translateResult.Model);
+            var csProvider = $"{enProvider} → {translateResult.Provider}";
+            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}", translateResult.Provider);
 
             // Send Czech summary
             _logger.LogInformation("[GenerateSummary] Sending Czech summary via SignalR...");
@@ -272,14 +273,14 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to target language (Czech or other)
-        _logger.LogInformation("[GenerateSummaryFromBody] Calling AI translation...");
-        var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+        // Step 2: Translate to target language using Translation Service (DeepL/Azure)
+        _logger.LogInformation("[GenerateSummaryFromBody] Calling Translation Service...");
+        var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
 
         if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
         {
-            var csProvider = $"{enProvider} → {translateResult.Provider}/{translateResult.Model}";
-            _logger.LogInformation("[GenerateSummaryFromBody] Translation succeeded via {Provider}/{Model}", translateResult.Provider, translateResult.Model);
+            var csProvider = $"{enProvider} → {translateResult.Provider}";
+            _logger.LogInformation("[GenerateSummaryFromBody] Translation succeeded via {Provider}", translateResult.Provider);
 
             // Send translated summary
             _logger.LogInformation("[GenerateSummaryFromBody] Sending translated summary via SignalR...");
