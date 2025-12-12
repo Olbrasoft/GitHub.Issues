@@ -9,6 +9,8 @@ using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Cohere;
 using Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible;
+using Olbrasoft.Text.Translation;
+using Olbrasoft.Text.Translation.DeepL;
 using Olbrasoft.Mediation;
 using EmbeddingSettings = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.EmbeddingSettings;
 using IServiceManager = Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.IServiceManager;
@@ -41,6 +43,9 @@ public static class ServiceExtensions
             services.Configure<TranslationSettings>(configuration.GetSection("Translation"));
         }
 
+        // Configure dedicated translation service (DeepL)
+        services.Configure<DeepLSettings>(configuration.GetSection("DeepL"));
+
         // Other settings (unchanged)
         services.Configure<SearchSettings>(configuration.GetSection("Search"));
         services.Configure<GitHubSettings>(configuration.GetSection("GitHub"));
@@ -69,6 +74,10 @@ public static class ServiceExtensions
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient<ITranslationService, CohereTranslationService>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
+
+        // Dedicated translation service (DeepL) for title translations
+        services.AddHttpClient<ITranslator, DeepLTranslator>()
+            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();
