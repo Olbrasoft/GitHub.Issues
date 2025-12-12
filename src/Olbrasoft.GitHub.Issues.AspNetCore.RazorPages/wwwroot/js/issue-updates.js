@@ -7,6 +7,8 @@
     let selectedLanguage = 'cs'; // Default to Czech, will be read from page
     let fetchedBodyIds = new Set(); // Track which issue bodies have been fetched
     let bodyObserver = null; // Intersection Observer for body fetching
+    let isSignalRSubscribed = false; // Track if SignalR subscription is complete
+    let pendingBodyFetches = []; // Queue for body fetches pending subscription
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -49,6 +51,7 @@
         // Handle connection state changes
         connection.onreconnecting(function (error) {
             console.log('[issue-updates] SignalR reconnecting...', error);
+            isSignalRSubscribed = false; // Reset subscription flag during reconnection
         });
 
         connection.onreconnected(function (connectionId) {
@@ -102,7 +105,16 @@
             // Subscribe to current issues
             await connection.invoke('SubscribeToIssues', issueIds);
             subscribedIssueIds = issueIds;
+            isSignalRSubscribed = true;
             console.log('[issue-updates] Subscribed to', issueIds.length, 'issues:', issueIds);
+
+            // Process any pending body fetches that were queued before subscription
+            if (pendingBodyFetches.length > 0) {
+                console.log('[issue-updates] Processing', pendingBodyFetches.length, 'pending body fetches');
+                const pending = pendingBodyFetches;
+                pendingBodyFetches = [];
+                fetchBodiesForIssues(pending);
+            }
         } catch (err) {
             console.error('[issue-updates] Failed to subscribe to issues:', err);
         }
@@ -189,10 +201,19 @@
     function handleSummaryReceived(data) {
         console.log('[issue-updates] SummaryReceived:', data);
 
+        // Validate data structure
+        if (!data || typeof data.issueId === 'undefined') {
+            console.error('[issue-updates] Invalid SummaryReceived data - missing issueId:', data);
+            return;
+        }
+
         // Find the ai-summary-container for this issue
         const container = document.querySelector(`.ai-summary-container[data-issue-id="${data.issueId}"]`);
         if (!container) {
             console.log('[issue-updates] AI summary container not found for issue:', data.issueId);
+            // Log all containers to help debug
+            const allContainers = document.querySelectorAll('.ai-summary-container');
+            console.log('[issue-updates] Available containers:', Array.from(allContainers).map(c => c.dataset.issueId));
             return;
         }
 
@@ -301,7 +322,13 @@
             });
 
             if (visibleIds.length > 0) {
-                fetchBodiesForIssues(visibleIds);
+                if (isSignalRSubscribed) {
+                    fetchBodiesForIssues(visibleIds);
+                } else {
+                    // Queue body fetches until SignalR is subscribed
+                    console.log('[issue-updates] Queuing', visibleIds.length, 'body fetches (waiting for SignalR)');
+                    pendingBodyFetches = pendingBodyFetches.concat(visibleIds);
+                }
             }
         }, {
             root: null, // viewport
