@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Tex
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests", "test\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests\Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests.csproj", "{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests", "test\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests\Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests.csproj", "{11461EBB-464A-4D8D-808B-40FFACC8923E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -269,6 +271,18 @@ Global
 		{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}.Release|x64.Build.0 = Release|Any CPU
 		{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}.Release|x86.ActiveCfg = Release|Any CPU
 		{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81}.Release|x86.Build.0 = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|x64.Build.0 = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Debug|x86.Build.0 = Debug|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|x64.ActiveCfg = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|x64.Build.0 = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|x86.ActiveCfg = Release|Any CPU
+		{11461EBB-464A-4D8D-808B-40FFACC8923E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -292,6 +306,7 @@ Global
 		{FBE5FDEA-8998-4090-95D3-8A03699D4F97} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{723C856F-FFC2-4094-BA3F-C6AD56EFB5A2} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 		{4124C266-4E68-4A6D-B8C7-DE7CFE5C3B81} = {EAC845CB-591C-4C68-A151-4D75CBD553AE}
+		{11461EBB-464A-4D8D-808B-40FFACC8923E} = {EAC845CB-591C-4C68-A151-4D75CBD553AE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {12345678-ABCD-EF12-3456-7890ABCDEF12}
