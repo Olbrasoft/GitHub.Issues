@@ -412,12 +412,12 @@ public class SyncPipelineIntegrationTests : IDisposable
     #region End-to-End GitHub Sync Test
 
     /// <summary>
-    /// END-TO-END TEST: Create issue on GitHub, verify sync returns it, cleanup.
-    /// This test verifies the complete sync pipeline works correctly.
+    /// END-TO-END TEST: Create issue on GitHub, verify INCREMENTAL sync returns it, cleanup.
+    /// This test verifies that newly created issues are returned by incremental sync.
     /// NO translations, NO embeddings - just GitHub API sync verification.
     /// </summary>
     [Fact]
-    public async Task EndToEnd_CreateIssue_SyncReturnsIt_Cleanup()
+    public async Task EndToEnd_CreateIssue_IncrementalSyncReturnsIt_Cleanup()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
         if (string.IsNullOrEmpty(githubToken))
@@ -426,14 +426,19 @@ public class SyncPipelineIntegrationTests : IDisposable
             return;
         }
 
-        Console.WriteLine("=== END-TO-END SYNC TEST ===\n");
+        Console.WriteLine("=== END-TO-END INCREMENTAL SYNC TEST ===");
+        Console.WriteLine($"Repository: {TestOwner}/{TestRepo}\n");
 
         int? createdIssueNumber = null;
 
         try
         {
-            // STEP 1: Create test issue on GitHub
-            Console.WriteLine("STEP 1: Creating test issue on GitHub...");
+            // STEP 1: Record timestamp BEFORE creating issue
+            var timestampBeforeCreate = DateTimeOffset.UtcNow.AddSeconds(-5); // Small buffer
+            Console.WriteLine($"STEP 1: Recording timestamp: {timestampBeforeCreate:u}");
+
+            // STEP 2: Create test issue on GitHub
+            Console.WriteLine("\nSTEP 2: Creating test issue on GitHub...");
 
             using var createRequest = new HttpRequestMessage(HttpMethod.Post,
                 $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues");
@@ -443,8 +448,8 @@ public class SyncPipelineIntegrationTests : IDisposable
             createRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("Integration-Test", "1.0"));
             createRequest.Content = JsonContent.Create(new
             {
-                title = $"[TEST] Sync integration test - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
-                body = "This is a test issue created by integration test. Will be deleted automatically.",
+                title = $"[TEST] Incremental sync test - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
+                body = "This is a test issue for incremental sync verification. Will be deleted automatically.",
                 labels = new[] { "test" }
             });
 
@@ -463,51 +468,75 @@ public class SyncPipelineIntegrationTests : IDisposable
             using var createDoc = JsonDocument.Parse(createContent);
             createdIssueNumber = createDoc.RootElement.GetProperty("number").GetInt32();
             var createdTitle = createDoc.RootElement.GetProperty("title").GetString();
+            var createdAt = createDoc.RootElement.GetProperty("created_at").GetDateTimeOffset();
 
-            Console.WriteLine($"  SUCCESS: Created issue #{createdIssueNumber}: {createdTitle}\n");
+            Console.WriteLine($"  SUCCESS: Created issue #{createdIssueNumber}");
+            Console.WriteLine($"     Title: {createdTitle}");
+            Console.WriteLine($"     Created at: {createdAt:u}");
 
-            // Wait a moment for GitHub to index
+            // Wait for GitHub to index
             await Task.Delay(2000);
 
-            // STEP 2: Use our GitHubIssueApiClient to fetch issues
-            Console.WriteLine("STEP 2: Fetching issues using GitHubIssueApiClient...");
+            // STEP 3: Use INCREMENTAL sync (with since parameter)
+            Console.WriteLine($"\nSTEP 3: Running INCREMENTAL sync (since: {timestampBeforeCreate:u})...");
 
             var syncSettings = Options.Create(new SyncSettings { GitHubApiPageSize = 100 });
             var loggerMock = new Mock<ILogger<GitHubIssueApiClient>>();
             var apiClient = new GitHubIssueApiClient(_githubClient, syncSettings, loggerMock.Object);
 
-            var issues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: null);
+            // INCREMENTAL SYNC - only issues updated AFTER timestampBeforeCreate
+            var incrementalIssues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: timestampBeforeCreate);
 
-            Console.WriteLine($"  Fetched {issues.Count} items from GitHub\n");
+            // Filter out PRs - we only care about issues
+            var actualIssues = incrementalIssues.Where(i => !i.IsPullRequest).ToList();
 
-            // STEP 3: Verify our new issue is in the results
-            Console.WriteLine("STEP 3: Verifying new issue is in sync results...");
+            Console.WriteLine($"  Total items returned: {incrementalIssues.Count}");
+            Console.WriteLine($"  Issues (excluding PRs): {actualIssues.Count}");
 
-            var foundIssue = issues.FirstOrDefault(i => i.Number == createdIssueNumber);
+            if (actualIssues.Count > 0)
+            {
+                Console.WriteLine("  Issues returned:");
+                foreach (var issue in actualIssues.OrderByDescending(i => i.UpdatedAt))
+                {
+                    Console.WriteLine($"    #{issue.Number}: {issue.Title} (updated: {issue.UpdatedAt:u})");
+                }
+            }
+
+            // STEP 4: Verify our new issue is in the incremental results
+            Console.WriteLine("\nSTEP 4: Verifying new issue is in INCREMENTAL sync results...");
+
+            var foundIssue = actualIssues.FirstOrDefault(i => i.Number == createdIssueNumber);
 
             if (foundIssue != null)
             {
-                Console.WriteLine($"  ✅ SUCCESS: Issue #{createdIssueNumber} found in sync results!");
-                Console.WriteLine($"     Title: {foundIssue.Title}");
-                Console.WriteLine($"     State: {foundIssue.State}");
-                Console.WriteLine($"     IsPullRequest: {foundIssue.IsPullRequest}");
+                Console.WriteLine($"  ✅ SUCCESS: Issue #{createdIssueNumber} found in incremental sync!");
             }
             else
             {
-                Console.WriteLine($"  ❌ FAIL: Issue #{createdIssueNumber} NOT FOUND in sync results!");
-                Console.WriteLine($"  All issue numbers returned: {string.Join(", ", issues.Select(i => i.Number).OrderBy(n => n))}");
-                Assert.Fail($"Sync did not return the newly created issue #{createdIssueNumber}");
+                Console.WriteLine($"  ❌ FAIL: Issue #{createdIssueNumber} NOT FOUND in incremental sync!");
+                Console.WriteLine($"  Issues returned: {string.Join(", ", actualIssues.Select(i => $"#{i.Number}").DefaultIfEmpty("none"))}");
+                Assert.Fail($"Incremental sync did not return newly created issue #{createdIssueNumber}");
             }
 
             Assert.NotNull(foundIssue);
             Assert.Equal(createdIssueNumber, foundIssue.Number);
+
+            // STEP 5: Compare with FULL sync to show difference
+            Console.WriteLine("\nSTEP 5: Running FULL sync for comparison...");
+            var fullIssues = await apiClient.FetchIssuesAsync(TestOwner, TestRepo, since: null);
+            var fullActualIssues = fullIssues.Where(i => !i.IsPullRequest).ToList();
+            var fullPrs = fullIssues.Where(i => i.IsPullRequest).ToList();
+
+            Console.WriteLine($"  Full sync total: {fullIssues.Count} items");
+            Console.WriteLine($"    - Issues: {fullActualIssues.Count}");
+            Console.WriteLine($"    - Pull Requests: {fullPrs.Count}");
         }
         finally
         {
-            // STEP 4: Cleanup - close the test issue
+            // STEP 6: Cleanup - close the test issue
             if (createdIssueNumber.HasValue)
             {
-                Console.WriteLine($"\nSTEP 4: Cleaning up - closing issue #{createdIssueNumber}...");
+                Console.WriteLine($"\nSTEP 6: Cleaning up - closing issue #{createdIssueNumber}...");
 
                 using var closeRequest = new HttpRequestMessage(HttpMethod.Patch,
                     $"https://api.github.com/repos/{TestOwner}/{TestRepo}/issues/{createdIssueNumber}");
@@ -522,16 +551,16 @@ public class SyncPipelineIntegrationTests : IDisposable
 
                 if (closeResponse.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"  SUCCESS: Issue #{createdIssueNumber} closed.\n");
+                    Console.WriteLine($"  SUCCESS: Issue #{createdIssueNumber} closed.");
                 }
                 else
                 {
-                    Console.WriteLine($"  WARNING: Failed to close issue #{createdIssueNumber}: {closeResponse.StatusCode}\n");
+                    Console.WriteLine($"  WARNING: Failed to close issue: {closeResponse.StatusCode}");
                 }
             }
         }
 
-        Console.WriteLine("=== END-TO-END TEST PASSED ===");
+        Console.WriteLine("\n=== END-TO-END INCREMENTAL SYNC TEST PASSED ===");
     }
 
     #endregion
