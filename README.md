@@ -18,7 +18,7 @@ Semantic search for GitHub issues using vector embeddings. Supports **dual embed
 - **Issue Events**: Track issue lifecycle events (opened, closed, labeled, etc.)
 - **Labels Sync**: Full label synchronization with colors
 - **Multi-Provider Database**: PostgreSQL (local) or SQL Server (Azure)
-- **Clean Architecture**: Layered design with CQRS pattern, 104+ unit tests
+- **Clean Architecture**: Layered design with CQRS pattern, **205+ unit tests**
 
 ## Architecture
 
@@ -219,6 +219,12 @@ GitHub.Issues/
 │   │   │   ├── GitHubGraphQLClient.cs      # GitHub GraphQL API
 │   │   │   ├── AiSummarizationService.cs   # AI summaries (OpenRouter/Ollama)
 │   │   │   └── DatabaseStatusService.cs    # DB health checks
+│   │   ├── Models/OpenAi/                  # DTO models (SRP extraction)
+│   │   │   ├── OpenAiMessage.cs
+│   │   │   ├── OpenAiRequest.cs
+│   │   │   ├── OpenAiResponse.cs
+│   │   │   ├── OpenAiChoice.cs
+│   │   │   └── OpenAiJsonContext.cs
 │   │   ├── I*Service.cs                    # Service interfaces
 │   │   └── *Settings.cs                    # Configuration classes
 │   │
@@ -239,20 +245,51 @@ GitHub.Issues/
 │   │       ├── EventSyncService.cs         # Event sync (pure orchestrator)
 │   │       └── OctokitGitHubApiClient.cs   # Legacy Octokit wrapper
 │   │
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions/ # Abstractions
+│   │   ├── Settings/                       # Configuration classes
+│   │   │   ├── EmbeddingSettings.cs
+│   │   │   ├── TranslationSettings.cs
+│   │   │   └── SummarizationSettings.cs
+│   │   ├── Results/                        # Result DTOs
+│   │   │   ├── TranslationResult.cs
+│   │   │   └── SummarizationResult.cs
+│   │   ├── I*Service.cs                    # Service interfaces
+│   │   └── Enums/                          # Enumerations
+│   │
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Cohere/  # Cohere Provider
+│   │   ├── CohereEmbeddingService.cs       # Cohere embeddings
+│   │   └── CohereTranslationService.cs     # Cohere translation
+│   │
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Ollama/  # Ollama Provider
+│   │   └── OllamaEmbeddingService.cs       # Ollama embeddings
+│   │
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible/ # OpenAI-compatible
+│   │   ├── OpenAICompatibleTranslationService.cs    # Translation
+│   │   └── OpenAICompatibleSummarizationService.cs  # Summarization
+│   │
 │   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/    # Web UI
 │       ├── Pages/
 │       │   ├── Index.cshtml                # Search page
 │       │   └── Index.cshtml.cs             # Page model
+│       ├── Extensions/                     # DI extension methods (SRP)
+│       │   ├── ServiceCollectionExtensions.cs
+│       │   └── ApplicationBuilderExtensions.cs
+│       ├── Endpoints/                      # Minimal API endpoints (SRP)
+│       │   └── StatusEndpoints.cs
 │       ├── Services/
 │       │   └── IssueSearchService.cs       # Search service
-│       └── Program.cs                      # DI configuration
+│       └── Program.cs                      # Entry point (51 lines)
 │
-├── test/                                    # 104+ Unit Tests
+├── test/                                    # 205+ Unit Tests
 │   ├── Olbrasoft.GitHub.Issues.Data.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Business.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Sync.Tests/  # Including API client tests
-│   └── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests/
+│   ├── Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests/
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions.Tests/  # 26 tests
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Cohere.Tests/        # 18 tests
+│   ├── Olbrasoft.GitHub.Issues.Text.Transformation.Ollama.Tests/        # 11 tests
+│   └── Olbrasoft.GitHub.Issues.Text.Transformation.OpenAICompatible.Tests/ # 16 tests
 │
 └── GitHub.Issues.sln
 ```
@@ -286,7 +323,7 @@ GitHub.Issues/
 
 ## Requirements
 
-- .NET 9.0+
+- .NET 10.0+
 - PostgreSQL 15+ with pgvector extension
 - Ollama with `nomic-embed-text` model
 
@@ -375,7 +412,7 @@ dotnet run -- sync --since 2025-12-01T00:00:00Z
 
 ## Testing
 
-The project includes 104+ unit tests using xUnit and Moq.
+The project includes **205+ unit tests** using xUnit and Moq.
 
 ```bash
 # Run all tests

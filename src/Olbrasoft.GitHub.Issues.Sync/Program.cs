@@ -10,6 +10,8 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 using Olbrasoft.Mediation;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -35,7 +37,12 @@ builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
 builder.Services.AddSingleton<IServiceManager, SystemdServiceManager>();
 
 // Configure embedding service (ISP - separate interfaces for different responsibilities)
-builder.Services.Configure<EmbeddingSettings>(builder.Configuration.GetSection("Embeddings"));
+// Supports both new TextTransformation section and legacy flat structure
+var textTransformSection = builder.Configuration.GetSection("TextTransformation");
+var embeddingSection = textTransformSection.Exists()
+    ? textTransformSection.GetSection("Embeddings")
+    : builder.Configuration.GetSection("Embeddings");
+builder.Services.Configure<EmbeddingSettings>(embeddingSection);
 builder.Services.AddHttpClient<OllamaEmbeddingService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<OllamaEmbeddingService>());
 builder.Services.AddScoped<IServiceLifecycleManager>(sp => sp.GetRequiredService<OllamaEmbeddingService>());

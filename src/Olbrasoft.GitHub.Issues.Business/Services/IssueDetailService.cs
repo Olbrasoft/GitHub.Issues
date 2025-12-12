@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -14,16 +15,16 @@ public class IssueDetailService : IIssueDetailService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly IGitHubGraphQLClient _graphQLClient;
-    private readonly IAiSummarizationService _summarizationService;
-    private readonly IAiTranslationService _translationService;
+    private readonly ISummarizationService _summarizationService;
+    private readonly ITranslationService _translationService;
     private readonly ISummaryNotifier _summaryNotifier;
     private readonly ILogger<IssueDetailService> _logger;
 
     public IssueDetailService(
         GitHubDbContext dbContext,
         IGitHubGraphQLClient graphQLClient,
-        IAiSummarizationService summarizationService,
-        IAiTranslationService translationService,
+        ISummarizationService summarizationService,
+        ITranslationService translationService,
         ISummaryNotifier summaryNotifier,
         ILogger<IssueDetailService> logger)
     {

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
 

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "swyxX8biQdg=",
+  "dgSpecHash": "+0hOhFzOhek=",
   "success": true,
   "projectFilePath": "/home/jirka/Olbrasoft/GitHub.Issues/test/Olbrasoft.GitHub.Issues.Data.Tests/Olbrasoft.GitHub.Issues.Data.Tests.csproj",
   "expectedPackageFiles": [
@@ -22,7 +22,6 @@
     "/home/jirka/.nuget/packages/pgvector/0.3.0/pgvector.0.3.0.nupkg.sha512",
     "/home/jirka/.nuget/packages/system.componentmodel.annotations/5.0.0/system.componentmodel.annotations.5.0.0.nupkg.sha512",
     "/home/jirka/.nuget/packages/system.diagnostics.eventlog/6.0.0/system.diagnostics.eventlog.6.0.0.nupkg.sha512",
-    "/home/jirka/.nuget/packages/system.reflection.metadata/1.6.0/system.reflection.metadata.1.6.0.nupkg.sha512",
     "/home/jirka/.nuget/packages/xunit/2.9.2/xunit.2.9.2.nupkg.sha512",
     "/home/jirka/.nuget/packages/xunit.abstractions/2.0.3/xunit.abstractions.2.0.3.nupkg.sha512",
     "/home/jirka/.nuget/packages/xunit.analyzers/1.16.0/xunit.analyzers.1.16.0.nupkg.sha512",
@@ -30,9 +29,7 @@
     "/home/jirka/.nuget/packages/xunit.core/2.9.2/xunit.core.2.9.2.nupkg.sha512",
     "/home/jirka/.nuget/packages/xunit.extensibility.core/2.9.2/xunit.extensibility.core.2.9.2.nupkg.sha512",
     "/home/jirka/.nuget/packages/xunit.extensibility.execution/2.9.2/xunit.extensibility.execution.2.9.2.nupkg.sha512",
-    "/home/jirka/.nuget/packages/xunit.runner.visualstudio/2.8.2/xunit.runner.visualstudio.2.8.2.nupkg.sha512",
-    "/home/jirka/.nuget/packages/microsoft.netcore.app.ref/9.0.11/microsoft.netcore.app.ref.9.0.11.nupkg.sha512",
-    "/home/jirka/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.11/microsoft.aspnetcore.app.ref.9.0.11.nupkg.sha512"
+    "/home/jirka/.nuget/packages/xunit.runner.visualstudio/2.8.2/xunit.runner.visualstudio.2.8.2.nupkg.sha512"
   ],
   "logs": []
 }

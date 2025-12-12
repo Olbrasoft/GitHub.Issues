@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Services;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Ollama;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.Services;
 
