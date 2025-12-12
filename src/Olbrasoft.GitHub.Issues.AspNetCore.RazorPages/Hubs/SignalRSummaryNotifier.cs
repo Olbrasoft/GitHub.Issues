@@ -32,9 +32,10 @@ public class SignalRSummaryNotifier : ISummaryNotifier
             "SummaryReceived",
             new
             {
-                IssueId = notification.IssueId,
-                Summary = notification.Summary,
-                Provider = notification.Provider
+                issueId = notification.IssueId,
+                summary = notification.Summary,
+                provider = notification.Provider,
+                language = notification.Language
             },
             cancellationToken);
 
