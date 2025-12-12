@@ -130,6 +130,21 @@ public static class ServiceExtensions
         services.AddScoped<ISearchStrategy, SemanticSearchStrategy>();
         services.AddScoped<ISearchStrategy, RepositoryBrowseStrategy>();
 
+        // Body preview generator (stateless)
+        services.AddSingleton<IBodyPreviewGenerator, BodyPreviewGenerator>();
+
+        // Translation fallback service (wraps primary + fallback translators)
+        services.AddScoped<ITranslationFallbackService>(sp =>
+        {
+            var primaryTranslator = sp.GetRequiredService<ITranslator>();
+            var logger = sp.GetRequiredService<ILogger<TranslationFallbackService>>();
+            var fallbackTranslator = sp.GetService<DeepLTranslator>();
+            return new TranslationFallbackService(primaryTranslator, logger, fallbackTranslator);
+        });
+
+        // Issue summary service (summarization + translation + notification)
+        services.AddScoped<IIssueSummaryService, IssueSummaryService>();
+
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();
         services.AddScoped<IIssueDetailService, IssueDetailService>();

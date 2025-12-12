@@ -3,25 +3,19 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
-using Olbrasoft.Text.Transformation.Abstractions;
-using Olbrasoft.Text.Translation;
-using Olbrasoft.Text.Translation.DeepL;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for fetching issue details including body from GraphQL and AI summary.
-/// Uses two-step process: English summarization (LLM) → Translation (Azure Translator with DeepL fallback).
-/// Summary generation is progressive - page loads immediately, summary arrives via SignalR.
+/// Refactored to use separate services for preview generation and summarization.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly IGitHubGraphQLClient _graphQLClient;
-    private readonly ISummarizationService _summarizationService;
-    private readonly ITranslator _translator;
-    private readonly DeepLTranslator? _fallbackTranslator;
-    private readonly ISummaryNotifier _summaryNotifier;
+    private readonly IIssueSummaryService _summaryService;
+    private readonly IBodyPreviewGenerator _previewGenerator;
     private readonly IBodyNotifier _bodyNotifier;
     private readonly BodyPreviewSettings _bodyPreviewSettings;
     private readonly ILogger<IssueDetailService> _logger;
@@ -29,20 +23,16 @@ public class IssueDetailService : IIssueDetailService
     public IssueDetailService(
         GitHubDbContext dbContext,
         IGitHubGraphQLClient graphQLClient,
-        ISummarizationService summarizationService,
-        ITranslator translator,
-        ISummaryNotifier summaryNotifier,
+        IIssueSummaryService summaryService,
+        IBodyPreviewGenerator previewGenerator,
         IBodyNotifier bodyNotifier,
         IOptions<BodyPreviewSettings> bodyPreviewSettings,
-        ILogger<IssueDetailService> logger,
-        DeepLTranslator? fallbackTranslator = null)
+        ILogger<IssueDetailService> logger)
     {
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
-        _summarizationService = summarizationService;
-        _translator = translator;
-        _fallbackTranslator = fallbackTranslator;
-        _summaryNotifier = summaryNotifier;
+        _summaryService = summaryService;
+        _previewGenerator = previewGenerator;
         _bodyNotifier = bodyNotifier;
         _bodyPreviewSettings = bodyPreviewSettings.Value;
         _logger = logger;
@@ -116,14 +106,6 @@ public class IssueDetailService : IIssueDetailService
             SummaryPending: summaryPending);
     }
 
-    private static (string Owner, string RepoName) ParseRepositoryFullName(string fullName)
-    {
-        var parts = fullName.Split('/');
-        return parts.Length == 2
-            ? (parts[0], parts[1])
-            : (string.Empty, string.Empty);
-    }
-
     /// <summary>
     /// Generates AI summary for issue and sends notification via SignalR.
     /// Called from background task when SummaryPending = true.
@@ -135,9 +117,6 @@ public class IssueDetailService : IIssueDetailService
     /// <summary>
     /// Generates AI summary for issue with language preference and sends notification via SignalR.
     /// </summary>
-    /// <param name="issueId">Database issue ID</param>
-    /// <param name="language">Language preference: "en" (English only), "cs" (Czech only), "both" (English first, then Czech)</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     public async Task GenerateSummaryAsync(int issueId, string language, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("[GenerateSummary] START for issue {Id}, language={Language}", issueId, language);
@@ -173,202 +152,15 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 1: Summarize in English
-        _logger.LogInformation("[GenerateSummary] Step 1: Calling AI summarization...");
-        var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
-        if (!summarizeResult.Success || string.IsNullOrWhiteSpace(summarizeResult.Summary))
-        {
-            _logger.LogWarning("[GenerateSummary] Summarization failed for issue {Id}: {Error}", issueId, summarizeResult.Error);
-            return;
-        }
-        _logger.LogInformation("[GenerateSummary] Summarization succeeded via {Provider}/{Model}", summarizeResult.Provider, summarizeResult.Model);
-
-        var enProvider = $"{summarizeResult.Provider}/{summarizeResult.Model}";
-
-        // Send English summary if requested
-        if (language is "en" or "both")
-        {
-            _logger.LogInformation("[GenerateSummary] Sending English summary via SignalR...");
-            await _summaryNotifier.NotifySummaryReadyAsync(
-                new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider, "en"),
-                cancellationToken);
-        }
-
-        // If only English requested, finish
-        if (language == "en")
-        {
-            _logger.LogInformation("[GenerateSummary] COMPLETE (EN only) for issue {Id}", issueId);
-            return;
-        }
-
-        // Step 2: Translate to target language using Translation Service (Azure Translator with DeepL fallback)
-        _logger.LogInformation("[GenerateSummary] Step 2: Calling Translation Service...");
-        var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
-
-        // If primary translator fails, try DeepL fallback
-        if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
-        {
-            _logger.LogWarning("[GenerateSummary] Primary translation failed: {Error}. Trying DeepL fallback...", translateResult.Error);
-
-            var fallbackResult = await _fallbackTranslator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
-            if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
-            {
-                var csProvider = $"{enProvider} → {fallbackResult.Provider}";
-                _logger.LogInformation("[GenerateSummary] Fallback translation succeeded via {Provider}", fallbackResult.Provider);
-
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, fallbackResult.Translation, csProvider, "cs"),
-                    cancellationToken);
-
-                _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via fallback {Provider}", issueId, csProvider);
-                return;
-            }
-            _logger.LogWarning("[GenerateSummary] Fallback translation also failed: {Error}", fallbackResult.Error);
-        }
-
-        if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
-        {
-            var csProvider = $"{enProvider} → {translateResult.Provider}";
-            _logger.LogInformation("[GenerateSummary] Translation succeeded via {Provider}", translateResult.Provider);
-
-            // Send Czech summary
-            _logger.LogInformation("[GenerateSummary] Sending Czech summary via SignalR...");
-            await _summaryNotifier.NotifySummaryReadyAsync(
-                new SummaryNotificationDto(issueId, translateResult.Translation, csProvider, "cs"),
-                cancellationToken);
-
-            _logger.LogInformation("[GenerateSummary] COMPLETE for issue {Id} via {Provider}", issueId, csProvider);
-        }
-        else
-        {
-            // All translation attempts failed - use English summary as fallback
-            _logger.LogWarning("[GenerateSummary] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
-
-            // Send English as fallback for Czech language modes
-            // For "cs": We haven't sent English yet, send it now
-            // For "both": We sent English already but client hid it (waiting for Czech), send with "cs" language so it shows
-            if (language == "cs")
-            {
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
-                    cancellationToken);
-            }
-            else if (language == "both")
-            {
-                // Send English text but with "cs" language marker so client shows it in Czech div
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (překlad nedostupný)", "cs"),
-                    cancellationToken);
-            }
-
-            _logger.LogInformation("[GenerateSummary] COMPLETE (EN fallback) for issue {Id}", issueId);
-        }
+        await _summaryService.GenerateSummaryAsync(issueId, body, language, cancellationToken);
     }
 
     /// <summary>
     /// Generates AI summary from a pre-fetched body and sends notification via SignalR.
-    /// Avoids re-fetching body from GraphQL when we already have it.
     /// </summary>
-    public async Task GenerateSummaryFromBodyAsync(int issueId, string body, string language, CancellationToken cancellationToken = default)
+    public Task GenerateSummaryFromBodyAsync(int issueId, string body, string language, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("[GenerateSummaryFromBody] START for issue {Id}, language={Language}", issueId, language);
-
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            _logger.LogWarning("[GenerateSummaryFromBody] Empty body for issue {Id} - cannot generate summary", issueId);
-            return;
-        }
-
-        // Step 1: Summarize in English
-        _logger.LogInformation("[GenerateSummaryFromBody] Calling AI summarization...");
-        var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
-        if (!summarizeResult.Success || string.IsNullOrWhiteSpace(summarizeResult.Summary))
-        {
-            _logger.LogWarning("[GenerateSummaryFromBody] Summarization failed for issue {Id}: {Error}", issueId, summarizeResult.Error);
-            return;
-        }
-        _logger.LogInformation("[GenerateSummaryFromBody] Summarization succeeded via {Provider}/{Model}", summarizeResult.Provider, summarizeResult.Model);
-
-        var enProvider = $"{summarizeResult.Provider}/{summarizeResult.Model}";
-
-        // Send English summary if requested
-        if (language is "en" or "both")
-        {
-            _logger.LogInformation("[GenerateSummaryFromBody] Sending English summary via SignalR...");
-            await _summaryNotifier.NotifySummaryReadyAsync(
-                new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider, "en"),
-                cancellationToken);
-        }
-
-        // If only English requested, finish
-        if (language == "en")
-        {
-            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE (EN only) for issue {Id}", issueId);
-            return;
-        }
-
-        // Step 2: Translate to target language using Translation Service (Azure Translator with DeepL fallback)
-        _logger.LogInformation("[GenerateSummaryFromBody] Calling Translation Service...");
-        var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
-
-        // If primary translator fails, try DeepL fallback
-        if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
-        {
-            _logger.LogWarning("[GenerateSummaryFromBody] Primary translation failed: {Error}. Trying DeepL fallback...", translateResult.Error);
-
-            var fallbackResult = await _fallbackTranslator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
-            if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
-            {
-                var csProvider = $"{enProvider} → {fallbackResult.Provider}";
-                _logger.LogInformation("[GenerateSummaryFromBody] Fallback translation succeeded via {Provider}", fallbackResult.Provider);
-
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, fallbackResult.Translation, csProvider, "cs"),
-                    cancellationToken);
-
-                _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE for issue {Id} via fallback {Provider}", issueId, csProvider);
-                return;
-            }
-            _logger.LogWarning("[GenerateSummaryFromBody] Fallback translation also failed: {Error}", fallbackResult.Error);
-        }
-
-        if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
-        {
-            var csProvider = $"{enProvider} → {translateResult.Provider}";
-            _logger.LogInformation("[GenerateSummaryFromBody] Translation succeeded via {Provider}", translateResult.Provider);
-
-            // Send translated summary
-            _logger.LogInformation("[GenerateSummaryFromBody] Sending translated summary via SignalR...");
-            await _summaryNotifier.NotifySummaryReadyAsync(
-                new SummaryNotificationDto(issueId, translateResult.Translation, csProvider, "cs"),
-                cancellationToken);
-
-            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE for issue {Id} via {Provider}", issueId, csProvider);
-        }
-        else
-        {
-            // All translation attempts failed - use English summary as fallback
-            _logger.LogWarning("[GenerateSummaryFromBody] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
-
-            // Send English as fallback for Czech language modes
-            // For "cs": We haven't sent English yet, send it now
-            // For "both": We sent English already but client hid it (waiting for Czech), send with "cs" language so it shows
-            if (language == "cs")
-            {
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
-                    cancellationToken);
-            }
-            else if (language == "both")
-            {
-                // Send English text but with "cs" language marker so client shows it in Czech div
-                await _summaryNotifier.NotifySummaryReadyAsync(
-                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (překlad nedostupný)", "cs"),
-                    cancellationToken);
-            }
-
-            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE (EN fallback) for issue {Id}", issueId);
-        }
+        return _summaryService.GenerateSummaryAsync(issueId, body, language, cancellationToken);
     }
 
     /// <summary>
@@ -431,7 +223,7 @@ public class IssueDetailService : IIssueDetailService
 
             if (bodies.TryGetValue(key, out var body) && !string.IsNullOrWhiteSpace(body))
             {
-                var preview = CreateBodyPreview(body, _bodyPreviewSettings.MaxLength);
+                var preview = _previewGenerator.CreatePreview(body, _bodyPreviewSettings.MaxLength);
                 await _bodyNotifier.NotifyBodyReceivedAsync(
                     new BodyNotificationDto(issue.Id, preview),
                     cancellationToken);
@@ -449,12 +241,12 @@ public class IssueDetailService : IIssueDetailService
 
         _logger.LogInformation("[FetchBodies] Body previews sent. Triggering summarization for {Count} issues", issuesWithBodies.Count);
 
-        // Trigger summarization for each issue (fire-and-forget, sequential to avoid LLM overload)
+        // Trigger summarization for each issue (sequential to avoid LLM overload)
         foreach (var (issueId, body) in issuesWithBodies)
         {
             try
             {
-                await GenerateSummaryFromBodyAsync(issueId, body, language, cancellationToken);
+                await _summaryService.GenerateSummaryAsync(issueId, body, language, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -465,57 +257,11 @@ public class IssueDetailService : IIssueDetailService
         _logger.LogInformation("[FetchBodies] COMPLETE for {Count} issues", idList.Count);
     }
 
-    /// <summary>
-    /// Creates a preview of the body text - strips markdown and truncates.
-    /// </summary>
-    private static string CreateBodyPreview(string body, int maxLength)
+    private static (string Owner, string RepoName) ParseRepositoryFullName(string fullName)
     {
-        // Strip common markdown patterns
-        var text = body;
-
-        // Remove code blocks
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"```[\s\S]*?```", " ", System.Text.RegularExpressions.RegexOptions.Multiline);
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"`[^`]+`", " ");
-
-        // Remove headers
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"^#+\s+", "", System.Text.RegularExpressions.RegexOptions.Multiline);
-
-        // Remove links but keep text: [text](url) -> text
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\[([^\]]+)\]\([^)]+\)", "$1");
-
-        // Remove images: ![alt](url)
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"!\[[^\]]*\]\([^)]+\)", "");
-
-        // Remove bold/italic markers
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*([^*]+)\*\*", "$1");
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*([^*]+)\*", "$1");
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"__([^_]+)__", "$1");
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"_([^_]+)_", "$1");
-
-        // Remove blockquotes
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"^>\s*", "", System.Text.RegularExpressions.RegexOptions.Multiline);
-
-        // Remove horizontal rules
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"^[-*_]{3,}\s*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
-
-        // Normalize whitespace
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
-        text = text.Trim();
-
-        // Truncate if needed
-        if (text.Length <= maxLength)
-        {
-            return text;
-        }
-
-        // Try to truncate at word boundary
-        var truncated = text.Substring(0, maxLength);
-        var lastSpace = truncated.LastIndexOf(' ');
-        if (lastSpace > maxLength * 0.7)
-        {
-            truncated = truncated.Substring(0, lastSpace);
-        }
-
-        return truncated + "...";
+        var parts = fullName.Split('/');
+        return parts.Length == 2
+            ? (parts[0], parts[1])
+            : (string.Empty, string.Empty);
     }
 }

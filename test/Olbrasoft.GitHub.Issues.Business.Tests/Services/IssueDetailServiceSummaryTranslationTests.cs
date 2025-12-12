@@ -1,47 +1,44 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.Text.Transformation.Abstractions;
-using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 
 /// <summary>
-/// Integration tests for IssueDetailService summary translation.
-/// These tests verify the translation flow with primary translator (Azure) and fallback behavior.
-/// Note: DeepL fallback cannot be unit-tested with mocks because DeepLTranslator is a concrete class.
-/// Fallback behavior is verified via integration tests on Azure.
+/// Tests for IssueSummaryService summary translation.
+/// These tests verify the summarization + translation flow with primary translator and fallback behavior.
 /// </summary>
-public class IssueDetailServiceSummaryTranslationTests
+public class IssueSummaryServiceTests
 {
-    private readonly Mock<IGitHubGraphQLClient> _graphQLClientMock;
     private readonly Mock<ISummarizationService> _summarizationServiceMock;
-    private readonly Mock<ITranslator> _primaryTranslatorMock;
+    private readonly Mock<ITranslationFallbackService> _translationServiceMock;
     private readonly Mock<ISummaryNotifier> _summaryNotifierMock;
-    private readonly Mock<IBodyNotifier> _bodyNotifierMock;
-    private readonly Mock<ILogger<IssueDetailService>> _loggerMock;
-    private readonly BodyPreviewSettings _bodyPreviewSettings;
+    private readonly Mock<ILogger<IssueSummaryService>> _loggerMock;
 
-    public IssueDetailServiceSummaryTranslationTests()
+    public IssueSummaryServiceTests()
     {
-        _graphQLClientMock = new Mock<IGitHubGraphQLClient>();
         _summarizationServiceMock = new Mock<ISummarizationService>();
-        _primaryTranslatorMock = new Mock<ITranslator>();
+        _translationServiceMock = new Mock<ITranslationFallbackService>();
         _summaryNotifierMock = new Mock<ISummaryNotifier>();
-        _bodyNotifierMock = new Mock<IBodyNotifier>();
-        _loggerMock = new Mock<ILogger<IssueDetailService>>();
-        _bodyPreviewSettings = new BodyPreviewSettings { MaxLength = 500 };
+        _loggerMock = new Mock<ILogger<IssueSummaryService>>();
+    }
+
+    private IssueSummaryService CreateService()
+    {
+        return new IssueSummaryService(
+            _summarizationServiceMock.Object,
+            _translationServiceMock.Object,
+            _summaryNotifierMock.Object,
+            _loggerMock.Object);
     }
 
     /// <summary>
-    /// Verifies that when NO fallback translator is provided and primary (Azure) fails,
-    /// English summary is used as fallback with "(EN fallback)" marker.
+    /// Verifies that when translation fails, English summary is used as fallback with "(EN fallback)" marker.
     /// </summary>
     [Fact]
-    public async Task GenerateSummaryFromBodyAsync_WhenNoFallbackAndPrimaryFails_SendsEnglishAsFallback()
+    public async Task GenerateSummaryAsync_WhenTranslationFails_SendsEnglishAsFallback()
     {
         // Arrange
         const int issueId = 123;
@@ -58,9 +55,9 @@ public class IssueDetailServiceSummaryTranslationTests
                 Model = "gpt-4"
             });
 
-        _primaryTranslatorMock
-            .Setup(x => x.TranslateAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TranslatorResult { Success = false, Error = "No API key" });
+        _translationServiceMock
+            .Setup(x => x.TranslateWithFallbackAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationFallbackResult(false, null, null, false, "No API key"));
 
         SummaryNotificationDto? capturedNotification = null;
         _summaryNotifierMock
@@ -68,21 +65,10 @@ public class IssueDetailServiceSummaryTranslationTests
             .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => capturedNotification = dto)
             .Returns(Task.CompletedTask);
 
-        // Create service WITHOUT fallback translator
-        using var dbContext = CreateInMemoryDbContext();
-        var service = new IssueDetailService(
-            dbContext,
-            _graphQLClientMock.Object,
-            _summarizationServiceMock.Object,
-            _primaryTranslatorMock.Object,
-            _summaryNotifierMock.Object,
-            _bodyNotifierMock.Object,
-            Options.Create(_bodyPreviewSettings),
-            _loggerMock.Object,
-            fallbackTranslator: null); // No fallback!
+        var service = CreateService();
 
         // Act
-        await service.GenerateSummaryFromBodyAsync(issueId, body, "cs");
+        await service.GenerateSummaryAsync(issueId, body, "cs");
 
         // Assert - Should send English as fallback
         Assert.NotNull(capturedNotification);
@@ -92,10 +78,10 @@ public class IssueDetailServiceSummaryTranslationTests
     }
 
     /// <summary>
-    /// Verifies that when primary translator succeeds, Czech summary is sent.
+    /// Verifies that when translation succeeds, Czech summary is sent.
     /// </summary>
     [Fact]
-    public async Task GenerateSummaryFromBodyAsync_WhenPrimarySucceeds_SendsCzechSummary()
+    public async Task GenerateSummaryAsync_WhenTranslationSucceeds_SendsCzechSummary()
     {
         // Arrange
         const int issueId = 123;
@@ -113,15 +99,9 @@ public class IssueDetailServiceSummaryTranslationTests
                 Model = "gpt-4"
             });
 
-        // Primary translator succeeds
-        _primaryTranslatorMock
-            .Setup(x => x.TranslateAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TranslatorResult
-            {
-                Success = true,
-                Translation = czechSummary,
-                Provider = "Azure"
-            });
+        _translationServiceMock
+            .Setup(x => x.TranslateWithFallbackAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationFallbackResult(true, czechSummary, "Azure", false, null));
 
         SummaryNotificationDto? capturedNotification = null;
         _summaryNotifierMock
@@ -129,20 +109,10 @@ public class IssueDetailServiceSummaryTranslationTests
             .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => capturedNotification = dto)
             .Returns(Task.CompletedTask);
 
-        using var dbContext = CreateInMemoryDbContext();
-        var service = new IssueDetailService(
-            dbContext,
-            _graphQLClientMock.Object,
-            _summarizationServiceMock.Object,
-            _primaryTranslatorMock.Object,
-            _summaryNotifierMock.Object,
-            _bodyNotifierMock.Object,
-            Options.Create(_bodyPreviewSettings),
-            _loggerMock.Object,
-            fallbackTranslator: null);
+        var service = CreateService();
 
         // Act
-        await service.GenerateSummaryFromBodyAsync(issueId, body, "cs");
+        await service.GenerateSummaryAsync(issueId, body, "cs");
 
         // Assert - Should receive Czech summary
         Assert.NotNull(capturedNotification);
@@ -155,7 +125,7 @@ public class IssueDetailServiceSummaryTranslationTests
     /// Verifies that for English language, no translation is attempted.
     /// </summary>
     [Fact]
-    public async Task GenerateSummaryFromBodyAsync_WhenLanguageIsEnglish_DoesNotTranslate()
+    public async Task GenerateSummaryAsync_WhenLanguageIsEnglish_DoesNotTranslate()
     {
         // Arrange
         const int issueId = 123;
@@ -178,24 +148,14 @@ public class IssueDetailServiceSummaryTranslationTests
             .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => capturedNotification = dto)
             .Returns(Task.CompletedTask);
 
-        using var dbContext = CreateInMemoryDbContext();
-        var service = new IssueDetailService(
-            dbContext,
-            _graphQLClientMock.Object,
-            _summarizationServiceMock.Object,
-            _primaryTranslatorMock.Object,
-            _summaryNotifierMock.Object,
-            _bodyNotifierMock.Object,
-            Options.Create(_bodyPreviewSettings),
-            _loggerMock.Object,
-            fallbackTranslator: null);
+        var service = CreateService();
 
         // Act
-        await service.GenerateSummaryFromBodyAsync(issueId, body, "en");
+        await service.GenerateSummaryAsync(issueId, body, "en");
 
         // Assert - No translation should be attempted
-        _primaryTranslatorMock.Verify(
-            x => x.TranslateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+        _translationServiceMock.Verify(
+            x => x.TranslateWithFallbackAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
         // Should receive English summary
@@ -205,7 +165,7 @@ public class IssueDetailServiceSummaryTranslationTests
     }
 
     [Fact]
-    public async Task GenerateSummaryFromBodyAsync_WhenBothModeAndTranslationFails_SendsEnglishAsCzechFallback()
+    public async Task GenerateSummaryAsync_WhenBothModeAndTranslationFails_SendsEnglishAsCzechFallback()
     {
         // Arrange
         const int issueId = 1;
@@ -223,10 +183,10 @@ public class IssueDetailServiceSummaryTranslationTests
                 Model = "TestModel"
             });
 
-        // Setup primary translator to FAIL
-        _primaryTranslatorMock
-            .Setup(x => x.TranslateAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TranslatorResult { Success = false, Error = "API key not configured" });
+        // Setup translation to FAIL
+        _translationServiceMock
+            .Setup(x => x.TranslateWithFallbackAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationFallbackResult(false, null, null, false, "API key not configured"));
 
         // Capture notifications
         var notifications = new List<SummaryNotificationDto>();
@@ -235,20 +195,10 @@ public class IssueDetailServiceSummaryTranslationTests
             .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => notifications.Add(dto))
             .Returns(Task.CompletedTask);
 
-        using var dbContext = CreateInMemoryDbContext();
-        var service = new IssueDetailService(
-            dbContext,
-            _graphQLClientMock.Object,
-            _summarizationServiceMock.Object,
-            _primaryTranslatorMock.Object,
-            _summaryNotifierMock.Object,
-            _bodyNotifierMock.Object,
-            Options.Create(_bodyPreviewSettings),
-            _loggerMock.Object,
-            fallbackTranslator: null); // No DeepL fallback for this test
+        var service = CreateService();
 
         // Act - Use "both" language mode
-        await service.GenerateSummaryFromBodyAsync(issueId, body, "both");
+        await service.GenerateSummaryAsync(issueId, body, "both");
 
         // Assert - Should have 2 notifications: English first, then Czech fallback
         Assert.Equal(2, notifications.Count);
@@ -267,7 +217,7 @@ public class IssueDetailServiceSummaryTranslationTests
     /// Verifies that "both" mode sends English first, then Czech.
     /// </summary>
     [Fact]
-    public async Task GenerateSummaryFromBodyAsync_WhenBothModeAndTranslationSucceeds_SendsBothLanguages()
+    public async Task GenerateSummaryAsync_WhenBothModeAndTranslationSucceeds_SendsBothLanguages()
     {
         // Arrange
         const int issueId = 1;
@@ -285,14 +235,9 @@ public class IssueDetailServiceSummaryTranslationTests
                 Model = "TestModel"
             });
 
-        _primaryTranslatorMock
-            .Setup(x => x.TranslateAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TranslatorResult
-            {
-                Success = true,
-                Translation = czechSummary,
-                Provider = "Azure"
-            });
+        _translationServiceMock
+            .Setup(x => x.TranslateWithFallbackAsync(englishSummary, "cs", "en", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationFallbackResult(true, czechSummary, "Azure", false, null));
 
         var notifications = new List<SummaryNotificationDto>();
         _summaryNotifierMock
@@ -300,20 +245,10 @@ public class IssueDetailServiceSummaryTranslationTests
             .Callback<SummaryNotificationDto, CancellationToken>((dto, _) => notifications.Add(dto))
             .Returns(Task.CompletedTask);
 
-        using var dbContext = CreateInMemoryDbContext();
-        var service = new IssueDetailService(
-            dbContext,
-            _graphQLClientMock.Object,
-            _summarizationServiceMock.Object,
-            _primaryTranslatorMock.Object,
-            _summaryNotifierMock.Object,
-            _bodyNotifierMock.Object,
-            Options.Create(_bodyPreviewSettings),
-            _loggerMock.Object,
-            fallbackTranslator: null);
+        var service = CreateService();
 
         // Act
-        await service.GenerateSummaryFromBodyAsync(issueId, body, "both");
+        await service.GenerateSummaryAsync(issueId, body, "both");
 
         // Assert - Should have 2 notifications
         Assert.Equal(2, notifications.Count);
@@ -327,12 +262,44 @@ public class IssueDetailServiceSummaryTranslationTests
         Assert.Equal("cs", notifications[1].Language);
     }
 
-    private static GitHubDbContext CreateInMemoryDbContext()
+    [Fact]
+    public async Task GenerateSummaryAsync_WhenBodyIsEmpty_DoesNothing()
     {
-        var options = new DbContextOptionsBuilder<GitHubDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
+        // Arrange
+        var service = CreateService();
 
-        return new GitHubDbContext(options);
+        // Act
+        await service.GenerateSummaryAsync(1, "", "both");
+
+        // Assert
+        _summarizationServiceMock.Verify(
+            x => x.SummarizeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _summaryNotifierMock.Verify(
+            x => x.NotifySummaryReadyAsync(It.IsAny<SummaryNotificationDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GenerateSummaryAsync_WhenSummarizationFails_DoesNotSendNotification()
+    {
+        // Arrange
+        _summarizationServiceMock
+            .Setup(x => x.SummarizeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SummarizationResult
+            {
+                Success = false,
+                Error = "Service unavailable"
+            });
+
+        var service = CreateService();
+
+        // Act
+        await service.GenerateSummaryAsync(1, "Some body text", "both");
+
+        // Assert
+        _summaryNotifierMock.Verify(
+            x => x.NotifySummaryReadyAsync(It.IsAny<SummaryNotificationDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
