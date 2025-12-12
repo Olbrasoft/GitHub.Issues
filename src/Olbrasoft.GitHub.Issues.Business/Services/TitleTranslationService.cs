@@ -1,16 +1,19 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
-/// Service for translating issue titles using dedicated translation services (DeepL, Azure).
+/// Service for translating issue titles using dedicated translation services.
+/// Primary: DeepL. Fallback: Cohere (AI-based).
 /// </summary>
 public class TitleTranslationService : ITitleTranslationService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly ITranslator _translator;
+    private readonly ITranslationService? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
     private readonly ILogger<TitleTranslationService> _logger;
 
@@ -18,10 +21,12 @@ public class TitleTranslationService : ITitleTranslationService
         GitHubDbContext dbContext,
         ITranslator translator,
         ITitleTranslationNotifier notifier,
-        ILogger<TitleTranslationService> logger)
+        ILogger<TitleTranslationService> logger,
+        ITranslationService? fallbackTranslator = null)
     {
         _dbContext = dbContext;
         _translator = translator;
+        _fallbackTranslator = fallbackTranslator;
         _notifier = notifier;
         _logger = logger;
     }
@@ -68,14 +73,41 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
-        // Translate the title using dedicated translation service
+        // Translate the title - try primary translator first, then fallback
         _logger.LogInformation("[TitleTranslation] Calling translation service for: '{Title}' -> {Lang}", issue.Title, targetLanguage);
 
         var result = await _translator.TranslateAsync(issue.Title, targetLanguage, null, cancellationToken);
 
+        // If primary translator fails, try fallback (Cohere)
+        if ((!result.Success || string.IsNullOrWhiteSpace(result.Translation)) && _fallbackTranslator != null)
+        {
+            _logger.LogWarning("[TitleTranslation] Primary translation failed: {Error}. Trying fallback...", result.Error);
+
+            // Note: ITranslationService.TranslateToCzechAsync only supports Czech
+            // For other languages, we'd need to extend the interface
+            if (targetLanguage == "cs")
+            {
+                var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(issue.Title, cancellationToken);
+                if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
+                {
+                    _logger.LogInformation("[TitleTranslation] Fallback succeeded via {Provider}: '{Translation}'",
+                        fallbackResult.Provider, fallbackResult.Translation);
+
+                    await _notifier.NotifyTitleTranslatedAsync(
+                        new TitleTranslationNotificationDto(issueId, fallbackResult.Translation, targetLanguage, fallbackResult.Provider ?? "fallback"),
+                        cancellationToken);
+
+                    _logger.LogInformation("[TitleTranslation] COMPLETE for issue {Id} (via fallback)", issueId);
+                    return;
+                }
+
+                _logger.LogWarning("[TitleTranslation] Fallback also failed: {Error}", fallbackResult.Error);
+            }
+        }
+
         if (!result.Success || string.IsNullOrWhiteSpace(result.Translation))
         {
-            _logger.LogWarning("[TitleTranslation] Translation failed for issue {Id}: {Error}", issueId, result.Error);
+            _logger.LogWarning("[TitleTranslation] All translation attempts failed for issue {Id}: {Error}", issueId, result.Error);
 
             // Send notification with original title so the UI can stop showing spinner
             await _notifier.NotifyTitleTranslatedAsync(

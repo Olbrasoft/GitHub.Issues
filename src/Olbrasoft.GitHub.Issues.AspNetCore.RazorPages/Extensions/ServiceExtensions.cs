@@ -78,6 +78,10 @@ public static class ServiceExtensions
         services.AddHttpClient<ITranslator, DeepLTranslator>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 
+        // Fallback translation service (Cohere AI) - used when DeepL fails or is not configured
+        services.AddHttpClient<ITranslationService, CohereTranslationService>()
+            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
+
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();
         services.AddScoped<IIssueDetailService, IssueDetailService>();
