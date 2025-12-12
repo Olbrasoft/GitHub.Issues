@@ -231,9 +231,86 @@ public class IssueDetailService : IIssueDetailService
     }
 
     /// <summary>
-    /// Fetches bodies for multiple issues from GitHub GraphQL API and sends previews via SignalR.
+    /// Generates AI summary from a pre-fetched body and sends notification via SignalR.
+    /// Avoids re-fetching body from GraphQL when we already have it.
     /// </summary>
-    public async Task FetchBodiesAsync(IEnumerable<int> issueIds, CancellationToken cancellationToken = default)
+    public async Task GenerateSummaryFromBodyAsync(int issueId, string body, string language, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("[GenerateSummaryFromBody] START for issue {Id}, language={Language}", issueId, language);
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            _logger.LogWarning("[GenerateSummaryFromBody] Empty body for issue {Id} - cannot generate summary", issueId);
+            return;
+        }
+
+        // Step 1: Summarize in English
+        _logger.LogInformation("[GenerateSummaryFromBody] Calling AI summarization...");
+        var summarizeResult = await _summarizationService.SummarizeAsync(body, cancellationToken);
+        if (!summarizeResult.Success || string.IsNullOrWhiteSpace(summarizeResult.Summary))
+        {
+            _logger.LogWarning("[GenerateSummaryFromBody] Summarization failed for issue {Id}: {Error}", issueId, summarizeResult.Error);
+            return;
+        }
+        _logger.LogInformation("[GenerateSummaryFromBody] Summarization succeeded via {Provider}/{Model}", summarizeResult.Provider, summarizeResult.Model);
+
+        var enProvider = $"{summarizeResult.Provider}/{summarizeResult.Model}";
+
+        // Send English summary if requested
+        if (language is "en" or "both")
+        {
+            _logger.LogInformation("[GenerateSummaryFromBody] Sending English summary via SignalR...");
+            await _summaryNotifier.NotifySummaryReadyAsync(
+                new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider, "en"),
+                cancellationToken);
+        }
+
+        // If only English requested, finish
+        if (language == "en")
+        {
+            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE (EN only) for issue {Id}", issueId);
+            return;
+        }
+
+        // Step 2: Translate to target language (Czech or other)
+        _logger.LogInformation("[GenerateSummaryFromBody] Calling AI translation...");
+        var translateResult = await _translationService.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+
+        if (translateResult.Success && !string.IsNullOrWhiteSpace(translateResult.Translation))
+        {
+            var csProvider = $"{enProvider} → {translateResult.Provider}/{translateResult.Model}";
+            _logger.LogInformation("[GenerateSummaryFromBody] Translation succeeded via {Provider}/{Model}", translateResult.Provider, translateResult.Model);
+
+            // Send translated summary
+            _logger.LogInformation("[GenerateSummaryFromBody] Sending translated summary via SignalR...");
+            await _summaryNotifier.NotifySummaryReadyAsync(
+                new SummaryNotificationDto(issueId, translateResult.Translation, csProvider, "cs"),
+                cancellationToken);
+
+            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE for issue {Id} via {Provider}", issueId, csProvider);
+        }
+        else
+        {
+            // Translation failed - use English summary as fallback
+            _logger.LogWarning("[GenerateSummaryFromBody] Translation failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
+
+            // If we haven't sent English yet (cs-only mode), send it now as fallback
+            if (language == "cs")
+            {
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
+                    cancellationToken);
+            }
+
+            _logger.LogInformation("[GenerateSummaryFromBody] COMPLETE (EN fallback) for issue {Id}", issueId);
+        }
+    }
+
+    /// <summary>
+    /// Fetches bodies for multiple issues from GitHub GraphQL API and sends previews via SignalR.
+    /// Also triggers AI summarization for each issue with a body.
+    /// </summary>
+    public async Task FetchBodiesAsync(IEnumerable<int> issueIds, string language = "en", CancellationToken cancellationToken = default)
     {
         var idList = issueIds.ToList();
         if (idList.Count == 0)
@@ -278,6 +355,9 @@ public class IssueDetailService : IIssueDetailService
 
         _logger.LogInformation("[FetchBodies] Received {Count} bodies from GraphQL", bodies.Count);
 
+        // Collect issues with bodies for summarization
+        var issuesWithBodies = new List<(int IssueId, string Body)>();
+
         // Send notifications for each body
         foreach (var issue in issues)
         {
@@ -292,10 +372,28 @@ public class IssueDetailService : IIssueDetailService
                     cancellationToken);
 
                 _logger.LogDebug("[FetchBodies] Sent body preview for issue {Id}", issue.Id);
+
+                // Queue for summarization
+                issuesWithBodies.Add((issue.Id, body));
             }
             else
             {
                 _logger.LogDebug("[FetchBodies] No body found for issue {Id}", issue.Id);
+            }
+        }
+
+        _logger.LogInformation("[FetchBodies] Body previews sent. Triggering summarization for {Count} issues", issuesWithBodies.Count);
+
+        // Trigger summarization for each issue (fire-and-forget, sequential to avoid LLM overload)
+        foreach (var (issueId, body) in issuesWithBodies)
+        {
+            try
+            {
+                await GenerateSummaryFromBodyAsync(issueId, body, language, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[FetchBodies] Summarization failed for issue {Id}", issueId);
             }
         }
 

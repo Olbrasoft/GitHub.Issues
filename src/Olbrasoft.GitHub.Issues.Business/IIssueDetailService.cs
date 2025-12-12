@@ -30,10 +30,21 @@ public interface IIssueDetailService
 
     /// <summary>
     /// Fetches bodies for multiple issues from GitHub GraphQL API and sends previews via SignalR.
+    /// Also triggers AI summarization for each issue with a body.
     /// </summary>
     /// <param name="issueIds">List of database issue IDs to fetch bodies for.</param>
+    /// <param name="language">Language preference for summaries: "en", "cs", or "both".</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task FetchBodiesAsync(IEnumerable<int> issueIds, CancellationToken cancellationToken = default);
+    Task FetchBodiesAsync(IEnumerable<int> issueIds, string language = "en", CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generates AI summary from a pre-fetched body and sends notification via SignalR.
+    /// </summary>
+    /// <param name="issueId">Database issue ID</param>
+    /// <param name="body">Pre-fetched issue body text</param>
+    /// <param name="language">Language preference: "en" (English only), "cs" (Czech only), "both" (English first, then Czech)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task GenerateSummaryFromBodyAsync(int issueId, string body, string language, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -193,7 +193,7 @@ public static class IssueEndpoints
             return Results.Accepted(value: new { message = $"Translating {issueIds.Count} titles to {targetLanguage}" });
         });
 
-        // Fetch issue bodies from GitHub GraphQL (for progressive loading)
+        // Fetch issue bodies from GitHub GraphQL and generate AI summaries (for progressive loading)
         app.MapPost("/api/issues/fetch-bodies", async (
             HttpRequest request,
             IServiceScopeFactory scopeFactory,
@@ -201,6 +201,7 @@ public static class IssueEndpoints
             CancellationToken ct) =>
         {
             List<int> issueIds;
+            string language;
 
             try
             {
@@ -218,6 +219,19 @@ public static class IssueEndpoints
                     .Where(e => e.ValueKind == JsonValueKind.Number)
                     .Select(e => e.GetInt32())
                     .ToList();
+
+                // Parse language preference (default to English)
+                language = json.RootElement.TryGetProperty("language", out var langElement)
+                    ? langElement.GetString() ?? "en"
+                    : "en";
+
+                // Map language to summary format
+                // en -> en (English only)
+                // cs/de/other -> both (English first, then translated)
+                if (language != "en")
+                {
+                    language = "both"; // Generate both English and translated summary
+                }
             }
             catch (JsonException)
             {
@@ -229,16 +243,17 @@ public static class IssueEndpoints
                 return Results.Ok(new { message = "No issues to fetch" });
             }
 
-            logger.LogInformation("API: Starting body fetch for {Count} issues", issueIds.Count);
+            logger.LogInformation("API: Starting body fetch and summarization for {Count} issues, language={Language}", issueIds.Count, language);
 
-            // Run body fetch in background (fire-and-forget)
+            var capturedLanguage = language;
+            // Run body fetch and summarization in background (fire-and-forget)
             _ = Task.Run(async () =>
             {
                 try
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
                     var issueDetailService = scope.ServiceProvider.GetRequiredService<IIssueDetailService>();
-                    await issueDetailService.FetchBodiesAsync(issueIds, CancellationToken.None);
+                    await issueDetailService.FetchBodiesAsync(issueIds, capturedLanguage, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -246,7 +261,7 @@ public static class IssueEndpoints
                 }
             });
 
-            return Results.Accepted(value: new { message = $"Fetching bodies for {issueIds.Count} issues" });
+            return Results.Accepted(value: new { message = $"Fetching bodies and generating summaries for {issueIds.Count} issues" });
         });
 
         return app;
