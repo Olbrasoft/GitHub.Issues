@@ -25,7 +25,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data\Olbrasoft.GitHub.Issues.Data.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <!-- appsettings.json is only for design-time (EF migrations), not copied to output/publish -->

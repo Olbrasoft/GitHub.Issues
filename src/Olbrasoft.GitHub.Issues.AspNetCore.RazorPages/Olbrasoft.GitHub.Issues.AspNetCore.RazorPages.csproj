@@ -12,12 +12,15 @@
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Sync\Olbrasoft.GitHub.Issues.Sync.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.Cohere\Olbrasoft.Text.Transformation.Cohere.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.OpenAICompatible\Olbrasoft.Text.Transformation.OpenAICompatible.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Translation.Azure\Olbrasoft.Text.Translation.Azure.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Translation.DeepL\Olbrasoft.Text.Translation.DeepL.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.OpenAICompatible" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Azure" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

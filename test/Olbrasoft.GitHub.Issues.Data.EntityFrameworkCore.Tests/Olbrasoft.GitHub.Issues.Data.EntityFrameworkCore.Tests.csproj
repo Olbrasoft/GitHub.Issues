@@ -22,7 +22,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

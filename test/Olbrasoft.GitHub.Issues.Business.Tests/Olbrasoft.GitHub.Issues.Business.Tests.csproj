@@ -21,10 +21,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.Text.Translation.Abstractions\Olbrasoft.Text.Translation.Abstractions.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests\Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

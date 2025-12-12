@@ -23,8 +23,11 @@
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
-    <ProjectReference Include="..\Olbrasoft.Text.Transformation.Cohere\Olbrasoft.Text.Transformation.Cohere.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

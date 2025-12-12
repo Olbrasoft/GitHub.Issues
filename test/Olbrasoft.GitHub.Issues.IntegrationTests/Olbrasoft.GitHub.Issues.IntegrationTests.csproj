@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Abstractions\Olbrasoft.Text.Transformation.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\Olbrasoft.Text.Transformation.Cohere\Olbrasoft.Text.Transformation.Cohere.csproj" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
