@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
@@ -18,6 +19,8 @@ public class IssueDetailService : IIssueDetailService
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslationService _translationService;
     private readonly ISummaryNotifier _summaryNotifier;
+    private readonly IBodyNotifier _bodyNotifier;
+    private readonly BodyPreviewSettings _bodyPreviewSettings;
     private readonly ILogger<IssueDetailService> _logger;
 
     public IssueDetailService(
@@ -26,6 +29,8 @@ public class IssueDetailService : IIssueDetailService
         ISummarizationService summarizationService,
         ITranslationService translationService,
         ISummaryNotifier summaryNotifier,
+        IBodyNotifier bodyNotifier,
+        IOptions<BodyPreviewSettings> bodyPreviewSettings,
         ILogger<IssueDetailService> logger)
     {
         _dbContext = dbContext;
@@ -33,6 +38,8 @@ public class IssueDetailService : IIssueDetailService
         _summarizationService = summarizationService;
         _translationService = translationService;
         _summaryNotifier = summaryNotifier;
+        _bodyNotifier = bodyNotifier;
+        _bodyPreviewSettings = bodyPreviewSettings.Value;
         _logger = logger;
     }
 
@@ -221,5 +228,131 @@ public class IssueDetailService : IIssueDetailService
 
             _logger.LogInformation("[GenerateSummary] COMPLETE (EN fallback) for issue {Id}", issueId);
         }
+    }
+
+    /// <summary>
+    /// Fetches bodies for multiple issues from GitHub GraphQL API and sends previews via SignalR.
+    /// </summary>
+    public async Task FetchBodiesAsync(IEnumerable<int> issueIds, CancellationToken cancellationToken = default)
+    {
+        var idList = issueIds.ToList();
+        if (idList.Count == 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation("[FetchBodies] START for {Count} issues: {Ids}", idList.Count, string.Join(", ", idList));
+
+        // Load issues with repository info
+        var issues = await _dbContext.Issues
+            .Include(i => i.Repository)
+            .Where(i => idList.Contains(i.Id))
+            .ToListAsync(cancellationToken);
+
+        if (issues.Count == 0)
+        {
+            _logger.LogWarning("[FetchBodies] No issues found for IDs: {Ids}", string.Join(", ", idList));
+            return;
+        }
+
+        // Build GraphQL requests
+        var requests = issues
+            .Select(i =>
+            {
+                var (owner, repo) = ParseRepositoryFullName(i.Repository.FullName);
+                return new IssueBodyRequest(owner, repo, i.Number);
+            })
+            .Where(r => !string.IsNullOrEmpty(r.Owner) && !string.IsNullOrEmpty(r.Repo))
+            .ToList();
+
+        if (requests.Count == 0)
+        {
+            _logger.LogWarning("[FetchBodies] No valid requests after parsing repository names");
+            return;
+        }
+
+        _logger.LogInformation("[FetchBodies] Fetching {Count} bodies from GitHub GraphQL", requests.Count);
+
+        // Batch fetch from GraphQL
+        var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
+
+        _logger.LogInformation("[FetchBodies] Received {Count} bodies from GraphQL", bodies.Count);
+
+        // Send notifications for each body
+        foreach (var issue in issues)
+        {
+            var (owner, repo) = ParseRepositoryFullName(issue.Repository.FullName);
+            var key = (owner, repo, issue.Number);
+
+            if (bodies.TryGetValue(key, out var body) && !string.IsNullOrWhiteSpace(body))
+            {
+                var preview = CreateBodyPreview(body, _bodyPreviewSettings.MaxLength);
+                await _bodyNotifier.NotifyBodyReceivedAsync(
+                    new BodyNotificationDto(issue.Id, preview),
+                    cancellationToken);
+
+                _logger.LogDebug("[FetchBodies] Sent body preview for issue {Id}", issue.Id);
+            }
+            else
+            {
+                _logger.LogDebug("[FetchBodies] No body found for issue {Id}", issue.Id);
+            }
+        }
+
+        _logger.LogInformation("[FetchBodies] COMPLETE for {Count} issues", idList.Count);
+    }
+
+    /// <summary>
+    /// Creates a preview of the body text - strips markdown and truncates.
+    /// </summary>
+    private static string CreateBodyPreview(string body, int maxLength)
+    {
+        // Strip common markdown patterns
+        var text = body;
+
+        // Remove code blocks
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"```[\s\S]*?```", " ", System.Text.RegularExpressions.RegexOptions.Multiline);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"`[^`]+`", " ");
+
+        // Remove headers
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^#+\s+", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Remove links but keep text: [text](url) -> text
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\[([^\]]+)\]\([^)]+\)", "$1");
+
+        // Remove images: ![alt](url)
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"!\[[^\]]*\]\([^)]+\)", "");
+
+        // Remove bold/italic markers
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*([^*]+)\*\*", "$1");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*([^*]+)\*", "$1");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"__([^_]+)__", "$1");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"_([^_]+)_", "$1");
+
+        // Remove blockquotes
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^>\s*", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Remove horizontal rules
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^[-*_]{3,}\s*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Normalize whitespace
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
+        text = text.Trim();
+
+        // Truncate if needed
+        if (text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        // Try to truncate at word boundary
+        var truncated = text.Substring(0, maxLength);
+        var lastSpace = truncated.LastIndexOf(' ');
+        if (lastSpace > maxLength * 0.7)
+        {
+            truncated = truncated.Substring(0, lastSpace);
+        }
+
+        return truncated + "...";
     }
 }

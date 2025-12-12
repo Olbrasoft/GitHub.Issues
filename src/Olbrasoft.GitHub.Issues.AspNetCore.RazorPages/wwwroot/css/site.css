@@ -980,6 +980,26 @@ footer {
     }
 }
 
+/* Body preview received animation */
+.body-preview.body-received {
+    animation: body-highlight 2s ease-out;
+}
+
+@keyframes body-highlight {
+    0% {
+        background-color: #fff3cd;
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+    50% {
+        background-color: #fef9e7;
+    }
+    100% {
+        background-color: transparent;
+        padding: 0;
+    }
+}
+
 /* Issue labels (GitHub-style badges) */
 .label-badge {
     display: inline-block;

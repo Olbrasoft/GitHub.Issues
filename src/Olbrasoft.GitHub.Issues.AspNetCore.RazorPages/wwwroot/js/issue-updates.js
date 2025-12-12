@@ -5,6 +5,8 @@
     let connection = null;
     let subscribedIssueIds = [];
     let selectedLanguage = 'cs'; // Default to Czech, will be read from page
+    let fetchedBodyIds = new Set(); // Track which issue bodies have been fetched
+    let bodyObserver = null; // Intersection Observer for body fetching
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -13,6 +15,7 @@
         console.log('[issue-updates] Selected language:', selectedLanguage);
 
         initializeSignalR();
+        initializeBodyObserver();
     });
 
     function initializeSignalR() {
@@ -36,8 +39,11 @@
 
         // Handle incoming Czech title translations
         connection.on('TitleTranslated', handleTitleTranslated);
-        
-        // Handle incoming AI summaries (progressive loading Phase 2)
+
+        // Handle incoming body previews (progressive loading Phase 2)
+        connection.on('BodyReceived', handleBodyReceived);
+
+        // Handle incoming AI summaries (progressive loading Phase 3)
         connection.on('SummaryReceived', handleSummaryReceived);
 
         // Handle connection state changes
@@ -240,6 +246,108 @@
 
             console.log('[issue-updates] Translated summary set for issue', data.issueId, 'language:', summaryLanguage);
         }
+    }
+
+    function handleBodyReceived(data) {
+        console.log('[issue-updates] BodyReceived:', data);
+
+        // Find the ai-summary-container for this issue
+        const container = document.querySelector(`.ai-summary-container[data-issue-id="${data.issueId}"]`);
+        if (!container) {
+            console.log('[issue-updates] Container not found for issue:', data.issueId);
+            return;
+        }
+
+        const bodyPreview = container.querySelector('.body-preview');
+        if (!bodyPreview) {
+            console.log('[issue-updates] Body preview element not found for issue:', data.issueId);
+            return;
+        }
+
+        // Update body preview with received text
+        bodyPreview.textContent = data.bodyPreview;
+        bodyPreview.style.display = 'block';
+
+        // Add highlight animation
+        bodyPreview.classList.add('body-received');
+        setTimeout(function() {
+            bodyPreview.classList.remove('body-received');
+        }, 2000);
+
+        console.log('[issue-updates] Body preview updated for issue', data.issueId);
+    }
+
+    function initializeBodyObserver() {
+        // Only initialize if there are issues on the page
+        const issueItems = document.querySelectorAll('.result-item[data-issue-id]');
+        if (issueItems.length === 0) {
+            return;
+        }
+
+        console.log('[issue-updates] Initializing body observer for', issueItems.length, 'issues');
+
+        // Create Intersection Observer to detect visible issues
+        bodyObserver = new IntersectionObserver(function(entries) {
+            const visibleIds = [];
+
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    const issueId = parseInt(entry.target.dataset.issueId, 10);
+                    if (!isNaN(issueId) && !fetchedBodyIds.has(issueId)) {
+                        visibleIds.push(issueId);
+                        fetchedBodyIds.add(issueId); // Mark as fetched to avoid duplicate requests
+                    }
+                }
+            });
+
+            if (visibleIds.length > 0) {
+                fetchBodiesForIssues(visibleIds);
+            }
+        }, {
+            root: null, // viewport
+            rootMargin: '100px', // Start fetching slightly before visible
+            threshold: 0.1 // Trigger when at least 10% visible
+        });
+
+        // Observe all issue items
+        issueItems.forEach(function(item) {
+            bodyObserver.observe(item);
+        });
+    }
+
+    function fetchBodiesForIssues(issueIds) {
+        if (issueIds.length === 0) {
+            return;
+        }
+
+        console.log('[issue-updates] Fetching bodies for issues:', issueIds);
+
+        // Fire-and-forget API call to fetch bodies
+        fetch('/api/issues/fetch-bodies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ issueIds: issueIds })
+        })
+        .then(function(response) {
+            if (response.ok) {
+                console.log('[issue-updates] Body fetch triggered for', issueIds.length, 'issues');
+            } else {
+                console.error('[issue-updates] Failed to trigger body fetch:', response.status);
+                // Remove from fetched set so we can retry
+                issueIds.forEach(function(id) {
+                    fetchedBodyIds.delete(id);
+                });
+            }
+        })
+        .catch(function(err) {
+            console.error('[issue-updates] Error triggering body fetch:', err);
+            // Remove from fetched set so we can retry
+            issueIds.forEach(function(id) {
+                fetchedBodyIds.delete(id);
+            });
+        });
     }
 
     function handleIssueUpdate(update) {

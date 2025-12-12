@@ -86,6 +86,7 @@ public static class ServiceExtensions
 
         // SignalR notifiers
         services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
+        services.AddScoped<IBodyNotifier, SignalRBodyNotifier>();
         services.AddScoped<ITitleTranslationNotifier, SignalRTitleTranslationNotifier>();
         services.AddScoped<ITitleTranslationService, TitleTranslationService>();
 
