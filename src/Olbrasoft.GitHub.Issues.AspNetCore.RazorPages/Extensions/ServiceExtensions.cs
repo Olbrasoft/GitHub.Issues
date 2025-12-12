@@ -24,14 +24,28 @@ public static class ServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Configure settings
-        services.Configure<EmbeddingSettings>(configuration.GetSection("Embeddings"));
+        // Configure TextTransformation settings (new hierarchical structure)
+        // Falls back to legacy flat structure if TextTransformation section doesn't exist
+        var textTransformSection = configuration.GetSection("TextTransformation");
+        if (textTransformSection.Exists())
+        {
+            services.Configure<EmbeddingSettings>(textTransformSection.GetSection("Embeddings"));
+            services.Configure<SummarizationSettings>(textTransformSection.GetSection("Summarization"));
+            services.Configure<TranslationSettings>(textTransformSection.GetSection("Translation"));
+        }
+        else
+        {
+            // Legacy flat configuration
+            services.Configure<EmbeddingSettings>(configuration.GetSection("Embeddings"));
+            services.Configure<SummarizationSettings>(configuration.GetSection("Summarization"));
+            services.Configure<TranslationSettings>(configuration.GetSection("Translation"));
+        }
+
+        // Other settings (unchanged)
         services.Configure<SearchSettings>(configuration.GetSection("Search"));
         services.Configure<GitHubSettings>(configuration.GetSection("GitHub"));
         services.Configure<BodyPreviewSettings>(configuration.GetSection("BodyPreview"));
         services.Configure<AiProvidersSettings>(configuration.GetSection("AiProviders"));
-        services.Configure<SummarizationSettings>(configuration.GetSection("Summarization"));
-        services.Configure<TranslationSettings>(configuration.GetSection("Translation"));
         services.Configure<AiSummarySettings>(configuration.GetSection("AiSummary"));
         services.Configure<SyncSettings>(configuration.GetSection("Sync"));
 
@@ -40,7 +54,10 @@ public static class ServiceExtensions
             .UseRequestHandlerMediator();
 
         // Register embedding service based on provider
-        var embeddingSettings = configuration.GetSection("Embeddings").Get<EmbeddingSettings>() ?? new EmbeddingSettings();
+        var embeddingSection = textTransformSection.Exists()
+            ? textTransformSection.GetSection("Embeddings")
+            : configuration.GetSection("Embeddings");
+        var embeddingSettings = embeddingSection.Get<EmbeddingSettings>() ?? new EmbeddingSettings();
         services.AddEmbeddingServices(embeddingSettings);
 
         // Register core services
