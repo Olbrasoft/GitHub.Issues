@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
@@ -7,6 +8,33 @@ namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 /// </summary>
 public static class DatabaseExtensions
 {
+    /// <summary>
+    /// Applies pending migrations to the database on startup.
+    /// </summary>
+    public static async Task ApplyMigrationsAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GitHubDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<GitHubDbContext>>();
+
+        try
+        {
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            if (pendingMigrations.Any())
+            {
+                logger.LogInformation("Applying {Count} pending migrations: {Migrations}",
+                    pendingMigrations.Count(), string.Join(", ", pendingMigrations));
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Migrations applied successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to apply database migrations");
+            throw;
+        }
+    }
+
     public static IServiceCollection AddGitHubDatabase(
         this IServiceCollection services,
         IConfiguration configuration)
