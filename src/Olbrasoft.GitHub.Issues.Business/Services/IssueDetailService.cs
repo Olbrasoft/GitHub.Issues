@@ -243,11 +243,20 @@ public class IssueDetailService : IIssueDetailService
             // All translation attempts failed - use English summary as fallback
             _logger.LogWarning("[GenerateSummary] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
 
-            // If we haven't sent English yet (cs-only mode), send it now as fallback
+            // Send English as fallback for Czech language modes
+            // For "cs": We haven't sent English yet, send it now
+            // For "both": We sent English already but client hid it (waiting for Czech), send with "cs" language so it shows
             if (language == "cs")
             {
                 await _summaryNotifier.NotifySummaryReadyAsync(
                     new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
+                    cancellationToken);
+            }
+            else if (language == "both")
+            {
+                // Send English text but with "cs" language marker so client shows it in Czech div
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (překlad nedostupný)", "cs"),
                     cancellationToken);
             }
 
@@ -340,11 +349,20 @@ public class IssueDetailService : IIssueDetailService
             // All translation attempts failed - use English summary as fallback
             _logger.LogWarning("[GenerateSummaryFromBody] All translation attempts failed for issue {Id}: {Error}. Using English summary.", issueId, translateResult.Error);
 
-            // If we haven't sent English yet (cs-only mode), send it now as fallback
+            // Send English as fallback for Czech language modes
+            // For "cs": We haven't sent English yet, send it now
+            // For "both": We sent English already but client hid it (waiting for Czech), send with "cs" language so it shows
             if (language == "cs")
             {
                 await _summaryNotifier.NotifySummaryReadyAsync(
                     new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (EN fallback)", "en"),
+                    cancellationToken);
+            }
+            else if (language == "both")
+            {
+                // Send English text but with "cs" language marker so client shows it in Czech div
+                await _summaryNotifier.NotifySummaryReadyAsync(
+                    new SummaryNotificationDto(issueId, summarizeResult.Summary, enProvider + " (překlad nedostupný)", "cs"),
                     cancellationToken);
             }
 
