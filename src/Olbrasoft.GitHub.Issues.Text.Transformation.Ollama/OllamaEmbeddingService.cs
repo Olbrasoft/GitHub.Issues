@@ -31,7 +31,17 @@ public class OllamaEmbeddingService : IEmbeddingService, IServiceLifecycleManage
         _settings = settings.Value;
         _logger = logger;
 
-        _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
+        // Set shorter timeout for quick failure detection (5 seconds instead of default 100)
+        _httpClient.Timeout = TimeSpan.FromSeconds(5);
+
+        if (!string.IsNullOrEmpty(_settings.BaseUrl))
+        {
+            _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
+        }
+        else
+        {
+            _logger.LogWarning("Ollama BaseUrl is not configured, embedding service will be unavailable");
+        }
     }
 
     public bool IsConfigured => !string.IsNullOrEmpty(_settings.BaseUrl);

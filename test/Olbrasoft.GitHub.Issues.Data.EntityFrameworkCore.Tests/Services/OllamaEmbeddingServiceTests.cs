@@ -60,14 +60,32 @@ public class OllamaEmbeddingServiceTests
     }
 
     [Fact]
-    public void Constructor_WhenBaseUrlEmpty_ThrowsUriFormatException()
+    public void Constructor_WhenBaseUrlEmpty_DoesNotThrow()
     {
         // Arrange
         _settings.BaseUrl = "";
         var handler = CreateMockHandler(new HttpResponseMessage(HttpStatusCode.OK));
 
-        // Act & Assert
-        Assert.Throws<UriFormatException>(() => CreateService(handler.Object));
+        // Act - should not throw (graceful handling for Azure deployment)
+        var service = CreateService(handler.Object);
+
+        // Assert - service should be created but not configured
+        Assert.False(service.IsConfigured);
+    }
+
+    [Fact]
+    public void IsConfigured_WhenBaseUrlEmpty_ReturnsFalse()
+    {
+        // Arrange
+        _settings.BaseUrl = "";
+        var handler = CreateMockHandler(new HttpResponseMessage(HttpStatusCode.OK));
+        var service = CreateService(handler.Object);
+
+        // Act
+        var result = service.IsConfigured;
+
+        // Assert
+        Assert.False(result);
     }
 
     [Fact]
