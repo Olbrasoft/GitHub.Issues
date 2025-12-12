@@ -101,7 +101,27 @@ public class IssueSearchService : Service, IIssueSearchService
             }
             else
             {
-                _logger.LogWarning("Failed to generate embedding for query: {Query}", semanticQuery);
+                // Fallback to text-based search when embedding is unavailable
+                _logger.LogWarning("Embedding unavailable, falling back to text search for query: {Query}", semanticQuery);
+
+                var textSearchQuery = new IssueTextSearchQuery(Mediator)
+                {
+                    SearchText = semanticQuery,
+                    State = state,
+                    Page = 1,
+                    PageSize = pageSize + exactMatchIds.Count,
+                    RepositoryIds = repositoryIds
+                };
+
+                var textPage = await textSearchQuery.ToResultAsync(cancellationToken);
+
+                foreach (var dto in textPage.Results.Where(d => !exactMatchIds.Contains(d.Id)))
+                {
+                    allResults.Add(MapToSearchResult(dto, isExactMatch: false, _aiSummarySettings.MaxLength));
+                }
+
+                _logger.LogInformation("Text search returned {Count} results for query: {Query}",
+                    textPage.TotalCount, semanticQuery);
             }
         }
         // Third: List issues without search (just browsing)
