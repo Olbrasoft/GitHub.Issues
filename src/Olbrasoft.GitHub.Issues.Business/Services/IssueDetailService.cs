@@ -5,12 +5,13 @@ using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
+using Olbrasoft.Text.Translation.DeepL;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for fetching issue details including body from GraphQL and AI summary.
-/// Uses two-step process: English summarization (LLM) → Translation (DeepL with Cohere fallback).
+/// Uses two-step process: English summarization (LLM) → Translation (Azure Translator with DeepL fallback).
 /// Summary generation is progressive - page loads immediately, summary arrives via SignalR.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
@@ -19,7 +20,7 @@ public class IssueDetailService : IIssueDetailService
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslator _translator;
-    private readonly ITranslationService? _fallbackTranslator;
+    private readonly DeepLTranslator? _fallbackTranslator;
     private readonly ISummaryNotifier _summaryNotifier;
     private readonly IBodyNotifier _bodyNotifier;
     private readonly BodyPreviewSettings _bodyPreviewSettings;
@@ -34,7 +35,7 @@ public class IssueDetailService : IIssueDetailService
         IBodyNotifier bodyNotifier,
         IOptions<BodyPreviewSettings> bodyPreviewSettings,
         ILogger<IssueDetailService> logger,
-        ITranslationService? fallbackTranslator = null)
+        DeepLTranslator? fallbackTranslator = null)
     {
         _dbContext = dbContext;
         _graphQLClient = graphQLClient;
@@ -200,16 +201,16 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to target language using Translation Service (DeepL with Cohere fallback)
+        // Step 2: Translate to target language using Translation Service (Azure Translator with DeepL fallback)
         _logger.LogInformation("[GenerateSummary] Step 2: Calling Translation Service...");
         var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
 
-        // If primary translator fails, try Cohere fallback (only for Czech)
+        // If primary translator fails, try DeepL fallback
         if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
         {
-            _logger.LogWarning("[GenerateSummary] Primary translation failed: {Error}. Trying Cohere fallback...", translateResult.Error);
+            _logger.LogWarning("[GenerateSummary] Primary translation failed: {Error}. Trying DeepL fallback...", translateResult.Error);
 
-            var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+            var fallbackResult = await _fallbackTranslator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
             if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
             {
                 var csProvider = $"{enProvider} → {fallbackResult.Provider}";
@@ -306,16 +307,16 @@ public class IssueDetailService : IIssueDetailService
             return;
         }
 
-        // Step 2: Translate to target language using Translation Service (DeepL with Cohere fallback)
+        // Step 2: Translate to target language using Translation Service (Azure Translator with DeepL fallback)
         _logger.LogInformation("[GenerateSummaryFromBody] Calling Translation Service...");
         var translateResult = await _translator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
 
-        // If primary translator fails, try Cohere fallback (only for Czech)
+        // If primary translator fails, try DeepL fallback
         if ((!translateResult.Success || string.IsNullOrWhiteSpace(translateResult.Translation)) && _fallbackTranslator != null)
         {
-            _logger.LogWarning("[GenerateSummaryFromBody] Primary translation failed: {Error}. Trying Cohere fallback...", translateResult.Error);
+            _logger.LogWarning("[GenerateSummaryFromBody] Primary translation failed: {Error}. Trying DeepL fallback...", translateResult.Error);
 
-            var fallbackResult = await _fallbackTranslator.TranslateToCzechAsync(summarizeResult.Summary, cancellationToken);
+            var fallbackResult = await _fallbackTranslator.TranslateAsync(summarizeResult.Summary, "cs", "en", cancellationToken);
             if (fallbackResult.Success && !string.IsNullOrWhiteSpace(fallbackResult.Translation))
             {
                 var csProvider = $"{enProvider} → {fallbackResult.Provider}";
