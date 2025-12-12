@@ -72,10 +72,8 @@ public static class ServiceExtensions
         // AI services - Text.Transformation
         services.AddHttpClient<ISummarizationService, OpenAICompatibleSummarizationService>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
-        services.AddHttpClient<ITranslationService, CohereTranslationService>()
-            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(60));
 
-        // Dedicated translation service (DeepL) for title translations
+        // Translation service (DeepL) for title and summary translations
         services.AddHttpClient<ITranslator, DeepLTranslator>()
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 

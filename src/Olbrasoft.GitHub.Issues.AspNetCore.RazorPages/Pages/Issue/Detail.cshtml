@@ -45,7 +45,7 @@
                 </div>
             }
 
-            <div id="ai-summary-container" data-issue-id="@Model.Issue.Id" data-summary-pending="@Model.SummaryPending.ToString().ToLower()" data-summary-language="@Model.SummaryLanguage">
+            <div id="ai-summary-container" data-issue-id="@Model.Issue.Id" data-summary-pending="@Model.SummaryPending.ToString().ToLower()" data-summary-language="@Model.Language">
                 @if (!string.IsNullOrEmpty(Model.Summary))
                 {
                     <div class="ai-summary">
