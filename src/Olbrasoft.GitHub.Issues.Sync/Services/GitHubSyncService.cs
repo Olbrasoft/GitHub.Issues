@@ -118,8 +118,17 @@ public class GitHubSyncService : IGitHubSyncService
         var stats = await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken);
         await _eventSyncService.SyncEventsAsync(repository, owner, repo, effectiveSince, cancellationToken);
 
-        // Update last synced timestamp via Business service
-        await _repositorySyncBusiness.UpdateLastSyncedAsync(repository.Id, DateTimeOffset.UtcNow, cancellationToken);
+        // Update last synced timestamp ONLY if sync was successful
+        // Don't update if all issues failed to sync (embedding failures)
+        var successfullyProcessed = stats.Created + stats.Updated + stats.Unchanged;
+        if (successfullyProcessed > 0 || stats.TotalFound == 0)
+        {
+            await _repositorySyncBusiness.UpdateLastSyncedAsync(repository.Id, DateTimeOffset.UtcNow, cancellationToken);
+        }
+        else if (stats.EmbeddingsFailed > 0)
+        {
+            _logger.LogWarning("Not updating LastSyncedAt because all {Count} issues failed embedding generation", stats.EmbeddingsFailed);
+        }
 
         _logger.LogInformation("Completed sync for {Owner}/{Repo}: Found={Found}, Created={Created}, Updated={Updated}, Unchanged={Unchanged}",
             owner, repo, stats.TotalFound, stats.Created, stats.Updated, stats.Unchanged);
