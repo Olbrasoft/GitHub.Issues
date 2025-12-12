@@ -106,6 +106,19 @@
         }, 200);
     });
 
+    // Check if dropdown is visible
+    function isDropdownVisible() {
+        return dropdown.classList.contains('show');
+    }
+
+    // Submit the search form
+    function submitSearchForm() {
+        const searchForm = document.getElementById('searchForm');
+        if (searchForm) {
+            searchForm.submit();
+        }
+    }
+
     // Event: Keyboard navigation
     input.addEventListener('keydown', function (e) {
         const items = dropdown.querySelectorAll('.autocomplete-item');
@@ -120,12 +133,16 @@
             updateSelectedItem(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (selectedIndex >= 0 && items[selectedIndex]) {
+            if (isDropdownVisible() && selectedIndex >= 0 && items[selectedIndex]) {
+                // Dropdown is open and item is selected - add the repo
                 const item = items[selectedIndex];
                 addRepo({
                     id: parseInt(item.dataset.id),
                     fullName: item.dataset.fullname
                 });
+            } else if (!isDropdownVisible() || !e.target.value.trim()) {
+                // Dropdown is closed or input is empty - submit search
+                submitSearchForm();
             }
         } else if (e.key === 'Escape') {
             hideDropdown();
