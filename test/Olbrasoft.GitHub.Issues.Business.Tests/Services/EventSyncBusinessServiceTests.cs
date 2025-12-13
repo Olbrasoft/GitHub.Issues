@@ -97,8 +97,8 @@ public class EventSyncBusinessServiceTests
         // Arrange
         var events = new List<IssueEventData>
         {
-            new(IssueId: 1, EventTypeId: 1, GitHubEventId: 100, CreatedAt: DateTimeOffset.UtcNow, ActorId: null, ActorLogin: null),
-            new(IssueId: 1, EventTypeId: 2, GitHubEventId: 200, CreatedAt: DateTimeOffset.UtcNow, ActorId: null, ActorLogin: null)
+            new(IssueId: 1, EventTypeId: 1, GitHubEventId: 100, CreatedAt: DateTimeOffset.UtcNow),
+            new(IssueId: 1, EventTypeId: 2, GitHubEventId: 200, CreatedAt: DateTimeOffset.UtcNow)
         };
         var existingIds = new HashSet<long>();
 
@@ -122,7 +122,7 @@ public class EventSyncBusinessServiceTests
         // Arrange
         var events = new List<IssueEventData>
         {
-            new(IssueId: 1, EventTypeId: 1, GitHubEventId: 100, CreatedAt: DateTimeOffset.UtcNow, ActorId: null, ActorLogin: null)
+            new(IssueId: 1, EventTypeId: 1, GitHubEventId: 100, CreatedAt: DateTimeOffset.UtcNow)
         };
         var existingIds = new HashSet<long> { 100 };
 

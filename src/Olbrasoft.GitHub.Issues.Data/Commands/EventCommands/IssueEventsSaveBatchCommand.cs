@@ -28,6 +28,4 @@ public record IssueEventData(
     int IssueId,
     int EventTypeId,
     long GitHubEventId,
-    DateTimeOffset CreatedAt,
-    int? ActorId,
-    string? ActorLogin);
+    DateTimeOffset CreatedAt);

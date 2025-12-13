@@ -94,22 +94,7 @@ public class GitHubEventApiClient : IGitHubEventApiClient
             var issueNumber = issueElement.GetProperty("number").GetInt32();
             var eventType = evt.GetProperty("event").GetString() ?? "";
 
-            // Extract actor info
-            int? actorId = null;
-            string? actorLogin = null;
-            if (evt.TryGetProperty("actor", out var actorElement) && actorElement.ValueKind != JsonValueKind.Null)
-            {
-                if (actorElement.TryGetProperty("id", out var actorIdElement))
-                {
-                    actorId = actorIdElement.GetInt32();
-                }
-                if (actorElement.TryGetProperty("login", out var actorLoginElement))
-                {
-                    actorLogin = actorLoginElement.GetString();
-                }
-            }
-
-            events.Add(new GitHubEventDto(eventId, issueNumber, eventType, createdAt, actorId, actorLogin));
+            events.Add(new GitHubEventDto(eventId, issueNumber, eventType, createdAt));
         }
 
         return events;

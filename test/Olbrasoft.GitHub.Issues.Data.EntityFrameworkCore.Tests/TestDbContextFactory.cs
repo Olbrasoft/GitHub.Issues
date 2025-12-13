@@ -117,7 +117,6 @@ public class TestGitHubDbContext : GitHubDbContext
             entity.Property(e => e.IssueId).IsRequired();
             entity.Property(e => e.EventTypeId).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
-            entity.Property(e => e.ActorLogin).HasMaxLength(100);
             entity.HasIndex(e => e.GitHubEventId).IsUnique();
             entity.HasIndex(e => e.IssueId);
             entity.HasOne(e => e.Issue).WithMany(i => i.Events).HasForeignKey(e => e.IssueId).OnDelete(DeleteBehavior.Cascade);

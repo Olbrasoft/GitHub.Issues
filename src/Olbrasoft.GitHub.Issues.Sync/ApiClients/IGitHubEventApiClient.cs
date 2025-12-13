@@ -28,6 +28,4 @@ public record GitHubEventDto(
     long GitHubEventId,
     int IssueNumber,
     string EventType,
-    DateTimeOffset CreatedAt,
-    int? ActorId,
-    string? ActorLogin);
+    DateTimeOffset CreatedAt);

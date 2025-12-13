@@ -35,9 +35,7 @@ public class IssueEventsSaveBatchCommandHandler
                 IssueId = evt.IssueId,
                 EventTypeId = evt.EventTypeId,
                 GitHubEventId = evt.GitHubEventId,
-                CreatedAt = evt.CreatedAt,
-                ActorId = evt.ActorId,
-                ActorLogin = evt.ActorLogin
+                CreatedAt = evt.CreatedAt
             };
 
             batch.Add(issueEvent);

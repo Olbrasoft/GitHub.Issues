@@ -65,8 +65,6 @@ public class GitHubEventApiClientTests
         Assert.Equal(12345, evt.GitHubEventId);
         Assert.Equal(42, evt.IssueNumber);
         Assert.Equal("labeled", evt.EventType);
-        Assert.Equal(100, evt.ActorId);
-        Assert.Equal("testuser", evt.ActorLogin);
     }
 
     [Fact]
@@ -90,35 +88,6 @@ public class GitHubEventApiClientTests
 
         // Assert
         Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task FetchEventsAsync_WithNullActor_HandlesGracefully()
-    {
-        // Arrange
-        var json = """
-        [
-            {
-                "id": 12345,
-                "event": "labeled",
-                "created_at": "2024-01-15T10:00:00Z",
-                "actor": null,
-                "issue": {
-                    "number": 42
-                }
-            }
-        ]
-        """;
-        var httpClient = CreateMockHttpClient(json);
-        var client = new GitHubEventApiClient(httpClient, _settings, _loggerMock.Object);
-
-        // Act
-        var result = await client.FetchEventsAsync("owner", "repo");
-
-        // Assert
-        Assert.Single(result);
-        Assert.Null(result[0].ActorId);
-        Assert.Null(result[0].ActorLogin);
     }
 
     [Fact]

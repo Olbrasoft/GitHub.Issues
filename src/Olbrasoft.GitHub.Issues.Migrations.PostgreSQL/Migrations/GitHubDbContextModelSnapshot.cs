@@ -24,6 +24,41 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.CachedText", b =>
+                {
+                    b.Property<int>("LanguageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("language_id");
+
+                    b.Property<int>("TextTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("text_type_id");
+
+                    b.Property<int>("IssueId")
+                        .HasColumnType("integer")
+                        .HasColumnName("issue_id");
+
+                    b.Property<DateTime>("CachedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.HasKey("LanguageId", "TextTypeId", "IssueId")
+                        .HasName("pk_translated_texts");
+
+                    b.HasIndex("IssueId")
+                        .HasDatabaseName("ix_translated_texts_issue_id");
+
+                    b.HasIndex("TextTypeId")
+                        .HasDatabaseName("ix_translated_texts_text_type_id");
+
+                    b.ToTable("TranslatedTexts", (string)null);
+                });
+
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.EventType", b =>
                 {
                     b.Property<int>("Id")
@@ -342,15 +377,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ActorId")
-                        .HasColumnType("integer")
-                        .HasColumnName("actor_id");
-
-                    b.Property<string>("ActorLogin")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("actor_login");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -451,22 +477,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("culture_name");
 
-                    b.Property<string>("EnglishName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("english_name");
-
-                    b.Property<string>("NativeName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("native_name");
-
-                    b.Property<string>("TwoLetterISOCode")
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)")
-                        .HasColumnName("two_letter_iso_code");
-
                     b.HasKey("Id")
                         .HasName("pk_languages");
 
@@ -480,26 +490,17 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         new
                         {
                             Id = 1029,
-                            CultureName = "cs-CZ",
-                            EnglishName = "Czech (Czechia)",
-                            NativeName = "čeština (Česko)",
-                            TwoLetterISOCode = "cs"
+                            CultureName = "cs-CZ"
                         },
                         new
                         {
                             Id = 1031,
-                            CultureName = "de-DE",
-                            EnglishName = "German (Germany)",
-                            NativeName = "Deutsch (Deutschland)",
-                            TwoLetterISOCode = "de"
+                            CultureName = "de-DE"
                         },
                         new
                         {
                             Id = 1033,
-                            CultureName = "en-US",
-                            EnglishName = "English (United States)",
-                            NativeName = "English (United States)",
-                            TwoLetterISOCode = "en"
+                            CultureName = "en-US"
                         });
                 });
 
@@ -588,43 +589,34 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.TranslatedText", b =>
+            modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.CachedText", b =>
                 {
-                    b.Property<int>("LanguageId")
-                        .HasColumnType("integer")
-                        .HasColumnName("language_id");
-
-                    b.Property<int>("TextTypeId")
-                        .HasColumnType("integer")
-                        .HasColumnName("text_type_id");
-
-                    b.Property<int>("IssueId")
-                        .HasColumnType("integer")
-                        .HasColumnName("issue_id");
-
-                    b.Property<string>("Content")
+                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "Issue")
+                        .WithMany("CachedTexts")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("content");
+                        .HasConstraintName("fk_translated_texts_issues_issue_id");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
+                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Language", "Language")
+                        .WithMany("CachedTexts")
+                        .HasForeignKey("LanguageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_translated_texts_languages_language_id");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
+                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.TextType", "TextType")
+                        .WithMany("CachedTexts")
+                        .HasForeignKey("TextTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_translated_texts_text_types_text_type_id");
 
-                    b.HasKey("LanguageId", "TextTypeId", "IssueId")
-                        .HasName("pk_translated_texts");
+                    b.Navigation("Issue");
 
-                    b.HasIndex("IssueId")
-                        .HasDatabaseName("ix_translated_texts_issue_id");
+                    b.Navigation("Language");
 
-                    b.HasIndex("TextTypeId")
-                        .HasDatabaseName("ix_translated_texts_text_type_id");
-
-                    b.ToTable("translated_texts", (string)null);
+                    b.Navigation("TextType");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Issue", b =>
@@ -701,36 +693,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                     b.Navigation("Repository");
                 });
 
-            modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.TranslatedText", b =>
-                {
-                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "Issue")
-                        .WithMany("TranslatedTexts")
-                        .HasForeignKey("IssueId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_translated_texts_issues_issue_id");
-
-                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Language", "Language")
-                        .WithMany("TranslatedTexts")
-                        .HasForeignKey("LanguageId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_translated_texts_languages_language_id");
-
-                    b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.TextType", "TextType")
-                        .WithMany("TranslatedTexts")
-                        .HasForeignKey("TextTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_translated_texts_text_types_text_type_id");
-
-                    b.Navigation("Issue");
-
-                    b.Navigation("Language");
-
-                    b.Navigation("TextType");
-                });
-
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.EventType", b =>
                 {
                     b.Navigation("IssueEvents");
@@ -738,13 +700,13 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Issue", b =>
                 {
+                    b.Navigation("CachedTexts");
+
                     b.Navigation("Events");
 
                     b.Navigation("IssueLabels");
 
                     b.Navigation("SubIssues");
-
-                    b.Navigation("TranslatedTexts");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Label", b =>
@@ -754,7 +716,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Language", b =>
                 {
-                    b.Navigation("TranslatedTexts");
+                    b.Navigation("CachedTexts");
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Repository", b =>
@@ -766,7 +728,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.TextType", b =>
                 {
-                    b.Navigation("TranslatedTexts");
+                    b.Navigation("CachedTexts");
                 });
 #pragma warning restore 612, 618
         }

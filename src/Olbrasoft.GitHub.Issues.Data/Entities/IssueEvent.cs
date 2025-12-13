@@ -7,8 +7,6 @@ public class IssueEvent
     public int IssueId { get; set; }
     public int EventTypeId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
-    public int? ActorId { get; set; }
-    public string? ActorLogin { get; set; }
 
     public Issue Issue { get; set; } = null!;
     public EventType EventType { get; set; } = null!;

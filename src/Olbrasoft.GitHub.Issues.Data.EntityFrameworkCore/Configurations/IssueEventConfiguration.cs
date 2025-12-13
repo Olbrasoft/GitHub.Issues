@@ -22,9 +22,6 @@ public class IssueEventConfiguration : IEntityTypeConfiguration<IssueEvent>
         builder.Property(e => e.CreatedAt)
             .IsRequired();
 
-        builder.Property(e => e.ActorLogin)
-            .HasMaxLength(100);
-
         builder.HasIndex(e => e.GitHubEventId)
             .IsUnique();
 

@@ -74,9 +74,7 @@ public class EventSyncService : IEventSyncService
                 issue.Id,
                 eventType.Id,
                 evt.GitHubEventId,
-                evt.CreatedAt,
-                evt.ActorId,
-                evt.ActorLogin));
+                evt.CreatedAt));
 
             existingEventIds.Add(evt.GitHubEventId); // Track to avoid duplicates
         }
