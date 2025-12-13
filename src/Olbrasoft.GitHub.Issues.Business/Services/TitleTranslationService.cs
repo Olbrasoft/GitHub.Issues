@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Olbrasoft.GitHub.Issues.Data;
+using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.Text.Translation;
 
@@ -50,10 +53,52 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
+        // Get language LCID for cache lookup
+        var languageId = MapLanguageCodeToLcid(targetLanguage);
+        if (languageId == 0)
+        {
+            _logger.LogWarning("[TitleTranslation] Unknown target language: {Lang}", targetLanguage);
+            return;
+        }
+
+        // Check cache first
+        var cached = await _dbContext.TranslatedTexts
+            .FirstOrDefaultAsync(t =>
+                t.IssueId == issueId &&
+                t.LanguageId == languageId &&
+                t.TextTypeId == (int)TextTypeCode.Title, cancellationToken);
+
+        if (cached != null)
+        {
+            // Validate cache freshness
+            var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
+            if (issueUpdatedAt <= cached.CreatedAt)
+            {
+                // Cache is fresh - use it!
+                _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
+
+                await _notifier.NotifyTitleTranslatedAsync(
+                    new TitleTranslationNotificationDto(issueId, cached.Content, targetLanguage, "cache"),
+                    cancellationToken);
+
+                return;
+            }
+
+            // Cache is stale - delete it and regenerate
+            _logger.LogInformation("[TitleTranslation] Cache STALE for issue {Id} - issue updated {IssueUpdated}, cache created {CacheCreated}",
+                issueId, issueUpdatedAt, cached.CreatedAt);
+            _dbContext.TranslatedTexts.Remove(cached);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        _logger.LogInformation("[TitleTranslation] Cache MISS for issue {Id}, language {Lang}", issueId, targetLanguage);
+
         // Check if title already looks like target language
         if (targetLanguage == "cs" && LooksLikeCzech(issue.Title))
         {
             _logger.LogInformation("[TitleTranslation] Title already looks Czech for issue {Id}, using as-is", issueId);
+
+            await SaveToCacheAsync(issueId, languageId, issue.Title, cancellationToken);
 
             await _notifier.NotifyTitleTranslatedAsync(
                 new TitleTranslationNotificationDto(issueId, issue.Title, targetLanguage, "original"),
@@ -65,6 +110,8 @@ public class TitleTranslationService : ITitleTranslationService
         if (targetLanguage == "de" && LooksLikeGerman(issue.Title))
         {
             _logger.LogInformation("[TitleTranslation] Title already looks German for issue {Id}, using as-is", issueId);
+
+            await SaveToCacheAsync(issueId, languageId, issue.Title, cancellationToken);
 
             await _notifier.NotifyTitleTranslatedAsync(
                 new TitleTranslationNotificationDto(issueId, issue.Title, targetLanguage, "original"),
@@ -88,6 +135,8 @@ public class TitleTranslationService : ITitleTranslationService
             {
                 _logger.LogInformation("[TitleTranslation] Fallback succeeded via {Provider}: '{Translation}'",
                     fallbackResult.Provider, fallbackResult.Translation);
+
+                await SaveToCacheAsync(issueId, languageId, fallbackResult.Translation, cancellationToken);
 
                 await _notifier.NotifyTitleTranslatedAsync(
                     new TitleTranslationNotificationDto(issueId, fallbackResult.Translation, targetLanguage, fallbackResult.Provider ?? "DeepL"),
@@ -115,12 +164,64 @@ public class TitleTranslationService : ITitleTranslationService
         _logger.LogInformation("[TitleTranslation] Translation succeeded via {Provider}: '{Translation}'",
             result.Provider, result.Translation);
 
+        // Save to cache
+        await SaveToCacheAsync(issueId, languageId, result.Translation, cancellationToken);
+
         // Send notification via SignalR
         await _notifier.NotifyTitleTranslatedAsync(
             new TitleTranslationNotificationDto(issueId, result.Translation, targetLanguage, result.Provider ?? "unknown"),
             cancellationToken);
 
         _logger.LogInformation("[TitleTranslation] COMPLETE for issue {Id}", issueId);
+    }
+
+    /// <summary>
+    /// Maps language code string to LCID (Language Culture ID).
+    /// </summary>
+    private static int MapLanguageCodeToLcid(string languageCode) => languageCode switch
+    {
+        "cs" => (int)LanguageCode.CsCZ,  // 1029
+        "de" => (int)LanguageCode.DeDE,  // 1031
+        "en" => (int)LanguageCode.EnUS,  // 1033
+        _ => 0
+    };
+
+    /// <summary>
+    /// Saves translation to the cache table.
+    /// </summary>
+    private async Task SaveToCacheAsync(int issueId, int languageId, string content, CancellationToken ct)
+    {
+        try
+        {
+            _dbContext.TranslatedTexts.Add(new TranslatedText
+            {
+                IssueId = issueId,
+                LanguageId = languageId,
+                TextTypeId = (int)TextTypeCode.Title,
+                Content = content,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _dbContext.SaveChangesAsync(ct);
+            _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+        {
+            // Concurrent insert - another request already cached it
+            _logger.LogDebug("[TitleTranslation] Concurrent cache insert detected for Issue {IssueId}", issueId);
+        }
+    }
+
+    /// <summary>
+    /// Checks if the exception is a duplicate key violation.
+    /// </summary>
+    private static bool IsDuplicateKeyException(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? string.Empty;
+        return message.Contains("23505") ||    // PostgreSQL
+               message.Contains("2627") ||     // SQL Server
+               message.Contains("2601") ||     // SQL Server
+               message.Contains("duplicate key") ||
+               message.Contains("unique constraint");
     }
 
     /// <summary>
