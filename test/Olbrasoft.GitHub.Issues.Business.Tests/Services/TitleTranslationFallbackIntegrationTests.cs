@@ -4,6 +4,7 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.Testing.Xunit.Attributes;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.DeepL;
 
@@ -23,8 +24,9 @@ public class TitleTranslationFallbackIntegrationTests
     /// <summary>
     /// Tests that when primary translator fails, DeepL fallback is used.
     /// This is a real integration test that calls DeepL API.
+    /// Skipped on CI - runs only locally where DEEPL_API_KEY is available.
     /// </summary>
-    [Fact(Skip = "Integration test - requires DeepL API key")]
+    [SkipOnCIFact]
     public async Task TranslateTitleAsync_WhenPrimaryFails_UsesFallback_Integration()
     {
         // Arrange - Create failing primary translator
@@ -34,7 +36,7 @@ public class TitleTranslationFallbackIntegrationTests
             .ReturnsAsync(TranslatorResult.Fail("Azure Translator API error: 401 Unauthorized", "Azure"));
 
         // Arrange - Create real DeepL translator with test API key
-        var deepLApiKey = Environment.GetEnvironmentVariable("DEEPL_API_KEY") ?? "83a8506c-4a9b-4ca5-ad45-9bdcd858ce2a:fx";
+        var deepLApiKey = Environment.GetEnvironmentVariable("DEEPL_API_KEY") ?? "96470ca9-c69b-4f13-99d6-3f49b76af4cd:fx";
         var deepLSettings = new DeepLSettings
         {
             ApiKey = deepLApiKey,
