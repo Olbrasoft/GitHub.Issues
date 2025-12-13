@@ -108,10 +108,18 @@
     }
 
     function getRepoFilterFromPage() {
-        // Get the repository filter from the hidden input or URL
-        var reposInput = document.getElementById('reposHidden');
-        if (reposInput && reposInput.value) {
-            return reposInput.value;
+        // Get the repository full name from the displayed tag (not the hidden ID input)
+        // The tag structure is: <div class="repo-tag"><span>owner/repo</span><span>×</span></div>
+        var repoTag = document.querySelector('.repo-tag');
+        if (repoTag) {
+            // Get the first text node or span that contains the repo name
+            var repoName = repoTag.childNodes[0];
+            if (repoName && repoName.textContent) {
+                var name = repoName.textContent.trim();
+                if (name && name !== '×') {
+                    return name;
+                }
+            }
         }
         return '';
     }
