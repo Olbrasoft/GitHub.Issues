@@ -69,12 +69,13 @@
 
             const auth = await response.json();
             isOwner = auth.isOwner;
+            console.log('[db-status] Auth status:', auth);
 
             // Update UI based on auth status
             if (auth.isAuthenticated) {
-                authControls.style.display = 'flex';
-                authUser.textContent = auth.username;
-                loginLink.style.display = 'none';
+                if (authControls) authControls.style.display = 'flex';
+                if (authUser) authUser.textContent = auth.username;
+                if (loginLink) loginLink.style.display = 'none';
 
                 // Show sync button only for owner
                 if (auth.isOwner && syncBtn) {
@@ -83,14 +84,17 @@
 
                 // Show issue state buttons only for owner
                 if (auth.isOwner) {
-                    document.querySelectorAll('.issue-state-btn').forEach(function(btn) {
+                    const stateButtons = document.querySelectorAll('.issue-state-btn');
+                    console.log('[db-status] Found issue state buttons:', stateButtons.length);
+                    stateButtons.forEach(function(btn) {
                         btn.style.display = 'inline-flex';
+                        console.log('[db-status] Showing button for issue:', btn.dataset.issueId);
                     });
                     initializeIssueStateButtons();
                 }
             } else {
-                authControls.style.display = 'none';
-                loginLink.style.display = 'inline-flex';
+                if (authControls) authControls.style.display = 'none';
+                if (loginLink) loginLink.style.display = 'inline-flex';
                 if (syncBtn) {
                     syncBtn.style.display = 'none';
                 }
@@ -98,7 +102,7 @@
         } catch (error) {
             console.error('Error checking auth status:', error);
             // Show login link on error
-            loginLink.style.display = 'inline-flex';
+            if (loginLink) loginLink.style.display = 'inline-flex';
         }
     }
 
