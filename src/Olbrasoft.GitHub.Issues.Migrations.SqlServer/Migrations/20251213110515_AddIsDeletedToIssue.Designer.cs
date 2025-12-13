@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
@@ -11,9 +12,11 @@ using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
-    partial class GitHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251213110515_AddIsDeletedToIssue")]
+    partial class AddIsDeletedToIssue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -264,6 +267,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.PrimitiveCollection<string>("Embedding")
+                        .IsRequired()
                         .HasColumnType("vector(1024)");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
