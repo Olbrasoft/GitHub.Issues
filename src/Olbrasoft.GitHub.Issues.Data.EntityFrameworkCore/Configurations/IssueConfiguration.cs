@@ -34,10 +34,12 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.Property(i => i.GitHubUpdatedAt)
             .IsRequired();
 
-        // Embedding column - provider-specific configuration applied in DbContext.OnModelCreating
-        // Optional - issues can be synced without embeddings if embedding service fails
-        // Issues without embeddings won't appear in semantic search but can still be found by title/number
-        builder.Property(i => i.Embedding);
+        // !!! CRITICAL: Embedding is REQUIRED - DO NOT make this nullable !!!
+        // !!! Without embedding the record is useless - we search by embedding !!!
+        // !!! Records without embedding cannot be found in semantic search !!!
+        // Provider-specific vector type configuration is applied in DbContext.OnModelCreating
+        builder.Property(i => i.Embedding)
+            .IsRequired();
 
         builder.Property(i => i.SyncedAt)
             .IsRequired();

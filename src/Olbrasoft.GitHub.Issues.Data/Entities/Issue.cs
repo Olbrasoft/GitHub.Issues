@@ -21,7 +21,17 @@ public class Issue
     public bool IsDeleted { get; set; } = false;
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
+
+    /// <summary>
+    /// Vector embedding for semantic search.
+    /// </summary>
+    /// <remarks>
+    /// !!! CRITICAL: This property MUST be required (NOT NULL) !!!
+    /// !!! DO NOT make this nullable - without embedding the record is useless !!!
+    /// !!! We search by embedding - records without embedding cannot be found !!!
+    /// </remarks>
     public float[] Embedding { get; set; } = [];
+
     public DateTimeOffset SyncedAt { get; set; }
 
     public Repository Repository { get; set; } = null!;
