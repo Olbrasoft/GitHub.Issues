@@ -221,6 +221,10 @@ public static class ServiceExtensions
         services.AddScoped<IIssueDetailService, IssueDetailService>();
         services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
+        // Translation cache services (#262)
+        services.AddScoped<ITranslationCacheService, TranslationCacheService>();
+        services.AddScoped<ITranslatedTextService, TranslatedTextService>();
+
         // SignalR notifiers
         services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
         services.AddScoped<IBodyNotifier, SignalRBodyNotifier>();
