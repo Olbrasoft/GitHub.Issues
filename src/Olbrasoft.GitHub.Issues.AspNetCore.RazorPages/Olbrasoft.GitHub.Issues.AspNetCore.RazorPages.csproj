@@ -18,9 +18,9 @@
     <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
     <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="10.0.0" />
     <PackageReference Include="Olbrasoft.Text.Transformation.OpenAICompatible" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Azure" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.1" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Azure" Version="10.0.1" />
+    <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>
