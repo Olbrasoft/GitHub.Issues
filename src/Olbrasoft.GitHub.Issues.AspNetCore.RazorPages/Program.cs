@@ -41,15 +41,8 @@ builder.Services.AddGitHubHttpClients(builder.Configuration);
 var app = builder.Build();
 
 // Apply pending database migrations on startup
-try
-{
-    await app.ApplyMigrationsAsync();
-}
-catch (Exception ex)
-{
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "Failed to apply migrations");
-}
+// IMPORTANT: Migrations MUST succeed - app won't start without valid database schema
+await app.ApplyMigrationsAsync();
 
 // Configure pipeline
 if (app.Environment.IsDevelopment())

@@ -22,12 +22,13 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // NOTE: Removed invalid defaultValue: "" - empty string is not valid for vector(1024)
+            // This migration can only be rolled back if all Issues have non-null Embedding values
             migrationBuilder.AlterColumn<string>(
                 name: "Embedding",
                 table: "Issues",
                 type: "vector(1024)",
                 nullable: false,
-                defaultValue: "",
                 oldClrType: typeof(string),
                 oldType: "vector(1024)",
                 oldNullable: true);
