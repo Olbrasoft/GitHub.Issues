@@ -18,7 +18,6 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 table: "Issues",
                 type: "vector(1024)",
                 nullable: false,
-                defaultValue: "",
                 oldClrType: typeof(string),
                 oldType: "vector(1024)",
                 oldNullable: true);
