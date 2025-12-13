@@ -190,10 +190,10 @@ public static class ServiceExtensions
             }
 
             var builder = sp.GetRequiredService<TranslatorPoolBuilder>();
-            var translators = builder.BuildInterleavedTranslators();
+            var providerGroups = builder.BuildProviderGroups();
             var poolLogger = sp.GetRequiredService<ILogger<RoundRobinTranslator>>();
 
-            return new RoundRobinTranslator(translators, poolLogger);
+            return new RoundRobinTranslator(providerGroups, poolLogger);
         });
 
         // Search strategies (Strategy Pattern)

@@ -4,51 +4,69 @@ using Olbrasoft.Text.Translation;
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
-/// Round-robin translator that rotates between multiple translators (providers/keys).
-/// Provides automatic fallback when a translator fails.
+/// Round-robin translator that strictly alternates between providers
+/// while rotating keys within each provider.
 ///
-/// Rotation pattern with 2 providers, 2 keys each:
+/// With 1 Azure key and 2 DeepL keys:
 /// Request 1: Azure-Key1
 /// Request 2: DeepL-Key1
-/// Request 3: Azure-Key2
+/// Request 3: Azure-Key1 (only one key)
 /// Request 4: DeepL-Key2
-/// Request 5: Azure-Key1 (repeat)
+/// Request 5: Azure-Key1
+/// Request 6: DeepL-Key1 (repeat)
 ///
-/// This distributes load evenly across providers AND keys.
+/// Fallback: If Azure fails → try DeepL-1, if DeepL-1 fails → try DeepL-2
 /// </summary>
 public class RoundRobinTranslator : ITranslator
 {
-    private readonly IReadOnlyList<ITranslator> _translators;
+    private readonly IReadOnlyList<ProviderGroup> _providers;
     private readonly ILogger<RoundRobinTranslator> _logger;
-    private long _currentIndex;
+    private long _providerIndex;
 
+    /// <summary>
+    /// Creates a round-robin translator from grouped translators.
+    /// </summary>
+    /// <param name="providerGroups">Groups of translators by provider name</param>
+    /// <param name="logger">Logger</param>
     public RoundRobinTranslator(
-        IEnumerable<ITranslator> translators,
+        IEnumerable<ProviderGroup> providerGroups,
         ILogger<RoundRobinTranslator> logger)
     {
-        _translators = translators.ToList();
+        _providers = providerGroups.Where(p => p.Translators.Count > 0).ToList();
         _logger = logger;
-        _currentIndex = 0;
+        _providerIndex = -1; // Will be incremented to 0 on first call
 
-        if (_translators.Count == 0)
+        if (_providers.Count == 0)
         {
-            throw new ArgumentException("At least one translator must be provided", nameof(translators));
+            throw new ArgumentException("At least one translator must be provided", nameof(providerGroups));
         }
 
         _logger.LogInformation(
-            "[RoundRobinTranslator] Initialized with {Count} translators",
-            _translators.Count);
+            "[RoundRobinTranslator] Initialized with {ProviderCount} providers: {Providers}",
+            _providers.Count,
+            string.Join(", ", _providers.Select(p => $"{p.Name}({p.Translators.Count} keys)")));
     }
 
     /// <summary>
-    /// Number of translators in the pool.
+    /// Creates a round-robin translator from a flat list (legacy support).
+    /// All translators will be treated as a single provider group.
     /// </summary>
-    public int TranslatorCount => _translators.Count;
+    public RoundRobinTranslator(
+        IEnumerable<ITranslator> translators,
+        ILogger<RoundRobinTranslator> logger)
+        : this(new[] { new ProviderGroup("Default", translators.ToList()) }, logger)
+    {
+    }
 
     /// <summary>
-    /// Current position in the round-robin rotation.
+    /// Total number of translators across all providers.
     /// </summary>
-    public long CurrentIndex => Interlocked.Read(ref _currentIndex);
+    public int TranslatorCount => _providers.Sum(p => p.Translators.Count);
+
+    /// <summary>
+    /// Number of providers in the pool.
+    /// </summary>
+    public int ProviderCount => _providers.Count;
 
     /// <inheritdoc />
     public async Task<TranslatorResult> TranslateAsync(
@@ -62,61 +80,105 @@ public class RoundRobinTranslator : ITranslator
             return TranslatorResult.Fail("Empty text", "RoundRobin");
         }
 
-        // Get next translator index (atomic increment)
-        var startIndex = (int)(Interlocked.Increment(ref _currentIndex) % _translators.Count);
+        // Get next provider (strict alternation)
+        var startProviderIndex = (int)(Interlocked.Increment(ref _providerIndex) % _providers.Count);
 
         _logger.LogDebug(
-            "[RoundRobinTranslator] Starting translation, initial index: {Index}/{Count}",
-            startIndex, _translators.Count);
+            "[RoundRobinTranslator] Starting translation, provider index: {Index}/{Count}",
+            startProviderIndex, _providers.Count);
 
-        // Try all translators starting from current position
         var attemptedProviders = new List<string>();
+        var totalTranslators = TranslatorCount;
+        var attemptCount = 0;
 
-        for (int attempt = 0; attempt < _translators.Count; attempt++)
+        // Try all providers and all their keys
+        for (int providerOffset = 0; providerOffset < _providers.Count; providerOffset++)
         {
-            var index = (startIndex + attempt) % _translators.Count;
-            var translator = _translators[index];
+            var providerIndex = (startProviderIndex + providerOffset) % _providers.Count;
+            var provider = _providers[providerIndex];
 
-            try
+            // Get next key for this provider (rotate within provider)
+            var keyIndex = provider.GetNextKeyIndex();
+
+            // On first provider, use its selected key
+            // On fallback providers, try all their keys
+            var keysToTry = providerOffset == 0 ? 1 : provider.Translators.Count;
+
+            for (int keyOffset = 0; keyOffset < keysToTry; keyOffset++)
             {
-                _logger.LogDebug(
-                    "[RoundRobinTranslator] Attempt {Attempt}/{Count} using translator at index {Index}",
-                    attempt + 1, _translators.Count, index);
+                var actualKeyIndex = (keyIndex + keyOffset) % provider.Translators.Count;
+                var translator = provider.Translators[actualKeyIndex];
+                attemptCount++;
 
-                var result = await translator.TranslateAsync(
-                    text, targetLanguage, sourceLanguage, cancellationToken);
-
-                if (result.Success && !string.IsNullOrWhiteSpace(result.Translation))
+                try
                 {
+                    var providerKeyName = $"{provider.Name}[{actualKeyIndex}]";
+
                     _logger.LogDebug(
-                        "[RoundRobinTranslator] Translation succeeded via {Provider}",
-                        result.Provider);
-                    return result;
+                        "[RoundRobinTranslator] Attempt {Attempt}/{Total}: {Provider}",
+                        attemptCount, totalTranslators, providerKeyName);
+
+                    var result = await translator.TranslateAsync(
+                        text, targetLanguage, sourceLanguage, cancellationToken);
+
+                    if (result.Success && !string.IsNullOrWhiteSpace(result.Translation))
+                    {
+                        _logger.LogDebug(
+                            "[RoundRobinTranslator] Translation succeeded via {Provider}",
+                            result.Provider);
+                        return result;
+                    }
+
+                    // Translation failed, try next
+                    var providerName = result.Provider ?? providerKeyName;
+                    attemptedProviders.Add(providerName);
+
+                    _logger.LogWarning(
+                        "[RoundRobinTranslator] {Provider} failed: {Error}. Trying next...",
+                        providerName, result.Error);
                 }
+                catch (Exception ex)
+                {
+                    attemptedProviders.Add($"{provider.Name}[{actualKeyIndex}]");
 
-                // Translation failed, try next
-                var providerName = result.Provider ?? $"Translator[{index}]";
-                attemptedProviders.Add(providerName);
-
-                _logger.LogWarning(
-                    "[RoundRobinTranslator] Translator {Provider} failed: {Error}. Trying next...",
-                    providerName, result.Error);
-            }
-            catch (Exception ex)
-            {
-                attemptedProviders.Add($"Translator[{index}]");
-
-                _logger.LogWarning(
-                    ex,
-                    "[RoundRobinTranslator] Translator at index {Index} threw exception. Trying next...",
-                    index);
+                    _logger.LogWarning(
+                        ex,
+                        "[RoundRobinTranslator] {Provider}[{KeyIndex}] threw exception. Trying next...",
+                        provider.Name, actualKeyIndex);
+                }
             }
         }
 
         // All translators failed
-        var errorMessage = $"All {_translators.Count} translators failed. Attempted: {string.Join(", ", attemptedProviders)}";
+        var errorMessage = $"All {totalTranslators} translators failed. Attempted: {string.Join(", ", attemptedProviders)}";
         _logger.LogError("[RoundRobinTranslator] {Error}", errorMessage);
 
         return TranslatorResult.Fail(errorMessage, "RoundRobin");
+    }
+}
+
+/// <summary>
+/// Represents a group of translators for a single provider (e.g., Azure, DeepL).
+/// Maintains its own key rotation index.
+/// </summary>
+public class ProviderGroup
+{
+    private long _keyIndex = -1; // Will be incremented to 0 on first call
+
+    public string Name { get; }
+    public IReadOnlyList<ITranslator> Translators { get; }
+
+    public ProviderGroup(string name, IReadOnlyList<ITranslator> translators)
+    {
+        Name = name;
+        Translators = translators;
+    }
+
+    /// <summary>
+    /// Gets the next key index for this provider (atomic, thread-safe).
+    /// </summary>
+    public int GetNextKeyIndex()
+    {
+        return (int)(Interlocked.Increment(ref _keyIndex) % Translators.Count);
     }
 }

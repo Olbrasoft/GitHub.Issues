@@ -7,15 +7,17 @@ using Olbrasoft.Text.Translation.DeepL;
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
-/// Builds an interleaved pool of translators for round-robin load distribution.
+/// Builds provider groups of translators for strict provider alternation.
 ///
-/// Interleaving pattern (with 2 Azure keys, 2 DeepL keys):
-/// [0] Azure-Key1
-/// [1] DeepL-Key1
-/// [2] Azure-Key2
-/// [3] DeepL-Key2
+/// With 1 Azure key and 2 DeepL keys, creates:
+/// - Azure group: [Azure-Key1]
+/// - DeepL group: [DeepL-Key1, DeepL-Key2]
 ///
-/// This ensures requests alternate between providers, distributing load evenly.
+/// RoundRobinTranslator then alternates between providers:
+/// Request 1: Azure-Key1
+/// Request 2: DeepL-Key1
+/// Request 3: Azure-Key1
+/// Request 4: DeepL-Key2
 /// </summary>
 public class TranslatorPoolBuilder
 {
@@ -34,11 +36,13 @@ public class TranslatorPoolBuilder
     }
 
     /// <summary>
-    /// Builds an interleaved list of translators.
-    /// Alternates between Azure and DeepL translators for each key index.
+    /// Builds provider groups for strict provider alternation.
     /// </summary>
-    public IReadOnlyList<ITranslator> BuildInterleavedTranslators()
+    public IReadOnlyList<ProviderGroup> BuildProviderGroups()
     {
+        var groups = new List<ProviderGroup>();
+        var logger = _loggerFactory.CreateLogger<TranslatorPoolBuilder>();
+
         var azureKeys = _settings.AzureApiKeys
             .Where(k => !string.IsNullOrWhiteSpace(k))
             .ToList();
@@ -47,43 +51,71 @@ public class TranslatorPoolBuilder
             .Where(k => !string.IsNullOrWhiteSpace(k))
             .ToList();
 
-        var maxKeyCount = Math.Max(azureKeys.Count, deepLKeys.Count);
-        var translators = new List<ITranslator>();
-
-        var logger = _loggerFactory.CreateLogger<TranslatorPoolBuilder>();
         logger.LogInformation(
-            "[TranslatorPoolBuilder] Building pool with {AzureCount} Azure keys, {DeepLCount} DeepL keys",
+            "[TranslatorPoolBuilder] Building provider groups: {AzureCount} Azure keys, {DeepLCount} DeepL keys",
             azureKeys.Count, deepLKeys.Count);
 
-        // Interleave: for each key index, add Azure first, then DeepL
-        for (int keyIndex = 0; keyIndex < maxKeyCount; keyIndex++)
+        // Create Azure provider group
+        if (azureKeys.Count > 0)
         {
-            // Add Azure translator for this key index (if available)
-            if (keyIndex < azureKeys.Count)
+            var azureTranslators = new List<ITranslator>();
+            for (int i = 0; i < azureKeys.Count; i++)
             {
-                var azureTranslator = CreateAzureTranslator(azureKeys[keyIndex], keyIndex);
-                translators.Add(azureTranslator);
+                var translator = CreateAzureTranslator(azureKeys[i], i);
+                azureTranslators.Add(translator);
 
-                logger.LogDebug(
-                    "[TranslatorPoolBuilder] Added Azure translator [{Index}] at position {Position}",
-                    keyIndex, translators.Count - 1);
+                logger.LogDebug("[TranslatorPoolBuilder] Created Azure translator [{Index}]", i);
             }
 
-            // Add DeepL translator for this key index (if available)
-            if (keyIndex < deepLKeys.Count)
-            {
-                var deepLTranslator = CreateDeepLTranslator(deepLKeys[keyIndex], keyIndex);
-                translators.Add(deepLTranslator);
-
-                logger.LogDebug(
-                    "[TranslatorPoolBuilder] Added DeepL translator [{Index}] at position {Position}",
-                    keyIndex, translators.Count - 1);
-            }
+            groups.Add(new ProviderGroup("Azure", azureTranslators));
+            logger.LogInformation("[TranslatorPoolBuilder] Azure group: {Count} translator(s)", azureTranslators.Count);
         }
 
+        // Create DeepL provider group
+        if (deepLKeys.Count > 0)
+        {
+            var deepLTranslators = new List<ITranslator>();
+            for (int i = 0; i < deepLKeys.Count; i++)
+            {
+                var translator = CreateDeepLTranslator(deepLKeys[i], i);
+                deepLTranslators.Add(translator);
+
+                logger.LogDebug("[TranslatorPoolBuilder] Created DeepL translator [{Index}]", i);
+            }
+
+            groups.Add(new ProviderGroup("DeepL", deepLTranslators));
+            logger.LogInformation("[TranslatorPoolBuilder] DeepL group: {Count} translator(s)", deepLTranslators.Count);
+        }
+
+        var totalTranslators = groups.Sum(g => g.Translators.Count);
         logger.LogInformation(
-            "[TranslatorPoolBuilder] Pool built with {Total} translators",
-            translators.Count);
+            "[TranslatorPoolBuilder] Built {GroupCount} provider groups with {TotalCount} translators",
+            groups.Count, totalTranslators);
+
+        return groups;
+    }
+
+    /// <summary>
+    /// Legacy method - builds an interleaved flat list.
+    /// </summary>
+    [Obsolete("Use BuildProviderGroups() instead for strict provider alternation")]
+    public IReadOnlyList<ITranslator> BuildInterleavedTranslators()
+    {
+        var groups = BuildProviderGroups();
+        var translators = new List<ITranslator>();
+
+        var maxKeyCount = groups.Max(g => g.Translators.Count);
+
+        for (int keyIndex = 0; keyIndex < maxKeyCount; keyIndex++)
+        {
+            foreach (var group in groups)
+            {
+                if (keyIndex < group.Translators.Count)
+                {
+                    translators.Add(group.Translators[keyIndex]);
+                }
+            }
+        }
 
         return translators;
     }
