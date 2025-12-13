@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.Testing.Xunit.Attributes;
 
 namespace Olbrasoft.GitHub.Issues.Sync.Tests.Integration;
 
@@ -56,7 +57,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// CRITICAL TEST: Verify GitHub API returns ALL issues (no since filter).
     /// This is the first step - we need to confirm GitHub returns the data.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssuesAsync_WithoutSince_ReturnsAllIssues()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -101,7 +102,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// <summary>
     /// Test that incremental sync with very old timestamp returns all issues.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssuesAsync_WithOldSince_ReturnsAllRecentlyUpdatedIssues()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -127,7 +128,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// <summary>
     /// Test that incremental sync with very recent timestamp returns few/no issues.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssuesAsync_WithRecentSince_ReturnsFewOrNoIssues()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -156,7 +157,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// <summary>
     /// Verify that we can distinguish between issues and pull requests.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssuesAsync_CorrectlyIdentifiesPullRequests()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -194,7 +195,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// <summary>
     /// Test fetching comments for a specific issue.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssueCommentsAsync_ReturnsComments()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -230,7 +231,7 @@ public class GitHubIssueApiClientIntegrationTests : IDisposable
     /// <summary>
     /// CRITICAL: Compare what we get from API with expected counts.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task FetchIssuesAsync_VerifyExpectedOpenIssueCount()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");

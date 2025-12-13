@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.Testing.Xunit.Attributes;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
 
@@ -59,7 +60,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// PHASE 1A: Test GitHub API directly (raw HTTP).
     /// Verifies that GitHub returns issues correctly.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task Phase1A_GitHubApi_RawHttp_ReturnsIssues()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -110,7 +111,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// PHASE 1B: Test GitHubIssueApiClient service.
     /// Verifies our wrapper parses GitHub response correctly.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task Phase1B_GitHubIssueApiClient_ReturnsAllIssues()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -161,7 +162,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// PHASE 2A: Test Cohere API directly (raw HTTP).
     /// Verifies Cohere API works and returns embeddings.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task Phase2A_CohereApi_RawHttp_ReturnsEmbedding()
     {
         Console.WriteLine("=== PHASE 2A: Cohere API - Raw HTTP ===\n");
@@ -230,7 +231,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// PHASE 2B: Test CohereEmbeddingService.
     /// Verifies our service wrapper works correctly.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task Phase2B_CohereEmbeddingService_GeneratesEmbeddings()
     {
         Console.WriteLine("=== PHASE 2B: CohereEmbeddingService ===\n");
@@ -316,7 +317,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// PHASE 3: Test full pipeline - GitHub + Cohere.
     /// Fetches issues from GitHub and generates embeddings for each.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task Phase3_FullPipeline_GitHubPlusCohere()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -416,7 +417,7 @@ public class SyncPipelineIntegrationTests : IDisposable
     /// This test verifies that newly created issues are returned by incremental sync.
     /// NO translations, NO embeddings - just GitHub API sync verification.
     /// </summary>
-    [Fact]
+    [SkipOnCIFact]
     public async Task EndToEnd_CreateIssue_IncrementalSyncReturnsIt_Cleanup()
     {
         var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");

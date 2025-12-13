@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
+using Olbrasoft.Testing.Xunit.Attributes;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
 
@@ -56,7 +57,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         _httpClient.Dispose();
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public void IsConfigured_WithApiKeys_ReturnsTrue()
     {
         // This test verifies API keys are loaded
@@ -73,7 +74,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         }
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public async Task GenerateEmbeddingAsync_WithSimpleText_ReturnsEmbedding()
     {
         if (!_embeddingService.IsConfigured)
@@ -118,7 +119,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         Console.WriteLine($"\nFinal SUCCESS: Generated embedding with {embedding1.Length} dimensions");
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public async Task GenerateEmbeddingAsync_WithLongText_ReturnsEmbedding()
     {
         if (!_embeddingService.IsConfigured)
@@ -143,7 +144,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         Console.WriteLine($"SUCCESS: Generated embedding for {longText.Length} char text");
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public async Task GenerateEmbeddingAsync_WithEmptyText_ReturnsNull()
     {
         if (!_embeddingService.IsConfigured)
@@ -162,7 +163,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         Console.WriteLine("CORRECT: Empty text returns null embedding");
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public async Task GenerateEmbeddingAsync_MultipleRequests_AllSucceed()
     {
         if (!_embeddingService.IsConfigured)
@@ -215,7 +216,7 @@ public class CohereEmbeddingIntegrationTests : IDisposable
         Assert.Equal(texts.Length, successCount);
     }
 
-    [Fact]
+    [SkipOnCIFact]
     public async Task IsAvailableAsync_ReturnsCorrectStatus()
     {
         if (!_embeddingService.IsConfigured)
