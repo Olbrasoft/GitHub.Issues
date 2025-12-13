@@ -157,6 +157,28 @@
                         <div class="result-actions">
                             <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
                             <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                            @if (result.IsOpen)
+                            {
+                                <button class="issue-state-btn issue-close-btn"
+                                        data-issue-id="@result.Id"
+                                        data-new-state="closed"
+                                        style="display: none;"
+                                        title="Zavřít tento issue">
+                                    <span class="btn-icon">✕</span>
+                                    <span class="btn-text">Zavřít</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="issue-state-btn issue-reopen-btn"
+                                        data-issue-id="@result.Id"
+                                        data-new-state="open"
+                                        style="display: none;"
+                                        title="Znovu otevřít tento issue">
+                                    <span class="btn-icon">↺</span>
+                                    <span class="btn-text">Otevřít</span>
+                                </button>
+                            }
                         </div>
                     </li>
                 }

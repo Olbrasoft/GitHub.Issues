@@ -1088,3 +1088,58 @@ footer {
         opacity: 0.5;
     }
 }
+
+/* Issue state buttons (Close/Reopen) - used in search results and detail page */
+.issue-state-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.issue-state-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.issue-close-btn {
+    background-color: #cf222e;
+    color: white;
+}
+
+.issue-close-btn:hover:not(:disabled) {
+    background-color: #a40e26;
+}
+
+.issue-reopen-btn {
+    background-color: #1a7f37;
+    color: white;
+}
+
+.issue-reopen-btn:hover:not(:disabled) {
+    background-color: #116329;
+}
+
+.issue-state-btn .btn-icon {
+    font-size: 12px;
+}
+
+/* Loading state for issue state buttons */
+.issue-state-btn.loading .btn-text {
+    opacity: 0.7;
+}
+
+.issue-state-btn.loading .btn-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

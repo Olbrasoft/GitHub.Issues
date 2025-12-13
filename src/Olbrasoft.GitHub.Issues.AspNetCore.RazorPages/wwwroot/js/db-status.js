@@ -80,6 +80,14 @@
                 if (auth.isOwner && syncBtn) {
                     syncBtn.style.display = 'inline-flex';
                 }
+
+                // Show issue state buttons only for owner
+                if (auth.isOwner) {
+                    document.querySelectorAll('.issue-state-btn').forEach(function(btn) {
+                        btn.style.display = 'inline-flex';
+                    });
+                    initializeIssueStateButtons();
+                }
             } else {
                 authControls.style.display = 'none';
                 loginLink.style.display = 'inline-flex';
@@ -91,6 +99,109 @@
             console.error('Error checking auth status:', error);
             // Show login link on error
             loginLink.style.display = 'inline-flex';
+        }
+    }
+
+    // ===== Issue State Change Functions =====
+
+    function initializeIssueStateButtons() {
+        document.querySelectorAll('.issue-state-btn').forEach(function(btn) {
+            // Remove any existing listeners to avoid duplicates
+            btn.removeEventListener('click', handleIssueStateClick);
+            btn.addEventListener('click', handleIssueStateClick);
+        });
+    }
+
+    function handleIssueStateClick(event) {
+        const btn = event.currentTarget;
+        const issueId = parseInt(btn.dataset.issueId, 10);
+        const newState = btn.dataset.newState;
+
+        if (!issueId || !newState) {
+            console.error('Missing issue ID or new state');
+            return;
+        }
+
+        changeIssueState(issueId, newState, btn);
+    }
+
+    async function changeIssueState(issueId, newState, button) {
+        console.log('[db-status] Changing issue state:', issueId, '->', newState);
+
+        // Disable button and show loading state
+        button.disabled = true;
+        button.classList.add('loading');
+
+        const originalText = button.querySelector('.btn-text').textContent;
+        const originalIcon = button.querySelector('.btn-icon').textContent;
+        button.querySelector('.btn-text').textContent = newState === 'closed' ? 'Zavírám...' : 'Otevírám...';
+        button.querySelector('.btn-icon').textContent = '⏳';
+
+        try {
+            const response = await fetch(`/api/issues/${issueId}/change-state`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ state: newState })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                console.log('[db-status] Issue state changed successfully:', result);
+
+                // Find the parent result-item and update UI
+                const resultItem = button.closest('.result-item');
+                if (resultItem) {
+                    // Update state badge
+                    const stateBadge = resultItem.querySelector('.state-badge');
+                    if (stateBadge) {
+                        stateBadge.textContent = newState === 'open' ? 'Otevřený' : 'Zavřený';
+                        stateBadge.classList.remove('state-open', 'state-closed');
+                        stateBadge.classList.add(newState === 'open' ? 'state-open' : 'state-closed');
+                    }
+
+                    // Swap the button (close <-> reopen)
+                    const newBtnClass = newState === 'open' ? 'issue-close-btn' : 'issue-reopen-btn';
+                    const newBtnText = newState === 'open' ? 'Zavřít' : 'Otevřít';
+                    const newBtnIcon = newState === 'open' ? '✕' : '↺';
+                    const newBtnState = newState === 'open' ? 'closed' : 'open';
+                    const newBtnTitle = newState === 'open' ? 'Zavřít tento issue' : 'Znovu otevřít tento issue';
+
+                    button.classList.remove('issue-close-btn', 'issue-reopen-btn', 'loading');
+                    button.classList.add(newBtnClass);
+                    button.dataset.newState = newBtnState;
+                    button.title = newBtnTitle;
+                    button.querySelector('.btn-text').textContent = newBtnText;
+                    button.querySelector('.btn-icon').textContent = newBtnIcon;
+                    button.disabled = false;
+
+                    // Flash the result item to indicate success
+                    resultItem.style.backgroundColor = '#d4edda';
+                    setTimeout(function() {
+                        resultItem.style.backgroundColor = '';
+                    }, 1000);
+                }
+            } else {
+                console.error('[db-status] Failed to change issue state:', result.error);
+                alert('Chyba: ' + (result.error || 'Nepodařilo se změnit stav issue'));
+
+                // Restore button
+                button.disabled = false;
+                button.classList.remove('loading');
+                button.querySelector('.btn-text').textContent = originalText;
+                button.querySelector('.btn-icon').textContent = originalIcon;
+            }
+        } catch (error) {
+            console.error('[db-status] Error changing issue state:', error);
+            alert('Chyba při komunikaci se serverem');
+
+            // Restore button
+            button.disabled = false;
+            button.classList.remove('loading');
+            button.querySelector('.btn-text').textContent = originalText;
+            button.querySelector('.btn-icon').textContent = originalIcon;
         }
     }
 
