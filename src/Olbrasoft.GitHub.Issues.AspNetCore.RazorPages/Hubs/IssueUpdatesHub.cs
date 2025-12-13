@@ -43,6 +43,45 @@ public class IssueUpdatesHub : Hub
         _logger.LogInformation("[Hub] Client {ConnectionId} unsubscribed from {Count} issues", Context.ConnectionId, issueIds.Length);
     }
 
+    /// <summary>
+    /// Client subscribes to search result updates.
+    /// When new issues are added via webhook, subscribed clients will be notified.
+    /// </summary>
+    /// <param name="repositoryFullName">Optional: Filter by repository (e.g., "owner/repo"). Empty string for all repos.</param>
+    public async Task SubscribeToSearchResults(string repositoryFullName = "")
+    {
+        // All search result subscribers join the main group
+        await Groups.AddToGroupAsync(Context.ConnectionId, SignalRSearchResultNotifier.SearchResultsGroup);
+
+        // If filtering by repository, also join the repo-specific group
+        if (!string.IsNullOrWhiteSpace(repositoryFullName))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"search-{repositoryFullName}");
+            _logger.LogInformation("[Hub] Client {ConnectionId} subscribed to search results for repo {Repo}",
+                Context.ConnectionId, repositoryFullName);
+        }
+        else
+        {
+            _logger.LogInformation("[Hub] Client {ConnectionId} subscribed to all search results", Context.ConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Client unsubscribes from search result updates.
+    /// </summary>
+    /// <param name="repositoryFullName">Optional: The repository to unsubscribe from</param>
+    public async Task UnsubscribeFromSearchResults(string repositoryFullName = "")
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, SignalRSearchResultNotifier.SearchResultsGroup);
+
+        if (!string.IsNullOrWhiteSpace(repositoryFullName))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"search-{repositoryFullName}");
+        }
+
+        _logger.LogInformation("[Hub] Client {ConnectionId} unsubscribed from search results", Context.ConnectionId);
+    }
+
     public override async Task OnConnectedAsync()
     {
         _logger.LogInformation("[Hub] Client connected: {ConnectionId}", Context.ConnectionId);

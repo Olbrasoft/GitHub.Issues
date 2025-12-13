@@ -42,6 +42,7 @@ public static class HttpClientExtensions
         services.Configure<WebhookSettings>(configuration.GetSection("GitHubApp"));
         services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
         services.AddScoped<IIssueUpdateNotifier, Hubs.SignalRIssueUpdateNotifier>();
+        services.AddScoped<ISearchResultNotifier, Hubs.SignalRSearchResultNotifier>();
 
         // Webhook event handlers (Strategy Pattern)
         services.AddScoped<IWebhookEventHandler<GitHubIssueWebhookPayload>, IssueEventHandler>();

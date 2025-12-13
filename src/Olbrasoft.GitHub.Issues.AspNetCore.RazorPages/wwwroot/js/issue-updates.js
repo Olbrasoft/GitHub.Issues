@@ -10,6 +10,7 @@
     let isSignalRSubscribed = false; // Track if SignalR subscription is complete
     let pendingBodyFetches = []; // Queue for body fetches pending subscription
     let keepAliveInterval = null; // Client-side keep-alive interval
+    let currentRepoFilter = ''; // Current repository filter from search form
 
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
@@ -49,6 +50,9 @@
         // Handle incoming AI summaries (progressive loading Phase 3)
         connection.on('SummaryReceived', handleSummaryReceived);
 
+        // Handle new issues added via webhook (auto-refresh search results)
+        connection.on('NewIssueAdded', handleNewIssueAdded);
+
         // Handle connection state changes
         connection.onreconnecting(function (error) {
             console.log('[issue-updates] SignalR reconnecting...', error);
@@ -81,6 +85,13 @@
             console.log('[issue-updates] SignalR connected');
             updateConnectionStatus(true);
             startKeepAlive();
+
+            // Get current repository filter from the page (if any)
+            currentRepoFilter = getRepoFilterFromPage();
+
+            // Subscribe to search results for auto-refresh when new issues are added
+            await subscribeToSearchResults(currentRepoFilter);
+
             await subscribeToVisibleIssues();
             // Trigger title translations if language is not English
             if (selectedLanguage !== 'en') {
@@ -93,6 +104,24 @@
             updateConnectionStatus(false);
             // Retry connection after 5 seconds
             setTimeout(startConnection, 5000);
+        }
+    }
+
+    function getRepoFilterFromPage() {
+        // Get the repository filter from the hidden input or URL
+        var reposInput = document.getElementById('reposHidden');
+        if (reposInput && reposInput.value) {
+            return reposInput.value;
+        }
+        return '';
+    }
+
+    async function subscribeToSearchResults(repoFilter) {
+        try {
+            await connection.invoke('SubscribeToSearchResults', repoFilter || '');
+            console.log('[issue-updates] Subscribed to search results', repoFilter ? 'for repo: ' + repoFilter : '(all repos)');
+        } catch (err) {
+            console.error('[issue-updates] Failed to subscribe to search results:', err);
         }
     }
 
@@ -452,6 +481,81 @@
             issueItem.classList.remove('issue-updated');
         }, 2000);
     }
+
+    function handleNewIssueAdded(data) {
+        console.log('[issue-updates] NewIssueAdded received:', data);
+
+        // Check if the new issue matches our current repository filter
+        if (currentRepoFilter && data.repositoryFullName !== currentRepoFilter) {
+            console.log('[issue-updates] Ignoring new issue - different repo:', data.repositoryFullName, 'vs filter:', currentRepoFilter);
+            return;
+        }
+
+        // Show "new issues available" banner instead of auto-refreshing
+        showNewIssueBanner(data);
+    }
+
+    function showNewIssueBanner(issueData) {
+        // Check if banner already exists
+        var banner = document.getElementById('newIssueBanner');
+        if (!banner) {
+            // Create the banner
+            banner = document.createElement('div');
+            banner.id = 'newIssueBanner';
+            banner.className = 'new-issue-banner';
+            banner.innerHTML = `
+                <div class="new-issue-content">
+                    <span class="new-issue-icon">🆕</span>
+                    <span class="new-issue-message">Nový issue: <strong>#${issueData.gitHubNumber}</strong> ${issueData.title}</span>
+                    <button class="new-issue-refresh-btn" onclick="location.reload()">Obnovit</button>
+                    <button class="new-issue-dismiss-btn" onclick="dismissNewIssueBanner()">&times;</button>
+                </div>
+            `;
+
+            // Insert at the top of results container
+            var resultsContainer = document.querySelector('.results-container');
+            if (resultsContainer) {
+                resultsContainer.insertBefore(banner, resultsContainer.firstChild);
+            } else {
+                // Fallback: insert after search container
+                var searchContainer = document.querySelector('.search-container');
+                if (searchContainer && searchContainer.nextSibling) {
+                    searchContainer.parentNode.insertBefore(banner, searchContainer.nextSibling);
+                }
+            }
+
+            // Add animation
+            setTimeout(function() {
+                banner.classList.add('show');
+            }, 10);
+        } else {
+            // Update existing banner with new count
+            var message = banner.querySelector('.new-issue-message');
+            if (message) {
+                var currentText = message.textContent;
+                if (currentText.includes('nových issues')) {
+                    // Increment count
+                    var match = currentText.match(/(\d+) nových issues/);
+                    var count = match ? parseInt(match[1]) + 1 : 2;
+                    message.innerHTML = `<strong>${count} nových issues</strong> k dispozici`;
+                } else {
+                    // Change from single to multiple
+                    message.innerHTML = '<strong>2 nových issues</strong> k dispozici';
+                }
+            }
+        }
+    }
+
+    // Global function for dismissing banner
+    window.dismissNewIssueBanner = function() {
+        var banner = document.getElementById('newIssueBanner');
+        if (banner) {
+            banner.classList.remove('show');
+            setTimeout(function() {
+                banner.remove();
+            }, 300);
+        }
+    };
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', function () {

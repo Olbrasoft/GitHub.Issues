@@ -39,3 +39,40 @@ public class NullIssueUpdateNotifier : IIssueUpdateNotifier
         return Task.CompletedTask;
     }
 }
+
+/// <summary>
+/// DTO for new issue notifications to search result subscribers.
+/// </summary>
+public record NewIssueDto(
+    int IssueId,
+    int GitHubNumber,
+    string RepositoryFullName,
+    bool IsOpen,
+    string Title,
+    string Url,
+    IReadOnlyList<LabelDto> Labels);
+
+/// <summary>
+/// Interface for notifying search result subscribers about new issues.
+/// </summary>
+public interface ISearchResultNotifier
+{
+    /// <summary>
+    /// Broadcasts a notification about a new issue to all search result subscribers.
+    /// </summary>
+    /// <param name="newIssue">The new issue data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task NotifyNewIssueAsync(NewIssueDto newIssue, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Null implementation of ISearchResultNotifier for when SignalR is not configured.
+/// </summary>
+public class NullSearchResultNotifier : ISearchResultNotifier
+{
+    public Task NotifyNewIssueAsync(NewIssueDto newIssue, CancellationToken cancellationToken = default)
+    {
+        // No-op - SignalR not configured
+        return Task.CompletedTask;
+    }
+}

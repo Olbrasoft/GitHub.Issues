@@ -14,6 +14,7 @@ public class IssueEventHandlerTests
     private readonly Mock<IIssueSyncBusinessService> _issueServiceMock;
     private readonly Mock<IIssueEmbeddingGenerator> _embeddingGeneratorMock;
     private readonly Mock<IIssueUpdateNotifier> _updateNotifierMock;
+    private readonly Mock<ISearchResultNotifier> _searchResultNotifierMock;
     private readonly Mock<ILogger<IssueEventHandler>> _loggerMock;
 
     public IssueEventHandlerTests()
@@ -22,6 +23,7 @@ public class IssueEventHandlerTests
         _issueServiceMock = new Mock<IIssueSyncBusinessService>();
         _embeddingGeneratorMock = new Mock<IIssueEmbeddingGenerator>();
         _updateNotifierMock = new Mock<IIssueUpdateNotifier>();
+        _searchResultNotifierMock = new Mock<ISearchResultNotifier>();
         _loggerMock = new Mock<ILogger<IssueEventHandler>>();
     }
 
@@ -32,6 +34,7 @@ public class IssueEventHandlerTests
             _issueServiceMock.Object,
             _embeddingGeneratorMock.Object,
             _updateNotifierMock.Object,
+            _searchResultNotifierMock.Object,
             _loggerMock.Object);
     }
 

@@ -14,6 +14,7 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
     private readonly IIssueSyncBusinessService _issueService;
     private readonly IIssueEmbeddingGenerator _embeddingGenerator;
     private readonly IIssueUpdateNotifier _updateNotifier;
+    private readonly ISearchResultNotifier _searchResultNotifier;
     private readonly ILogger<IssueEventHandler> _logger;
 
     public IssueEventHandler(
@@ -21,12 +22,14 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
         IIssueSyncBusinessService issueService,
         IIssueEmbeddingGenerator embeddingGenerator,
         IIssueUpdateNotifier updateNotifier,
+        ISearchResultNotifier searchResultNotifier,
         ILogger<IssueEventHandler> logger)
     {
         _repositoryService = repositoryService;
         _issueService = issueService;
         _embeddingGenerator = embeddingGenerator;
         _updateNotifier = updateNotifier;
+        _searchResultNotifier = searchResultNotifier;
         _logger = logger;
     }
 
@@ -143,6 +146,9 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
         }
 
         await NotifyIssueUpdateAsync(savedIssue.Id, issue, ct);
+
+        // Notify search result subscribers about the new issue
+        await NotifyNewIssueAsync(savedIssue.Id, repoFullName, issue, ct);
 
         return new WebhookProcessingResult
         {
@@ -375,6 +381,29 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to notify clients about issue #{Number} update", issue.Number);
+        }
+    }
+
+    private async Task NotifyNewIssueAsync(int issueId, string repoFullName, GitHubWebhookIssue issue, CancellationToken ct)
+    {
+        try
+        {
+            var newIssue = new NewIssueDto(
+                IssueId: issueId,
+                GitHubNumber: issue.Number,
+                RepositoryFullName: repoFullName,
+                IsOpen: issue.State.Equals("open", StringComparison.OrdinalIgnoreCase),
+                Title: issue.Title,
+                Url: issue.HtmlUrl,
+                Labels: issue.Labels.Select(l => new LabelDto(l.Name, l.Color)).ToList());
+
+            await _searchResultNotifier.NotifyNewIssueAsync(newIssue, ct);
+            _logger.LogInformation("Notified search result subscribers about new issue #{Number} in {Repo}",
+                issue.Number, repoFullName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to notify search result subscribers about new issue #{Number}", issue.Number);
         }
     }
 }
