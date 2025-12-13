@@ -8,19 +8,13 @@ public class CachedTextConfiguration : IEntityTypeConfiguration<CachedText>
 {
     public void Configure(EntityTypeBuilder<CachedText> builder)
     {
-        // Map to the existing table name for migration compatibility
-        builder.ToTable("TranslatedTexts");
-
         // Composite primary key
         builder.HasKey(t => new { t.LanguageId, t.TextTypeId, t.IssueId });
 
         builder.Property(t => t.Content)
             .IsRequired();
 
-        // CachedAt - when the text was cached
-        // Maps to existing CreatedAt column for migration compatibility
         builder.Property(t => t.CachedAt)
-            .HasColumnName("CreatedAt")
             .IsRequired();
 
         // Language is a lookup table - RESTRICT delete

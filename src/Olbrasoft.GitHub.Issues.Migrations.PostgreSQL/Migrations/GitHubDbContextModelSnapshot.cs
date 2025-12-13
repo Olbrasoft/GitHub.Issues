@@ -40,7 +40,7 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 
                     b.Property<DateTime>("CachedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("CreatedAt");
+                        .HasColumnName("cached_at");
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -48,15 +48,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         .HasColumnName("content");
 
                     b.HasKey("LanguageId", "TextTypeId", "IssueId")
-                        .HasName("pk_translated_texts");
+                        .HasName("pk_cached_texts");
 
                     b.HasIndex("IssueId")
-                        .HasDatabaseName("ix_translated_texts_issue_id");
+                        .HasDatabaseName("ix_cached_texts_issue_id");
 
                     b.HasIndex("TextTypeId")
-                        .HasDatabaseName("ix_translated_texts_text_type_id");
+                        .HasDatabaseName("ix_cached_texts_text_type_id");
 
-                    b.ToTable("TranslatedTexts", (string)null);
+                    b.ToTable("cached_texts", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.EventType", b =>
@@ -596,21 +596,21 @@ namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_translated_texts_issues_issue_id");
+                        .HasConstraintName("fk_cached_texts_issues_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Language", "Language")
                         .WithMany("CachedTexts")
                         .HasForeignKey("LanguageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_translated_texts_languages_language_id");
+                        .HasConstraintName("fk_cached_texts_languages_language_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.TextType", "TextType")
                         .WithMany("CachedTexts")
                         .HasForeignKey("TextTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_translated_texts_text_types_text_type_id");
+                        .HasConstraintName("fk_cached_texts_text_types_text_type_id");
 
                     b.Navigation("Issue");
 

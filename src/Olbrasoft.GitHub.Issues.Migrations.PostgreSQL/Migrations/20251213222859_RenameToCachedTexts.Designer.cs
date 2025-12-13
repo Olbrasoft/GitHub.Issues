@@ -2,72 +2,89 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Pgvector;
 
 #nullable disable
 
-namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
+namespace Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.Migrations
 {
     [DbContext(typeof(GitHubDbContext))]
-    partial class GitHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251213222859_RenameToCachedTexts")]
+    partial class RenameToCachedTexts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.1")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.CachedText", b =>
                 {
                     b.Property<int>("LanguageId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("language_id");
 
                     b.Property<int>("TextTypeId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("text_type_id");
 
                     b.Property<int>("IssueId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("issue_id");
 
                     b.Property<DateTime>("CachedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cached_at");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text")
+                        .HasColumnName("content");
 
-                    b.HasKey("LanguageId", "TextTypeId", "IssueId");
+                    b.HasKey("LanguageId", "TextTypeId", "IssueId")
+                        .HasName("pk_cached_texts");
 
-                    b.HasIndex("IssueId");
+                    b.HasIndex("IssueId")
+                        .HasDatabaseName("ix_cached_texts_issue_id");
 
-                    b.HasIndex("TextTypeId");
+                    b.HasIndex("TextTypeId")
+                        .HasDatabaseName("ix_cached_texts_text_type_id");
 
-                    b.ToTable("CachedTexts");
+                    b.ToTable("cached_texts", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.EventType", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("name");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_event_types");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_event_types_name");
 
-                    b.ToTable("EventTypes");
+                    b.ToTable("event_types", (string)null);
 
                     b.HasData(
                         new
@@ -286,153 +303,191 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.PrimitiveCollection<string>("Embedding")
+                    b.Property<Vector>("Embedding")
                         .IsRequired()
-                        .HasColumnType("vector(1024)");
+                        .HasColumnType("vector(768)")
+                        .HasColumnName("embedding");
 
                     b.Property<DateTimeOffset>("GitHubUpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("git_hub_updated_at");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
 
                     b.Property<bool>("IsOpen")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_open");
 
                     b.Property<int>("Number")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
 
                     b.Property<int?>("ParentIssueId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("parent_issue_id");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("repository_id");
 
                     b.Property<DateTimeOffset>("SyncedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("synced_at");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("nvarchar(1024)");
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("title");
 
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("url");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_issues");
 
-                    b.HasIndex("IsDeleted");
+                    b.HasIndex("IsDeleted")
+                        .HasDatabaseName("ix_issues_is_deleted");
 
-                    b.HasIndex("ParentIssueId");
+                    b.HasIndex("ParentIssueId")
+                        .HasDatabaseName("ix_issues_parent_issue_id");
 
                     b.HasIndex("RepositoryId", "Number")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_issues_repository_id_number");
 
-                    b.ToTable("Issues");
+                    b.ToTable("issues", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.IssueEvent", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
 
                     b.Property<int>("EventTypeId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("event_type_id");
 
                     b.Property<long>("GitHubEventId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("git_hub_event_id");
 
                     b.Property<int>("IssueId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("issue_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_issue_events");
 
-                    b.HasIndex("EventTypeId");
+                    b.HasIndex("EventTypeId")
+                        .HasDatabaseName("ix_issue_events_event_type_id");
 
                     b.HasIndex("GitHubEventId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_issue_events_git_hub_event_id");
 
-                    b.HasIndex("IssueId");
+                    b.HasIndex("IssueId")
+                        .HasDatabaseName("ix_issue_events_issue_id");
 
-                    b.ToTable("IssueEvents");
+                    b.ToTable("issue_events", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.IssueLabel", b =>
                 {
                     b.Property<int>("IssueId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("issue_id");
 
                     b.Property<int>("LabelId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("label_id");
 
-                    b.HasKey("IssueId", "LabelId");
+                    b.HasKey("IssueId", "LabelId")
+                        .HasName("pk_issue_labels");
 
-                    b.HasIndex("LabelId");
+                    b.HasIndex("LabelId")
+                        .HasDatabaseName("ix_issue_labels_label_id");
 
-                    b.ToTable("IssueLabels");
+                    b.ToTable("issue_labels", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Label", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Color")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(6)
-                        .HasColumnType("nvarchar(6)")
-                        .HasDefaultValue("ededed");
+                        .HasColumnType("character varying(6)")
+                        .HasDefaultValue("ededed")
+                        .HasColumnName("color");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
 
                     b.Property<int>("RepositoryId")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("repository_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_labels");
 
                     b.HasIndex("RepositoryId", "Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_labels_repository_id_name");
 
-                    b.ToTable("Labels");
+                    b.ToTable("labels", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.Language", b =>
                 {
                     b.Property<int>("Id")
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
                     b.Property<string>("CultureName")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("culture_name");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_languages");
 
                     b.HasIndex("CultureName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_languages_culture_name");
 
-                    b.ToTable("Languages");
+                    b.ToTable("languages", (string)null);
 
                     b.HasData(
                         new
@@ -456,56 +511,68 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("full_name");
 
                     b.Property<long>("GitHubId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("git_hub_id");
 
                     b.Property<string>("HtmlUrl")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("html_url");
 
                     b.Property<DateTimeOffset?>("LastSyncedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_synced_at");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_repositories");
 
                     b.HasIndex("FullName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_repositories_full_name");
 
                     b.HasIndex("GitHubId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_repositories_git_hub_id");
 
-                    b.ToTable("Repositories");
+                    b.ToTable("repositories", (string)null);
                 });
 
             modelBuilder.Entity("Olbrasoft.GitHub.Issues.Data.Entities.TextType", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("name");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_text_types");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ix_text_types_name");
 
-                    b.ToTable("TextTypes");
+                    b.ToTable("text_types", (string)null);
 
                     b.HasData(
                         new
@@ -531,19 +598,22 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .WithMany("CachedTexts")
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_cached_texts_issues_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Language", "Language")
                         .WithMany("CachedTexts")
                         .HasForeignKey("LanguageId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_cached_texts_languages_language_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.TextType", "TextType")
                         .WithMany("CachedTexts")
                         .HasForeignKey("TextTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_cached_texts_text_types_text_type_id");
 
                     b.Navigation("Issue");
 
@@ -557,13 +627,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "ParentIssue")
                         .WithMany("SubIssues")
                         .HasForeignKey("ParentIssueId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_issues_issues_parent_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Repository", "Repository")
                         .WithMany("Issues")
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issues_repositories_repository_id");
 
                     b.Navigation("ParentIssue");
 
@@ -576,13 +648,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .WithMany("IssueEvents")
                         .HasForeignKey("EventTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_events_event_types_event_type_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Issue", "Issue")
                         .WithMany("Events")
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_events_issues_issue_id");
 
                     b.Navigation("EventType");
 
@@ -595,13 +669,15 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .WithMany("IssueLabels")
                         .HasForeignKey("IssueId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_labels_issues_issue_id");
 
                     b.HasOne("Olbrasoft.GitHub.Issues.Data.Entities.Label", "Label")
                         .WithMany("IssueLabels")
                         .HasForeignKey("LabelId")
                         .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_issue_labels_labels_label_id");
 
                     b.Navigation("Issue");
 
@@ -614,7 +690,8 @@ namespace Olbrasoft.GitHub.Issues.Migrations.SqlServer.Migrations
                         .WithMany("Labels")
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_labels_repositories_repository_id");
 
                     b.Navigation("Repository");
                 });
