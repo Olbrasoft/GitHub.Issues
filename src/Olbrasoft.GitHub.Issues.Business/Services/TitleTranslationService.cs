@@ -1,20 +1,19 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.Text.Translation;
-using Olbrasoft.Text.Translation.DeepL;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for translating issue titles using dedicated translation services.
-/// Primary: Azure Translator. Fallback: DeepL.
+/// Primary: Azure Translator. Fallback: DeepL (or any other ITranslator).
 /// Note: Cohere (AI-based) removed per Issue #209 - translations must use proper translators.
 /// </summary>
 public class TitleTranslationService : ITitleTranslationService
 {
     private readonly GitHubDbContext _dbContext;
     private readonly ITranslator _translator;
-    private readonly DeepLTranslator? _fallbackTranslator;
+    private readonly ITranslator? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
     private readonly ILogger<TitleTranslationService> _logger;
 
@@ -23,7 +22,7 @@ public class TitleTranslationService : ITitleTranslationService
         ITranslator translator,
         ITitleTranslationNotifier notifier,
         ILogger<TitleTranslationService> logger,
-        DeepLTranslator? fallbackTranslator = null)
+        ITranslator? fallbackTranslator = null)
     {
         _dbContext = dbContext;
         _translator = translator;

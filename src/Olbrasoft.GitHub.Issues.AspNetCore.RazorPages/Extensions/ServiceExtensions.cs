@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Business.Strategies;
 using Olbrasoft.GitHub.Issues.Sync.Services;
@@ -154,7 +155,21 @@ public static class ServiceExtensions
         services.AddScoped<ISummaryNotifier, SignalRSummaryNotifier>();
         services.AddScoped<IBodyNotifier, SignalRBodyNotifier>();
         services.AddScoped<ITitleTranslationNotifier, SignalRTitleTranslationNotifier>();
-        services.AddScoped<ITitleTranslationService, TitleTranslationService>();
+
+        // Title translation service with explicit DeepL fallback injection
+        // Note: DeepLTranslator is optional but we need to explicitly resolve it
+        // because it's registered via AddHttpClient and the optional parameter
+        // might not be resolved correctly by default DI
+        services.AddScoped<ITitleTranslationService>(sp =>
+        {
+            var dbContext = sp.GetRequiredService<GitHubDbContext>();
+            var translator = sp.GetRequiredService<ITranslator>();
+            var notifier = sp.GetRequiredService<ITitleTranslationNotifier>();
+            var logger = sp.GetRequiredService<ILogger<TitleTranslationService>>();
+            var fallbackTranslator = sp.GetService<DeepLTranslator>();
+
+            return new TitleTranslationService(dbContext, translator, notifier, logger, fallbackTranslator);
+        });
 
         // Sync services
         services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();

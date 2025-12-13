@@ -13,13 +13,14 @@ public class TitleTranslationServiceTests
     private readonly Mock<ITitleTranslationNotifier> _mockNotifier = new();
     private readonly Mock<ILogger<TitleTranslationService>> _mockLogger = new();
 
-    private TitleTranslationService CreateService(GitHubDbContext context)
+    private TitleTranslationService CreateService(GitHubDbContext context, ITranslator? fallback = null)
     {
         return new TitleTranslationService(
             context,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            fallback);
     }
 
     [Fact]
