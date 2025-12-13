@@ -59,7 +59,7 @@ public class IssueListQueryHandler : GitHubDbQueryHandler<Issue, IssueListQuery,
     {
         var query = Entities
             .Include(i => i.Repository)
-            .Where(i => repositoryIds.Contains(i.RepositoryId));
+            .Where(i => !i.IsDeleted && repositoryIds.Contains(i.RepositoryId));
 
         if (string.Equals(state, "open", StringComparison.OrdinalIgnoreCase))
         {

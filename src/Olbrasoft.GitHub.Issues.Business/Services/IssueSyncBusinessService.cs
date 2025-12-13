@@ -88,4 +88,14 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
         };
         return await command.ToResultAsync(ct);
     }
+
+    public async Task<int> MarkIssuesAsDeletedAsync(int repositoryId, IEnumerable<int> issueIdsToDelete, CancellationToken ct = default)
+    {
+        var command = new IssueMarkDeletedCommand(Mediator)
+        {
+            RepositoryId = repositoryId,
+            IssueIds = issueIdsToDelete.ToList()
+        };
+        return await command.ToResultAsync(ct);
+    }
 }

@@ -18,6 +18,7 @@ public class Issue
     public int Number { get; set; }
     public string Title { get; set; } = string.Empty;
     public bool IsOpen { get; set; } = true;
+    public bool IsDeleted { get; set; } = false;
     public string Url { get; set; } = string.Empty;
     public DateTimeOffset GitHubUpdatedAt { get; set; }
     public float[] Embedding { get; set; } = [];

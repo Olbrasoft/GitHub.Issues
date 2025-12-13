@@ -135,7 +135,56 @@ public class IssueSyncService : IIssueSyncService
         // Update parent-child relationships
         await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
 
+        // Detect and mark deleted issues during FULL SYNC only
+        if (since == null)
+        {
+            stats.Deleted = await DetectAndMarkDeletedIssuesAsync(
+                repository.Id,
+                existingIssues,
+                allIssues.Select(i => i.Number).ToHashSet(),
+                cancellationToken);
+        }
+
         return stats;
+    }
+
+    /// <summary>
+    /// Detects issues that exist in DB but were not returned from GitHub during full sync.
+    /// These are marked as deleted (soft delete).
+    /// </summary>
+    private async Task<int> DetectAndMarkDeletedIssuesAsync(
+        int repositoryId,
+        Dictionary<int, Issue> existingIssues,
+        HashSet<int> githubIssueNumbers,
+        CancellationToken cancellationToken)
+    {
+        // Find issues in DB that were not returned from GitHub (excluding already deleted)
+        var issueIdsToDelete = existingIssues
+            .Where(kvp => !githubIssueNumbers.Contains(kvp.Key) && !kvp.Value.IsDeleted)
+            .Select(kvp => kvp.Value.Id)
+            .ToList();
+
+        if (issueIdsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        _logger.LogInformation(
+            "Marking {Count} issues as deleted (not found on GitHub during full sync)",
+            issueIdsToDelete.Count);
+
+        // Log which issues are being deleted
+        foreach (var kvp in existingIssues.Where(kvp => !githubIssueNumbers.Contains(kvp.Key) && !kvp.Value.IsDeleted))
+        {
+            _logger.LogInformation("  Issue #{Number}: {Title}", kvp.Key, kvp.Value.Title);
+        }
+
+        var deletedCount = await _issueSyncBusiness.MarkIssuesAsDeletedAsync(
+            repositoryId,
+            issueIdsToDelete,
+            cancellationToken);
+
+        return deletedCount;
     }
 
     private async Task UpdateParentChildRelationshipsAsync(

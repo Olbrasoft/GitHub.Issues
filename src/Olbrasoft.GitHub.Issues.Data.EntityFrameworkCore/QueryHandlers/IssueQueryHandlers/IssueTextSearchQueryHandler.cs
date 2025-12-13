@@ -63,11 +63,12 @@ public class IssueTextSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueText
         var pattern = $"%{lowerSearchText}%";
 
         // Search only in Title - issue body is fetched from GitHub on demand
+        // Filter out deleted issues
         var query = Entities
             .Include(i => i.Repository)
             .Include(i => i.IssueLabels)
                 .ThenInclude(il => il.Label)
-            .Where(i => EF.Functions.Like(i.Title.ToLower(), pattern));
+            .Where(i => !i.IsDeleted && EF.Functions.Like(i.Title.ToLower(), pattern));
 
         if (repositoryIds != null && repositoryIds.Count > 0)
         {

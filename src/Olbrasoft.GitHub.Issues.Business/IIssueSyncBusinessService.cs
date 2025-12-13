@@ -45,4 +45,13 @@ public interface IIssueSyncBusinessService
     /// Syncs labels for an issue.
     /// </summary>
     Task<bool> SyncLabelsAsync(int issueId, int repositoryId, List<string> labelNames, CancellationToken ct = default);
+
+    /// <summary>
+    /// Marks issues as deleted (soft delete) that were not found during full sync.
+    /// </summary>
+    /// <param name="repositoryId">Repository ID</param>
+    /// <param name="issueIdsToDelete">Issue IDs to mark as deleted</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Number of issues marked as deleted</returns>
+    Task<int> MarkIssuesAsDeletedAsync(int repositoryId, IEnumerable<int> issueIdsToDelete, CancellationToken ct = default);
 }

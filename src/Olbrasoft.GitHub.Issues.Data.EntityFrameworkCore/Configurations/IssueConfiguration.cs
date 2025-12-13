@@ -23,6 +23,10 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.Property(i => i.IsOpen)
             .IsRequired();
 
+        builder.Property(i => i.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(i => i.Url)
             .HasMaxLength(512)
             .IsRequired();
@@ -53,5 +57,8 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(i => i.ParentIssueId);
+
+        // Index for efficient filtering of non-deleted issues
+        builder.HasIndex(i => i.IsDeleted);
     }
 }

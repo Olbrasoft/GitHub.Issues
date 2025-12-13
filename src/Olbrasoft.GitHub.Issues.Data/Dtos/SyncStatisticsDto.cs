@@ -36,6 +36,11 @@ public class SyncStatisticsDto
     public int EmbeddingsFailed { get; set; }
 
     /// <summary>
+    /// Number of issues marked as deleted (existed in DB but not found on GitHub during full sync).
+    /// </summary>
+    public int Deleted { get; set; }
+
+    /// <summary>
     /// The timestamp used for incremental sync (null if full sync).
     /// </summary>
     public DateTimeOffset? SinceTimestamp { get; set; }
@@ -51,5 +56,6 @@ public class SyncStatisticsDto
         Updated += other.Updated;
         Unchanged += other.Unchanged;
         EmbeddingsFailed += other.EmbeddingsFailed;
+        Deleted += other.Deleted;
     }
 }

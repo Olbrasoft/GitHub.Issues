@@ -110,7 +110,7 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
     {
         var query = Entities
             .Include(i => i.Repository)
-            .Where(i => i.Embedding != null)
+            .Where(i => i.Embedding != null && !i.IsDeleted)
             .AsQueryable();
 
         if (string.Equals(state, "open", StringComparison.OrdinalIgnoreCase))
