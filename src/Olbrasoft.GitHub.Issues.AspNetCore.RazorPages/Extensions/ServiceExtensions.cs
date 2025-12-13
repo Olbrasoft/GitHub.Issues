@@ -196,6 +196,9 @@ public static class ServiceExtensions
             return new RoundRobinTranslator(providerGroups, poolLogger);
         });
 
+        // TimeProvider for testable timestamps
+        services.AddSingleton(TimeProvider.System);
+
         // Search strategies (Strategy Pattern)
         services.AddScoped<ISearchStrategy, ExactMatchSearchStrategy>();
         services.AddScoped<ISearchStrategy, SemanticSearchStrategy>();
@@ -236,9 +239,10 @@ public static class ServiceExtensions
             var dbContext = sp.GetRequiredService<GitHubDbContext>();
             var translator = sp.GetRequiredService<ITranslator>();
             var notifier = sp.GetRequiredService<ITitleTranslationNotifier>();
+            var timeProvider = sp.GetRequiredService<TimeProvider>();
             var logger = sp.GetRequiredService<ILogger<TitleTranslationService>>();
             // No separate fallback - RoundRobinTranslator handles it
-            return new TitleTranslationService(dbContext, translator, notifier, logger, fallbackTranslator: null);
+            return new TitleTranslationService(dbContext, translator, notifier, timeProvider, logger, fallbackTranslator: null);
         });
 
         // Sync services

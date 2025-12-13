@@ -18,6 +18,7 @@ public class IssueSummaryService : IIssueSummaryService
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslationFallbackService _translationService;
     private readonly ISummaryNotifier _summaryNotifier;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<IssueSummaryService> _logger;
 
     public IssueSummaryService(
@@ -25,12 +26,14 @@ public class IssueSummaryService : IIssueSummaryService
         ISummarizationService summarizationService,
         ITranslationFallbackService translationService,
         ISummaryNotifier summaryNotifier,
+        TimeProvider timeProvider,
         ILogger<IssueSummaryService> logger)
     {
         _dbContext = dbContext;
         _summarizationService = summarizationService;
         _translationService = translationService;
         _summaryNotifier = summaryNotifier;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -223,7 +226,7 @@ public class IssueSummaryService : IIssueSummaryService
                 LanguageId = languageId,
                 TextTypeId = textTypeId,
                 Content = content,
-                CachedAt = DateTime.UtcNow
+                CachedAt = _timeProvider.GetUtcNow().UtcDateTime
             });
             await _dbContext.SaveChangesAsync(ct);
             _logger.LogDebug("[IssueSummaryService] Saved to cache: Issue {IssueId}, Language {LangId}, Type {TypeId}", issueId, languageId, textTypeId);

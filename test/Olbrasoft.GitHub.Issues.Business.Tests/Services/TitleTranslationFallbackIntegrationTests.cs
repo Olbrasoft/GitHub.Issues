@@ -71,6 +71,7 @@ public class TitleTranslationFallbackIntegrationTests
             context,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
+            TimeProvider.System,
             _mockLogger.Object,
             deepLTranslator);
 
@@ -129,6 +130,7 @@ public class TitleTranslationFallbackIntegrationTests
             context,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
+            TimeProvider.System,
             _mockLogger.Object,
             mockFallbackTranslator.Object);
 
@@ -186,6 +188,7 @@ public class TitleTranslationFallbackIntegrationTests
             context,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
+            TimeProvider.System,
             _mockLogger.Object,
             mockFallbackTranslator.Object);
 
@@ -237,6 +240,7 @@ public class TitleTranslationFallbackIntegrationTests
             context,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
+            TimeProvider.System,
             _mockLogger.Object,
             null);  // No fallback!
 

@@ -41,6 +41,7 @@ public class IssueSummaryServiceTests
             _summarizationServiceMock.Object,
             _translationServiceMock.Object,
             _summaryNotifierMock.Object,
+            TimeProvider.System,
             _loggerMock.Object);
     }
 

@@ -18,12 +18,14 @@ public class TitleTranslationService : ITitleTranslationService
     private readonly ITranslator _translator;
     private readonly ITranslator? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<TitleTranslationService> _logger;
 
     public TitleTranslationService(
         GitHubDbContext dbContext,
         ITranslator translator,
         ITitleTranslationNotifier notifier,
+        TimeProvider timeProvider,
         ILogger<TitleTranslationService> logger,
         ITranslator? fallbackTranslator = null)
     {
@@ -31,6 +33,7 @@ public class TitleTranslationService : ITitleTranslationService
         _translator = translator;
         _fallbackTranslator = fallbackTranslator;
         _notifier = notifier;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -199,7 +202,7 @@ public class TitleTranslationService : ITitleTranslationService
                 LanguageId = languageId,
                 TextTypeId = (int)TextTypeCode.Title,
                 Content = content,
-                CachedAt = DateTime.UtcNow
+                CachedAt = _timeProvider.GetUtcNow().UtcDateTime
             });
             await _dbContext.SaveChangesAsync(ct);
             _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
