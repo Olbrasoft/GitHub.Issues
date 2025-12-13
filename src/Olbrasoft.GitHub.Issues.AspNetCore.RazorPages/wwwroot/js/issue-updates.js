@@ -12,6 +12,38 @@
     let keepAliveInterval = null; // Client-side keep-alive interval
     let currentRepoFilter = ''; // Current repository filter from search form
 
+    // Translation cache to prevent repeated API calls
+    const TRANSLATION_CACHE_KEY = 'github-issues-title-translations';
+
+    // Get translation cache from sessionStorage
+    function getTranslationCache() {
+        try {
+            const cached = sessionStorage.getItem(TRANSLATION_CACHE_KEY);
+            return cached ? JSON.parse(cached) : {};
+        } catch (e) {
+            console.warn('[issue-updates] Failed to read translation cache:', e);
+            return {};
+        }
+    }
+
+    // Save translation to cache
+    function cacheTranslation(issueId, language, translatedTitle) {
+        try {
+            const cache = getTranslationCache();
+            const key = `${issueId}_${language}`;
+            cache[key] = translatedTitle;
+            sessionStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(cache));
+        } catch (e) {
+            console.warn('[issue-updates] Failed to save translation to cache:', e);
+        }
+    }
+
+    // Get cached translation
+    function getCachedTranslation(issueId, language) {
+        const cache = getTranslationCache();
+        return cache[`${issueId}_${language}`] || null;
+    }
+
     // Initialize SignalR connection when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
         // Read language preference from page variable set by server
@@ -208,10 +240,40 @@
             return;
         }
 
-        console.log('[issue-updates] Triggering title translations for', subscribedIssueIds.length, 'issues');
+        // Separate cached and uncached issue IDs
+        const uncachedIds = [];
+        let cachedCount = 0;
 
-        // Add "translating" indicator to all titles
         subscribedIssueIds.forEach(function (issueId) {
+            const cachedTranslation = getCachedTranslation(issueId, selectedLanguage);
+            const issueItem = document.querySelector(`.result-item[data-issue-id="${issueId}"]`);
+
+            if (cachedTranslation && issueItem) {
+                // Apply cached translation immediately
+                const titleLink = issueItem.querySelector('.result-title');
+                if (titleLink) {
+                    const currentText = titleLink.textContent;
+                    const match = currentText.match(/^(#\d+)\s/);
+                    const issueNumberPrefix = match ? match[1] + ' ' : '';
+                    titleLink.textContent = issueNumberPrefix + cachedTranslation;
+                    cachedCount++;
+                }
+            } else {
+                // Need to fetch translation
+                uncachedIds.push(issueId);
+            }
+        });
+
+        console.log('[issue-updates] Title translations: ', cachedCount, 'from cache,', uncachedIds.length, 'to fetch');
+
+        // If all translations were cached, we're done
+        if (uncachedIds.length === 0) {
+            console.log('[issue-updates] All translations loaded from cache');
+            return;
+        }
+
+        // Add "translating" indicator only to uncached titles
+        uncachedIds.forEach(function (issueId) {
             const issueItem = document.querySelector(`.result-item[data-issue-id="${issueId}"]`);
             if (issueItem) {
                 const titleLink = issueItem.querySelector('.result-title');
@@ -222,17 +284,17 @@
             }
         });
 
-        // Fire-and-forget API call to trigger translations
+        // Fire-and-forget API call to trigger translations only for uncached
         fetch('/api/issues/translate-titles', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ issueIds: subscribedIssueIds, targetLanguage: selectedLanguage })
+            body: JSON.stringify({ issueIds: uncachedIds, targetLanguage: selectedLanguage })
         })
         .then(response => {
             if (response.ok) {
-                console.log('[issue-updates] Title translations triggered for', subscribedIssueIds.length, 'issues');
+                console.log('[issue-updates] Title translations triggered for', uncachedIds.length, 'issues');
             } else {
                 console.error('[issue-updates] Failed to trigger translations:', response.status);
             }
@@ -244,6 +306,11 @@
 
     function handleTitleTranslated(data) {
         console.log('[issue-updates] TitleTranslated received:', data);
+
+        // Cache the translation for future page loads (unless it's a failed translation)
+        if (data.translatedTitle && data.provider !== 'failed') {
+            cacheTranslation(data.issueId, data.language || selectedLanguage, data.translatedTitle);
+        }
 
         const issueItem = document.querySelector(`.result-item[data-issue-id="${data.issueId}"]`);
         if (!issueItem) {
