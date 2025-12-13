@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Olbrasoft.Data.Cqrs;
 
@@ -27,6 +28,9 @@ public static class ServiceCollectionExtensions
         // Register DbContext with provider-specific options and migrations assembly
         services.AddDbContext<GitHubDbContext>((serviceProvider, options) =>
         {
+            // Suppress warning about pending model changes (we manually edit migrations for safety)
+            options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+
             switch (provider)
             {
                 case DatabaseProvider.PostgreSQL:
