@@ -1,7 +1,7 @@
 # GitHub.Issues
 
 [![Build and Deploy](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml/badge.svg)](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml)
-[![Uptime Status](https://img.shields.io/uptimerobot/status/m801985171-b443ff66e892b834307a53a1?label=Uptime&style=flat)](https://github-issues.azurewebsites.net)
+[![Uptime Status](https://img.shields.io/uptimerobot/status/m801985171-b443ff66e892b834307a53a1?label=Uptime&style=flat-square)](https://stats.uptimerobot.com/ueMqtXp5wJ)
 
 Semantic search for GitHub issues using vector embeddings. Supports **dual embedding providers**: Ollama (local) and Cohere (cloud). Synchronizes issues from multiple GitHub repositories and enables natural language search.
 
