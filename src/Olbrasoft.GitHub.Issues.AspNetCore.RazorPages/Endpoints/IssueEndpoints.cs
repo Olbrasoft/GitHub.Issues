@@ -1,5 +1,8 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Sync.Services;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Endpoints;
 
@@ -263,6 +266,96 @@ public static class IssueEndpoints
 
             return Results.Accepted(value: new { message = $"Fetching bodies and generating summaries for {issueIds.Count} issues" });
         });
+
+        // Change issue state (open/close) on GitHub
+        app.MapPost("/api/issues/{id:int}/change-state", async (
+            int id,
+            HttpRequest request,
+            GitHubDbContext dbContext,
+            IGitHubApiClient gitHubClient,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            // Parse request body
+            string state;
+            try
+            {
+                using var reader = new StreamReader(request.Body);
+                var body = await reader.ReadToEndAsync(ct);
+                var json = JsonDocument.Parse(body);
+
+                if (!json.RootElement.TryGetProperty("state", out var stateElement))
+                {
+                    return Results.BadRequest(new { error = "Missing 'state' property" });
+                }
+
+                state = stateElement.GetString() ?? "";
+                if (state is not ("open" or "closed"))
+                {
+                    return Results.BadRequest(new { error = "State must be 'open' or 'closed'" });
+                }
+            }
+            catch (JsonException)
+            {
+                return Results.BadRequest(new { error = "Invalid JSON" });
+            }
+
+            // Get issue from database
+            var issue = await dbContext.Issues
+                .Include(i => i.Repository)
+                .FirstOrDefaultAsync(i => i.Id == id, ct);
+
+            if (issue == null)
+            {
+                return Results.NotFound(new { error = $"Issue with ID {id} not found" });
+            }
+
+            // Parse owner and repo from full name
+            var parts = issue.Repository.FullName.Split('/');
+            if (parts.Length != 2)
+            {
+                return Results.BadRequest(new { error = "Invalid repository format" });
+            }
+
+            var owner = parts[0];
+            var repo = parts[1];
+
+            try
+            {
+                // Update on GitHub
+                logger.LogInformation("Changing issue state: {Owner}/{Repo}#{Number} -> {State}",
+                    owner, repo, issue.Number, state);
+
+                await gitHubClient.UpdateIssueStateAsync(owner, repo, issue.Number, state);
+
+                // Update local database
+                issue.IsOpen = state == "open";
+                await dbContext.SaveChangesAsync(ct);
+
+                logger.LogInformation("Issue state changed successfully: {Owner}/{Repo}#{Number} is now {State}",
+                    owner, repo, issue.Number, state);
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    id = issue.Id,
+                    issueNumber = issue.Number,
+                    isOpen = issue.IsOpen,
+                    state = state,
+                    message = state == "open" ? "Issue reopened" : "Issue closed"
+                });
+            }
+            catch (Octokit.ApiException ex)
+            {
+                logger.LogError(ex, "GitHub API error while changing issue state");
+                return Results.BadRequest(new { error = $"GitHub API error: {ex.Message}" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error changing issue state");
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        }).RequireAuthorization("OwnerOnly");
 
         return app;
     }

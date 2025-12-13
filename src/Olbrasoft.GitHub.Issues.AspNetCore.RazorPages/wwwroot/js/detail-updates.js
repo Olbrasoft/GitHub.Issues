@@ -8,10 +8,12 @@
     let englishReceived = false;  // Track if English summary already received
     let czechReceived = false;    // Track if Czech translation already received
     let selectedLanguage = 'cs';  // Default language for translations
+    let isOwner = false;          // Track if current user is repository owner
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
         initializeDetailUpdates();
+        initializeIssueStateButtons();
     });
 
     function initializeDetailUpdates() {
@@ -301,4 +303,125 @@
             connection.stop();
         }
     });
+
+    // ===== Issue State Buttons (Close/Reopen) =====
+
+    function initializeIssueStateButtons() {
+        console.log('[detail-updates] Initializing issue state buttons...');
+
+        // Get issue ID from container
+        const container = document.querySelector('.detail-container');
+        if (!container) {
+            console.log('[detail-updates] No detail container found');
+            return;
+        }
+
+        const detailIssueId = parseInt(container.dataset.issueId, 10);
+        if (!detailIssueId || isNaN(detailIssueId)) {
+            console.log('[detail-updates] No valid issue ID found');
+            return;
+        }
+
+        // Check auth status to show/hide buttons
+        checkAuthStatusForButtons();
+
+        // Add click handlers for all state buttons
+        document.querySelectorAll('.issue-state-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const isCloseBtn = btn.classList.contains('issue-close-btn');
+                const newState = isCloseBtn ? 'closed' : 'open';
+                changeIssueState(detailIssueId, newState, btn);
+            });
+        });
+    }
+
+    async function checkAuthStatusForButtons() {
+        try {
+            const response = await fetch('/api/auth/status');
+            if (!response.ok) {
+                console.log('[detail-updates] Auth status check failed');
+                return;
+            }
+
+            const auth = await response.json();
+            isOwner = auth.isOwner;
+
+            console.log('[detail-updates] Auth status:', auth.isAuthenticated ? 'authenticated' : 'not authenticated', 'isOwner:', isOwner);
+
+            // Show state buttons only for owner
+            if (auth.isAuthenticated && auth.isOwner) {
+                document.querySelectorAll('.issue-state-btn').forEach(function(btn) {
+                    btn.style.display = 'inline-flex';
+                });
+                console.log('[detail-updates] Issue state buttons shown');
+            }
+        } catch (error) {
+            console.error('[detail-updates] Error checking auth status:', error);
+        }
+    }
+
+    async function changeIssueState(issueId, newState, button) {
+        console.log('[detail-updates] Changing issue state:', issueId, '->', newState);
+
+        // Disable all buttons and show loading state
+        const allButtons = document.querySelectorAll('.issue-state-btn');
+        allButtons.forEach(function(btn) {
+            btn.disabled = true;
+            btn.classList.add('loading');
+        });
+
+        // Update button text
+        const originalText = button.querySelector('.btn-text').textContent;
+        button.querySelector('.btn-text').textContent = newState === 'closed' ? 'Zavírám...' : 'Otevírám...';
+        button.querySelector('.btn-icon').textContent = '⏳';
+
+        try {
+            const response = await fetch(`/api/issues/${issueId}/change-state`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ state: newState })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                console.log('[detail-updates] Issue state changed successfully:', result);
+
+                // Update the state badge
+                const stateBadge = document.querySelector('.state-badge');
+                if (stateBadge) {
+                    stateBadge.textContent = newState === 'open' ? 'Otevřený' : 'Zavřený';
+                    stateBadge.classList.remove('state-open', 'state-closed');
+                    stateBadge.classList.add(newState === 'open' ? 'state-open' : 'state-closed');
+                }
+
+                // Reload page to show correct buttons (simpler than swapping buttons dynamically)
+                window.location.reload();
+            } else {
+                console.error('[detail-updates] Failed to change issue state:', result.error);
+                alert('Chyba: ' + (result.error || 'Nepodařilo se změnit stav issue'));
+
+                // Restore buttons
+                allButtons.forEach(function(btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+                });
+                button.querySelector('.btn-text').textContent = originalText;
+                button.querySelector('.btn-icon').textContent = newState === 'closed' ? '✕' : '↺';
+            }
+        } catch (error) {
+            console.error('[detail-updates] Error changing issue state:', error);
+            alert('Chyba při komunikaci se serverem');
+
+            // Restore buttons
+            allButtons.forEach(function(btn) {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+            });
+            button.querySelector('.btn-text').textContent = originalText;
+            button.querySelector('.btn-icon').textContent = newState === 'closed' ? '✕' : '↺';
+        }
+    }
 })();

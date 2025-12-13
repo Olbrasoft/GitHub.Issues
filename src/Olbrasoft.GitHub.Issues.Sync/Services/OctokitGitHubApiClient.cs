@@ -30,4 +30,17 @@ public class OctokitGitHubApiClient : IGitHubApiClient
     {
         return await _client.Issue.Labels.GetAllForRepository(owner, repo);
     }
+
+    public async Task<Issue> UpdateIssueStateAsync(string owner, string repo, int issueNumber, string state)
+    {
+        var issueState = state.ToLowerInvariant() switch
+        {
+            "open" => ItemState.Open,
+            "closed" => ItemState.Closed,
+            _ => throw new ArgumentException($"Invalid state: {state}. Must be 'open' or 'closed'.", nameof(state))
+        };
+
+        var update = new IssueUpdate { State = issueState };
+        return await _client.Issue.Update(owner, repo, issueNumber, update);
+    }
 }

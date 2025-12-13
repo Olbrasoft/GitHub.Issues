@@ -5,12 +5,28 @@
     ViewData["Title"] = Model.Issue?.Title ?? "Detail issue";
 }
 
-<div class="detail-container">
+<div class="detail-container" data-issue-id="@Model.Issue?.Id" data-issue-is-open="@Model.Issue?.IsOpen.ToString().ToLower()">
     <div class="nav-buttons nav-buttons-top">
         <a href="@Model.SafeReturnUrl" class="back-link">← Zpět na výsledky</a>
         @if (Model.Issue != null)
         {
-            <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
+            <div class="nav-buttons-right">
+                @if (Model.Issue.IsOpen)
+                {
+                    <button id="closeIssueBtn" class="issue-state-btn issue-close-btn" style="display: none;" title="Zavřít tento issue">
+                        <span class="btn-icon">✕</span>
+                        <span class="btn-text">Zavřít</span>
+                    </button>
+                }
+                else
+                {
+                    <button id="reopenIssueBtn" class="issue-state-btn issue-reopen-btn" style="display: none;" title="Znovu otevřít tento issue">
+                        <span class="btn-icon">↺</span>
+                        <span class="btn-text">Otevřít</span>
+                    </button>
+                }
+                <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
+            </div>
         }
     </div>
 
@@ -101,7 +117,23 @@
 
             <div class="nav-buttons nav-buttons-bottom">
                 <a href="@Model.SafeReturnUrl" class="back-link">← Zpět na výsledky</a>
-                <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
+                <div class="nav-buttons-right">
+                    @if (Model.Issue.IsOpen)
+                    {
+                        <button id="closeIssueBtnBottom" class="issue-state-btn issue-close-btn" style="display: none;" title="Zavřít tento issue">
+                            <span class="btn-icon">✕</span>
+                            <span class="btn-text">Zavřít</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <button id="reopenIssueBtnBottom" class="issue-state-btn issue-reopen-btn" style="display: none;" title="Znovu otevřít tento issue">
+                            <span class="btn-icon">↺</span>
+                            <span class="btn-text">Otevřít</span>
+                        </button>
+                    }
+                    <a href="@Model.Issue.Url" target="_blank" class="github-button">Otevřít na GitHubu ↗</a>
+                </div>
             </div>
         </div>
     }
@@ -415,6 +447,63 @@
             padding: 0;
             margin: 0;
         }
+    }
+
+    /* Navigation buttons right group */
+    .nav-buttons-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Issue state buttons (Close/Reopen) */
+    .issue-state-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .issue-state-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .issue-close-btn {
+        background-color: #cf222e;
+        color: white;
+    }
+
+    .issue-close-btn:hover:not(:disabled) {
+        background-color: #a40e26;
+    }
+
+    .issue-reopen-btn {
+        background-color: #1a7f37;
+        color: white;
+    }
+
+    .issue-reopen-btn:hover:not(:disabled) {
+        background-color: #116329;
+    }
+
+    .issue-state-btn .btn-icon {
+        font-size: 14px;
+    }
+
+    /* Loading state */
+    .issue-state-btn.loading .btn-text {
+        opacity: 0.7;
+    }
+
+    .issue-state-btn.loading .btn-icon {
+        animation: spin 1s linear infinite;
     }
 </style>
 
