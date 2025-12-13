@@ -109,14 +109,15 @@
 
     function getRepoFilterFromPage() {
         // Get the repository full name from the displayed tag (not the hidden ID input)
-        // The tag structure is: <div class="repo-tag"><span>owner/repo</span><span>×</span></div>
-        var repoTag = document.querySelector('.repo-tag');
+        // The tag structure is: <div class="tag"><text>owner/repo</text><span class="tag-remove">×</span></div>
+        var repoTag = document.querySelector('.tags .tag');
         if (repoTag) {
-            // Get the first text node or span that contains the repo name
+            // Get the first text node that contains the repo name (before the × button)
             var repoName = repoTag.childNodes[0];
             if (repoName && repoName.textContent) {
                 var name = repoName.textContent.trim();
                 if (name && name !== '×') {
+                    console.log('[issue-updates] Detected repo filter from tag:', name);
                     return name;
                 }
             }
