@@ -10,31 +10,6 @@
     let selectedLanguage = 'cs';  // Default language for translations
     let isOwner = false;          // Track if current user is repository owner
 
-    // Translation cache (shared with issue-updates.js via sessionStorage)
-    const TRANSLATION_CACHE_KEY = 'github-issues-title-translations';
-
-    function getTranslationCache() {
-        try {
-            const cached = sessionStorage.getItem(TRANSLATION_CACHE_KEY);
-            return cached ? JSON.parse(cached) : {};
-        } catch (e) {
-            return {};
-        }
-    }
-
-    function cacheTranslation(issueId, language, translatedTitle) {
-        try {
-            const cache = getTranslationCache();
-            cache[`${issueId}_${language}`] = translatedTitle;
-            sessionStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(cache));
-        } catch (e) { }
-    }
-
-    function getCachedTranslation(issueId, language) {
-        const cache = getTranslationCache();
-        return cache[`${issueId}_${language}`] || null;
-    }
-
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function () {
         initializeDetailUpdates();
@@ -174,19 +149,10 @@
             return;
         }
 
-        const titleElement = document.querySelector('.issue-header h1');
-
-        // Check cache first
-        const cachedTranslation = getCachedTranslation(issueId, selectedLanguage);
-        if (cachedTranslation && titleElement) {
-            console.log('[detail-updates] Using cached translation for issue', issueId);
-            titleElement.textContent = cachedTranslation;
-            return;
-        }
-
         console.log('[detail-updates] Triggering title translation for issue', issueId, 'language:', selectedLanguage);
 
         // Add translating indicator to title
+        const titleElement = document.querySelector('.issue-header h1');
         if (titleElement) {
             titleElement.classList.add('title-translating');
         }
@@ -219,11 +185,6 @@
 
     function handleTitleTranslated(data) {
         console.log('[detail-updates] TitleTranslated received:', data);
-
-        // Cache the translation for future page loads (unless it's a failed translation)
-        if (data.translatedTitle && data.provider !== 'failed') {
-            cacheTranslation(data.issueId, data.language || selectedLanguage, data.translatedTitle);
-        }
 
         if (data.issueId !== issueId) {
             console.log('[detail-updates] Title translation for different issue, ignoring');
