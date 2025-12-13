@@ -24,6 +24,24 @@ public static class DatabaseEndpoints
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         }).RequireAuthorization("OwnerOnly");
 
+        // Diagnostic endpoint: Show all migrations (applied and pending)
+        app.MapGet("/api/database/migrations", async (GitHubDbContext db, CancellationToken ct) =>
+        {
+            var appliedMigrations = await db.Database.GetAppliedMigrationsAsync(ct);
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync(ct);
+            var allMigrations = db.Database.GetMigrations();
+
+            return Results.Ok(new
+            {
+                appliedMigrations = appliedMigrations.ToList(),
+                appliedCount = appliedMigrations.Count(),
+                pendingMigrations = pendingMigrations.ToList(),
+                pendingCount = pendingMigrations.Count(),
+                allMigrationsInAssembly = allMigrations.ToList(),
+                totalInAssembly = allMigrations.Count()
+            });
+        });
+
         // Diagnostic endpoint: Test embedding service with detailed Cohere API response
         app.MapGet("/api/database/test-embedding", async (
             IConfiguration config,
