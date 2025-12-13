@@ -76,7 +76,7 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
                 "edited" => await HandleEditedAsync(repository.Id, repo.FullName, issue, ct),
                 "closed" => await HandleStateChangeAsync(repository.Id, issue, isOpen: false, ct),
                 "reopened" => await HandleStateChangeAsync(repository.Id, issue, isOpen: true, ct),
-                "deleted" => HandleDeleted(issue),
+                "deleted" => await HandleDeletedAsync(repository.Id, issue, ct),
                 "labeled" or "unlabeled" => await HandleLabelChangeAsync(repository.Id, repo.FullName, issue, ct),
                 _ => new WebhookProcessingResult
                 {
@@ -251,17 +251,42 @@ public class IssueEventHandler : IWebhookEventHandler<GitHubIssueWebhookPayload>
         };
     }
 
-    private WebhookProcessingResult HandleDeleted(GitHubWebhookIssue issue)
+    private async Task<WebhookProcessingResult> HandleDeletedAsync(
+        int repositoryId,
+        GitHubWebhookIssue issue,
+        CancellationToken ct)
     {
-        _logger.LogInformation("Deleting issue #{Number}", issue.Number);
-        _logger.LogWarning(
-            "Issue deletion not implemented - issue #{Number} will be removed on next full sync",
-            issue.Number);
+        _logger.LogInformation("Processing deletion of issue #{Number}", issue.Number);
+
+        // Get existing issue to find its ID
+        var existingIssue = await _issueService.GetIssueAsync(repositoryId, issue.Number, ct);
+        if (existingIssue == null)
+        {
+            _logger.LogDebug("Issue #{Number} not found in database - nothing to delete", issue.Number);
+            return new WebhookProcessingResult
+            {
+                Success = true,
+                Message = "Issue not found in database (already deleted or never synced)",
+                IssueNumber = issue.Number,
+                EmbeddingGenerated = false
+            };
+        }
+
+        // Soft delete the issue
+        var deletedCount = await _issueService.MarkIssuesAsDeletedAsync(
+            repositoryId,
+            [existingIssue.Id],
+            ct);
+
+        _logger.LogInformation(
+            "Issue #{Number} ({Title}) marked as deleted via webhook",
+            issue.Number, existingIssue.Title);
 
         return new WebhookProcessingResult
         {
             Success = true,
-            Message = "Issue deletion logged (will be removed on next sync)",
+            Message = deletedCount > 0 ? "Issue deleted" : "Issue was already deleted",
+            IssueTitle = existingIssue.Title,
             IssueNumber = issue.Number,
             EmbeddingGenerated = false
         };

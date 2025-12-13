@@ -240,4 +240,94 @@ public class IssueEventHandlerTests
         Assert.False(result.Success);
         Assert.Contains("Embedding generation failed", result.Message);
     }
+
+    [Fact]
+    public async Task HandleAsync_DeletedAction_MarksIssueAsDeleted()
+    {
+        // Arrange
+        var payload = CreatePayload("deleted");
+
+        _repositoryServiceMock
+            .Setup(x => x.GetByFullNameAsync("owner/repo", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Repository { Id = 1, FullName = "owner/repo" });
+
+        _issueServiceMock
+            .Setup(x => x.GetIssueAsync(1, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Issue { Id = 42, Number = 1, Title = "Test Issue" });
+
+        _issueServiceMock
+            .Setup(x => x.MarkIssuesAsDeletedAsync(1, It.Is<IEnumerable<int>>(ids => ids.Contains(42)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.HandleAsync(payload);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal("Issue deleted", result.Message);
+        Assert.Equal(1, result.IssueNumber);
+        Assert.False(result.EmbeddingGenerated);
+
+        _issueServiceMock.Verify(
+            x => x.MarkIssuesAsDeletedAsync(1, It.Is<IEnumerable<int>>(ids => ids.Contains(42)), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DeletedAction_IssueNotInDatabase_ReturnsSuccess()
+    {
+        // Arrange
+        var payload = CreatePayload("deleted");
+
+        _repositoryServiceMock
+            .Setup(x => x.GetByFullNameAsync("owner/repo", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Repository { Id = 1, FullName = "owner/repo" });
+
+        _issueServiceMock
+            .Setup(x => x.GetIssueAsync(1, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Issue?)null);
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.HandleAsync(payload);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Contains("not found", result.Message);
+
+        _issueServiceMock.Verify(
+            x => x.MarkIssuesAsDeletedAsync(It.IsAny<int>(), It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DeletedAction_IssueAlreadyDeleted_ReturnsSuccess()
+    {
+        // Arrange
+        var payload = CreatePayload("deleted");
+
+        _repositoryServiceMock
+            .Setup(x => x.GetByFullNameAsync("owner/repo", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Repository { Id = 1, FullName = "owner/repo" });
+
+        _issueServiceMock
+            .Setup(x => x.GetIssueAsync(1, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Issue { Id = 42, Number = 1, Title = "Test Issue", IsDeleted = true });
+
+        _issueServiceMock
+            .Setup(x => x.MarkIssuesAsDeletedAsync(1, It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0); // Already deleted, no rows affected
+
+        var handler = CreateHandler();
+
+        // Act
+        var result = await handler.HandleAsync(payload);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal("Issue was already deleted", result.Message);
+    }
 }
