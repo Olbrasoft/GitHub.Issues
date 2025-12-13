@@ -27,7 +27,7 @@ public class GitHubDbContext : DbContext
     public DbSet<IssueEvent> IssueEvents => Set<IssueEvent>();
     public DbSet<Language> Languages => Set<Language>();
     public DbSet<TextType> TextTypes => Set<TextType>();
-    public DbSet<TranslatedText> TranslatedTexts => Set<TranslatedText>();
+    public DbSet<CachedText> CachedTexts => Set<CachedText>();
 
     /// <summary>
     /// Gets the current database provider.

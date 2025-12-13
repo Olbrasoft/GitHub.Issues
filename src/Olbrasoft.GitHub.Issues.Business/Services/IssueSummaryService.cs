@@ -190,7 +190,7 @@ public class IssueSummaryService : IIssueSummaryService
     /// </summary>
     private async Task<string?> GetCachedSummaryAsync(int issueId, int languageId, int textTypeId, DateTime issueUpdatedAt, CancellationToken ct)
     {
-        var cached = await _dbContext.TranslatedTexts
+        var cached = await _dbContext.CachedTexts
             .FirstOrDefaultAsync(t =>
                 t.IssueId == issueId &&
                 t.LanguageId == languageId &&
@@ -199,10 +199,10 @@ public class IssueSummaryService : IIssueSummaryService
         if (cached == null) return null;
 
         // Validate freshness
-        if (issueUpdatedAt > cached.CreatedAt)
+        if (issueUpdatedAt > cached.CachedAt)
         {
             _logger.LogDebug("[IssueSummaryService] Cache STALE for issue {IssueId}, language {LangId}", issueId, languageId);
-            _dbContext.TranslatedTexts.Remove(cached);
+            _dbContext.CachedTexts.Remove(cached);
             await _dbContext.SaveChangesAsync(ct);
             return null;
         }
@@ -217,13 +217,13 @@ public class IssueSummaryService : IIssueSummaryService
     {
         try
         {
-            _dbContext.TranslatedTexts.Add(new TranslatedText
+            _dbContext.CachedTexts.Add(new CachedText
             {
                 IssueId = issueId,
                 LanguageId = languageId,
                 TextTypeId = textTypeId,
                 Content = content,
-                CreatedAt = DateTime.UtcNow
+                CachedAt = DateTime.UtcNow
             });
             await _dbContext.SaveChangesAsync(ct);
             _logger.LogDebug("[IssueSummaryService] Saved to cache: Issue {IssueId}, Language {LangId}, Type {TypeId}", issueId, languageId, textTypeId);

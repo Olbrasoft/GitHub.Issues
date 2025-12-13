@@ -1,8 +1,11 @@
+using System.Globalization;
+
 namespace Olbrasoft.GitHub.Issues.Data.Entities;
 
 /// <summary>
 /// Language entity mapping to .NET CultureInfo.
 /// Uses LCID (Locale Code Identifier) as primary key.
+/// Use CultureInfo.GetCultureInfo(Id) to get full culture details (EnglishName, NativeName, etc.).
 /// </summary>
 public class Language
 {
@@ -13,27 +16,17 @@ public class Language
     public int Id { get; set; }
 
     /// <summary>
-    /// Culture name in format languagecode2-country/regioncode2 (e.g., cs-CZ, en-US).
+    /// Culture name for readability in DB (e.g., "cs-CZ", "en-US").
     /// </summary>
     public string CultureName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Full name in English (e.g., "Czech (Czechia)").
+    /// Navigation property for cached texts in this language.
     /// </summary>
-    public string EnglishName { get; set; } = string.Empty;
+    public ICollection<CachedText> CachedTexts { get; set; } = [];
 
     /// <summary>
-    /// Full name in native language (e.g., "čeština (Česko)").
+    /// Gets CultureInfo for this language from the system.
     /// </summary>
-    public string? NativeName { get; set; }
-
-    /// <summary>
-    /// ISO 639-1 two-letter language code (e.g., "cs", "en", "de").
-    /// </summary>
-    public string? TwoLetterISOCode { get; set; }
-
-    /// <summary>
-    /// Navigation property for cached translations in this language.
-    /// </summary>
-    public ICollection<TranslatedText> TranslatedTexts { get; set; } = new List<TranslatedText>();
+    public CultureInfo GetCultureInfo() => CultureInfo.GetCultureInfo(Id);
 }

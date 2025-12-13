@@ -50,7 +50,7 @@ public class TranslatedTextService : ITranslatedTextService
             TextTypeCode.Title,
             async (issue, lang) =>
             {
-                var targetLang = await GetLanguageCultureAsync(languageId, ct);
+                var targetLang = GetLanguageCulture(languageId);
                 var result = await _translator.TranslateAsync(issue.Title, targetLang, "en", ct);
                 return result.Success ? result.Translation ?? issue.Title : issue.Title;
             },
@@ -80,7 +80,7 @@ public class TranslatedTextService : ITranslatedTextService
                     return summaryResult.Summary;
                 }
 
-                var targetLang = await GetLanguageCultureAsync(languageId, ct);
+                var targetLang = GetLanguageCulture(languageId);
                 var translateResult = await _translator.TranslateAsync(summaryResult.Summary, targetLang, "en", ct);
                 return translateResult.Success ? translateResult.Translation ?? summaryResult.Summary : summaryResult.Summary;
             },
@@ -110,7 +110,7 @@ public class TranslatedTextService : ITranslatedTextService
                     return summaryResult.Summary;
                 }
 
-                var targetLang = await GetLanguageCultureAsync(languageId, ct);
+                var targetLang = GetLanguageCulture(languageId);
                 var translateResult = await _translator.TranslateAsync(summaryResult.Summary, targetLang, "en", ct);
                 return translateResult.Success ? translateResult.Translation ?? summaryResult.Summary : summaryResult.Summary;
             },
@@ -134,7 +134,7 @@ public class TranslatedTextService : ITranslatedTextService
             .ToDictionaryAsync(i => i.Id, i => i, ct);
 
         // Load all cached in one query
-        var cached = await _context.TranslatedTexts
+        var cached = await _context.CachedTexts
             .Where(t => ids.Contains(t.IssueId) &&
                         t.LanguageId == languageId &&
                         (t.TextTypeId == (int)TextTypeCode.Title || t.TextTypeId == (int)TextTypeCode.ListSummary))
@@ -151,8 +151,8 @@ public class TranslatedTextService : ITranslatedTextService
 
             // Check for stale cache (timestamp validation)
             var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
-            if ((titleCache != null && issueUpdatedAt > titleCache.CreatedAt) ||
-                (summaryCache != null && issueUpdatedAt > summaryCache.CreatedAt))
+            if ((titleCache != null && issueUpdatedAt > titleCache.CachedAt) ||
+                (summaryCache != null && issueUpdatedAt > summaryCache.CachedAt))
             {
                 _logger.LogDebug(
                     "[TranslatedTextService] Stale cache detected for Issue {IssueId}",
@@ -215,7 +215,7 @@ public class TranslatedTextService : ITranslatedTextService
         if (issue == null) return string.Empty;
 
         // Check cache first
-        var cached = await _context.TranslatedTexts
+        var cached = await _context.CachedTexts
             .FirstOrDefaultAsync(t =>
                 t.IssueId == issueId &&
                 t.LanguageId == languageId &&
@@ -225,13 +225,13 @@ public class TranslatedTextService : ITranslatedTextService
         if (cached != null)
         {
             var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
-            if (issueUpdatedAt > cached.CreatedAt)
+            if (issueUpdatedAt > cached.CachedAt)
             {
                 // Cache is stale - webhook was probably missed
                 _logger.LogWarning(
                     "[TranslatedTextService] Stale cache detected for Issue {IssueId}, Language {LanguageId}, TextType {TextType}. " +
                     "Issue updated {IssueUpdated}, cache created {CacheCreated}. Invalidating.",
-                    issueId, languageId, textType, issueUpdatedAt, cached.CreatedAt);
+                    issueId, languageId, textType, issueUpdatedAt, cached.CachedAt);
 
                 await _cacheService.InvalidateAsync(issueId, ct);
                 cached = null;
@@ -275,7 +275,7 @@ public class TranslatedTextService : ITranslatedTextService
             }
             else
             {
-                var targetLang = await GetLanguageCultureAsync(languageId, ct);
+                var targetLang = GetLanguageCulture(languageId);
                 var result = await _translator.TranslateAsync(issue.Title, targetLang, "en", ct);
                 generated = result.Success ? result.Translation ?? issue.Title : issue.Title;
             }
@@ -295,7 +295,7 @@ public class TranslatedTextService : ITranslatedTextService
             }
             else
             {
-                var targetLang = await GetLanguageCultureAsync(languageId, ct);
+                var targetLang = GetLanguageCulture(languageId);
                 var translateResult = await _translator.TranslateAsync(summaryResult.Summary, targetLang, "en", ct);
                 generated = translateResult.Success ? translateResult.Translation ?? summaryResult.Summary : summaryResult.Summary;
             }
@@ -315,13 +315,13 @@ public class TranslatedTextService : ITranslatedTextService
     {
         try
         {
-            _context.TranslatedTexts.Add(new TranslatedText
+            _context.CachedTexts.Add(new CachedText
             {
                 IssueId = issueId,
                 LanguageId = languageId,
                 TextTypeId = (int)textType,
                 Content = content,
-                CreatedAt = DateTime.UtcNow
+                CachedAt = DateTime.UtcNow
             });
             await _context.SaveChangesAsync(ct);
         }
@@ -347,9 +347,15 @@ public class TranslatedTextService : ITranslatedTextService
                message.Contains("unique constraint");
     }
 
-    private async Task<string> GetLanguageCultureAsync(int languageId, CancellationToken ct)
+    private static string GetLanguageCulture(int languageId)
     {
-        var language = await _context.Languages.FindAsync([languageId], ct);
-        return language?.TwoLetterISOCode ?? "en";
+        try
+        {
+            return System.Globalization.CultureInfo.GetCultureInfo(languageId).TwoLetterISOLanguageName;
+        }
+        catch
+        {
+            return "en";
+        }
     }
 }

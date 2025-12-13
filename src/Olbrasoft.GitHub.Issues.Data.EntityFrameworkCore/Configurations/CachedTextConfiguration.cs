@@ -4,37 +4,40 @@ using Olbrasoft.GitHub.Issues.Data.Entities;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Configurations;
 
-public class TranslatedTextConfiguration : IEntityTypeConfiguration<TranslatedText>
+public class CachedTextConfiguration : IEntityTypeConfiguration<CachedText>
 {
-    public void Configure(EntityTypeBuilder<TranslatedText> builder)
+    public void Configure(EntityTypeBuilder<CachedText> builder)
     {
+        // Map to the existing table name for migration compatibility
+        builder.ToTable("TranslatedTexts");
+
         // Composite primary key
         builder.HasKey(t => new { t.LanguageId, t.TextTypeId, t.IssueId });
 
         builder.Property(t => t.Content)
             .IsRequired();
 
-        builder.Property(t => t.CreatedAt)
+        // CachedAt - when the text was cached
+        // Maps to existing CreatedAt column for migration compatibility
+        builder.Property(t => t.CachedAt)
+            .HasColumnName("CreatedAt")
             .IsRequired();
 
         // Language is a lookup table - RESTRICT delete
-        // Prevents accidental deletion of languages that have translations
         builder.HasOne(t => t.Language)
-            .WithMany(l => l.TranslatedTexts)
+            .WithMany(l => l.CachedTexts)
             .HasForeignKey(t => t.LanguageId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // TextType is a lookup table - RESTRICT delete
-        // Prevents accidental deletion of text types that have translations
         builder.HasOne(t => t.TextType)
-            .WithMany(tt => tt.TranslatedTexts)
+            .WithMany(tt => tt.CachedTexts)
             .HasForeignKey(t => t.TextTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Issue deletion cascades to translations
-        // When an issue is deleted, all its cached translations are automatically deleted
+        // Issue deletion cascades to cached texts
         builder.HasOne(t => t.Issue)
-            .WithMany(i => i.TranslatedTexts)
+            .WithMany(i => i.CachedTexts)
             .HasForeignKey(t => t.IssueId)
             .OnDelete(DeleteBehavior.Cascade);
 

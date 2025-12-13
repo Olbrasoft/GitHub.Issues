@@ -130,9 +130,6 @@ public class TestGitHubDbContext : GitHubDbContext
             entity.HasKey(l => l.Id);
             entity.Property(l => l.Id).ValueGeneratedNever(); // LCID - not auto-generated
             entity.Property(l => l.CultureName).IsRequired().HasMaxLength(10);
-            entity.Property(l => l.EnglishName).IsRequired().HasMaxLength(100);
-            entity.Property(l => l.NativeName).HasMaxLength(100);
-            entity.Property(l => l.TwoLetterISOCode).HasMaxLength(2);
             entity.HasIndex(l => l.CultureName).IsUnique();
         });
 
@@ -144,15 +141,15 @@ public class TestGitHubDbContext : GitHubDbContext
             entity.HasIndex(t => t.Name).IsUnique();
         });
 
-        // TranslatedText configuration (#259)
-        modelBuilder.Entity<TranslatedText>(entity =>
+        // CachedText configuration (#259)
+        modelBuilder.Entity<CachedText>(entity =>
         {
             entity.HasKey(t => new { t.LanguageId, t.TextTypeId, t.IssueId });
             entity.Property(t => t.Content).IsRequired();
-            entity.Property(t => t.CreatedAt).IsRequired();
-            entity.HasOne(t => t.Issue).WithMany(i => i.TranslatedTexts).HasForeignKey(t => t.IssueId).OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(t => t.Language).WithMany(l => l.TranslatedTexts).HasForeignKey(t => t.LanguageId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(t => t.TextType).WithMany(tt => tt.TranslatedTexts).HasForeignKey(t => t.TextTypeId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(t => t.CachedAt).IsRequired();
+            entity.HasOne(t => t.Issue).WithMany(i => i.CachedTexts).HasForeignKey(t => t.IssueId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(t => t.Language).WithMany(l => l.CachedTexts).HasForeignKey(t => t.LanguageId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(t => t.TextType).WithMany(tt => tt.CachedTexts).HasForeignKey(t => t.TextTypeId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

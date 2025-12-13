@@ -37,7 +37,7 @@ public class Issue
     public Repository Repository { get; set; } = null!;
     public ICollection<IssueLabel> IssueLabels { get; set; } = new List<IssueLabel>();
     public ICollection<IssueEvent> Events { get; set; } = new List<IssueEvent>();
-    public ICollection<TranslatedText> TranslatedTexts { get; set; } = new List<TranslatedText>();
+    public ICollection<CachedText> CachedTexts { get; set; } = [];
 
     // Sub-issues hierarchy (1:N self-reference)
     public int? ParentIssueId { get; set; }

@@ -16,7 +16,7 @@ public class TextType
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Navigation property for cached translations of this type.
+    /// Navigation property for cached texts of this type.
     /// </summary>
-    public ICollection<TranslatedText> TranslatedTexts { get; set; } = new List<TranslatedText>();
+    public ICollection<CachedText> CachedTexts { get; set; } = [];
 }

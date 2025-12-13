@@ -23,7 +23,7 @@ public class TranslationCacheService : ITranslationCacheService
     /// <inheritdoc />
     public async Task<int> InvalidateAsync(int issueId, CancellationToken ct = default)
     {
-        var deleted = await _context.TranslatedTexts
+        var deleted = await _context.CachedTexts
             .Where(t => t.IssueId == issueId)
             .ExecuteDeleteAsync(ct);
 
@@ -40,7 +40,7 @@ public class TranslationCacheService : ITranslationCacheService
     /// <inheritdoc />
     public async Task<int> InvalidateByTextTypeAsync(int issueId, int textTypeId, CancellationToken ct = default)
     {
-        var deleted = await _context.TranslatedTexts
+        var deleted = await _context.CachedTexts
             .Where(t => t.IssueId == issueId && t.TextTypeId == textTypeId)
             .ExecuteDeleteAsync(ct);
 
@@ -59,7 +59,7 @@ public class TranslationCacheService : ITranslationCacheService
     {
         var repoIds = repositoryIds.ToList();
 
-        var deleted = await _context.TranslatedTexts
+        var deleted = await _context.CachedTexts
             .Where(t => repoIds.Contains(t.Issue.RepositoryId))
             .ExecuteDeleteAsync(ct);
 
@@ -73,7 +73,7 @@ public class TranslationCacheService : ITranslationCacheService
     /// <inheritdoc />
     public async Task<int> InvalidateAllAsync(CancellationToken ct = default)
     {
-        var deleted = await _context.TranslatedTexts
+        var deleted = await _context.CachedTexts
             .ExecuteDeleteAsync(ct);
 
         _logger.LogWarning(
@@ -86,14 +86,14 @@ public class TranslationCacheService : ITranslationCacheService
     /// <inheritdoc />
     public async Task<CacheStatistics> GetStatisticsAsync(CancellationToken ct = default)
     {
-        var total = await _context.TranslatedTexts.CountAsync(ct);
+        var total = await _context.CachedTexts.CountAsync(ct);
 
-        var byLanguage = await _context.TranslatedTexts
+        var byLanguage = await _context.CachedTexts
             .GroupBy(t => t.Language.CultureName)
             .Select(g => new { Language = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Language, x => x.Count, ct);
 
-        var byTextType = await _context.TranslatedTexts
+        var byTextType = await _context.CachedTexts
             .GroupBy(t => t.TextType.Name)
             .Select(g => new { TextType = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.TextType, x => x.Count, ct);

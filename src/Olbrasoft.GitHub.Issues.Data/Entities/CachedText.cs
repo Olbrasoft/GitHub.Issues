@@ -1,10 +1,10 @@
 namespace Olbrasoft.GitHub.Issues.Data.Entities;
 
 /// <summary>
-/// Cache table for translated/generated text content.
+/// Cache table for translated/generated text content (titles, summaries).
 /// Uses composite primary key: (LanguageId, TextTypeId, IssueId).
 /// </summary>
-public class TranslatedText
+public class CachedText
 {
     /// <summary>
     /// Foreign key to Language (LCID).
@@ -25,20 +25,15 @@ public class TranslatedText
     public int IssueId { get; set; }
 
     /// <summary>
-    /// The actual translated/generated text content.
+    /// The cached text content.
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
     /// When the cache entry was created.
-    /// Used for timestamp validation against Issue.GitHubUpdatedAt.
+    /// Used for cache invalidation - compared against Issue.GitHubUpdatedAt.
     /// </summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// When the cache was last refreshed (optional).
-    /// </summary>
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime CachedAt { get; set; }
 
     // Navigation properties
     public Language Language { get; set; } = null!;

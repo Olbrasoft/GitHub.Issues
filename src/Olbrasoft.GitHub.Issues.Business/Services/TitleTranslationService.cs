@@ -62,7 +62,7 @@ public class TitleTranslationService : ITitleTranslationService
         }
 
         // Check cache first
-        var cached = await _dbContext.TranslatedTexts
+        var cached = await _dbContext.CachedTexts
             .FirstOrDefaultAsync(t =>
                 t.IssueId == issueId &&
                 t.LanguageId == languageId &&
@@ -72,7 +72,7 @@ public class TitleTranslationService : ITitleTranslationService
         {
             // Validate cache freshness
             var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
-            if (issueUpdatedAt <= cached.CreatedAt)
+            if (issueUpdatedAt <= cached.CachedAt)
             {
                 // Cache is fresh - use it!
                 _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
@@ -86,8 +86,8 @@ public class TitleTranslationService : ITitleTranslationService
 
             // Cache is stale - delete it and regenerate
             _logger.LogInformation("[TitleTranslation] Cache STALE for issue {Id} - issue updated {IssueUpdated}, cache created {CacheCreated}",
-                issueId, issueUpdatedAt, cached.CreatedAt);
-            _dbContext.TranslatedTexts.Remove(cached);
+                issueId, issueUpdatedAt, cached.CachedAt);
+            _dbContext.CachedTexts.Remove(cached);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
@@ -193,13 +193,13 @@ public class TitleTranslationService : ITitleTranslationService
     {
         try
         {
-            _dbContext.TranslatedTexts.Add(new TranslatedText
+            _dbContext.CachedTexts.Add(new CachedText
             {
                 IssueId = issueId,
                 LanguageId = languageId,
                 TextTypeId = (int)TextTypeCode.Title,
                 Content = content,
-                CreatedAt = DateTime.UtcNow
+                CachedAt = DateTime.UtcNow
             });
             await _dbContext.SaveChangesAsync(ct);
             _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
