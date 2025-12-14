@@ -120,6 +120,87 @@ public class GitHubIssueApiClient : IGitHubIssueApiClient
         return allComments;
     }
 
+    public async Task<GitHubIssueDto?> FetchIssueAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Fetching single issue #{Number} from {Owner}/{Repo}", issueNumber, owner, repo);
+
+        try
+        {
+            var url = $"repos/{owner}/{repo}/issues/{issueNumber}";
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Issue #{Number} not found in {Owner}/{Repo}", issueNumber, owner, repo);
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            return ParseSingleIssueFromJson(doc.RootElement);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to fetch issue #{Number} from {Owner}/{Repo}", issueNumber, owner, repo);
+            return null;
+        }
+    }
+
+    private static GitHubIssueDto? ParseSingleIssueFromJson(JsonElement ghIssue)
+    {
+        var isPullRequest = ghIssue.TryGetProperty("pull_request", out _);
+
+        var number = ghIssue.GetProperty("number").GetInt32();
+        var title = ghIssue.GetProperty("title").GetString() ?? "";
+        var body = ghIssue.TryGetProperty("body", out var bodyElement) && bodyElement.ValueKind == JsonValueKind.String
+            ? bodyElement.GetString()
+            : null;
+        var state = ghIssue.GetProperty("state").GetString() ?? "open";
+        var htmlUrl = ghIssue.GetProperty("html_url").GetString() ?? "";
+        var updatedAt = ghIssue.GetProperty("updated_at").GetDateTimeOffset();
+
+        string? parentIssueUrl = null;
+        if (ghIssue.TryGetProperty("parent_issue_url", out var parentUrlElement) &&
+            parentUrlElement.ValueKind == JsonValueKind.String)
+        {
+            parentIssueUrl = parentUrlElement.GetString();
+        }
+
+        var labelNames = new List<string>();
+        if (ghIssue.TryGetProperty("labels", out var labelsElement))
+        {
+            foreach (var labelElement in labelsElement.EnumerateArray())
+            {
+                if (labelElement.TryGetProperty("name", out var nameElement))
+                {
+                    var name = nameElement.GetString();
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        labelNames.Add(name);
+                    }
+                }
+            }
+        }
+
+        return new GitHubIssueDto(
+            number,
+            title,
+            body,
+            state,
+            htmlUrl,
+            updatedAt,
+            parentIssueUrl,
+            labelNames,
+            isPullRequest);
+    }
+
     private static List<string> ParseCommentsFromJson(JsonElement root)
     {
         var comments = new List<string>();

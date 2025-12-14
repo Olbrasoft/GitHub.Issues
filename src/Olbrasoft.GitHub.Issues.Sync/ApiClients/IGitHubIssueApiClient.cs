@@ -33,6 +33,20 @@ public interface IGitHubIssueApiClient
         string repo,
         int issueNumber,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches a single issue by number.
+    /// </summary>
+    /// <param name="owner">Repository owner</param>
+    /// <param name="repo">Repository name</param>
+    /// <param name="issueNumber">Issue number</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Issue DTO or null if not found</returns>
+    Task<GitHubIssueDto?> FetchIssueAsync(
+        string owner,
+        string repo,
+        int issueNumber,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
