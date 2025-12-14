@@ -378,6 +378,7 @@ public static class IssueEndpoints
             List<int> issueNumbers;
             string owner;
             string repo;
+            int languageId;
 
             try
             {
@@ -409,6 +410,12 @@ public static class IssueEndpoints
                     return Results.BadRequest(new { error = "Missing repo" });
                 }
                 repo = repoElement.GetString()!;
+
+                // Parse optional languageId (default to Czech = 1029)
+                languageId = json.RootElement.TryGetProperty("languageId", out var langElement) &&
+                             langElement.TryGetInt32(out var langId)
+                    ? langId
+                    : 1029; // Czech LCID
             }
             catch (JsonException)
             {
@@ -420,11 +427,8 @@ public static class IssueEndpoints
                 return Results.Ok(new { summaries = new Dictionary<int, IssueSummaryResponse>() });
             }
 
-            logger.LogInformation("API: Getting Czech summaries for {Count} issues in {Owner}/{Repo}",
-                issueNumbers.Count, owner, repo);
-
-            // Czech language LCID
-            const int czechLanguageId = 1029;
+            logger.LogInformation("API: Getting summaries for {Count} issues in {Owner}/{Repo}, languageId={LanguageId}",
+                issueNumbers.Count, owner, repo, languageId);
 
             // Find repository
             var repository = await dbContext.Repositories
@@ -504,8 +508,8 @@ public static class IssueEndpoints
             // Get all issue IDs (existing + newly synced)
             var allIssueIds = existingIssues.Select(i => i.Id).Concat(newlySyncedIssueIds).ToList();
 
-            // Get Czech summaries for all issues
-            var summaries = await translatedTextService.GetForListAsync(allIssueIds, czechLanguageId, ct);
+            // Get translated summaries for all issues
+            var summaries = await translatedTextService.GetForListAsync(allIssueIds, languageId, ct);
 
             // Build response mapping issue numbers to summaries
             var response = new Dictionary<int, IssueSummaryResponse>();
@@ -546,7 +550,7 @@ public static class IssueEndpoints
                 }
             }
 
-            logger.LogInformation("Returning {Count} Czech summaries", response.Count);
+            logger.LogInformation("Returning {Count} summaries for languageId={LanguageId}", response.Count, languageId);
 
             return Results.Ok(new
             {

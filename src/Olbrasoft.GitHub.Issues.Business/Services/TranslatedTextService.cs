@@ -133,8 +133,9 @@ public class TranslatedTextService : ITranslatedTextService
             .Where(i => ids.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i, ct);
 
-        // Load all cached in one query
+        // Load all cached in one query (AsNoTracking to prevent tracking conflicts)
         var cached = await _context.CachedTexts
+            .AsNoTracking()
             .Where(t => ids.Contains(t.IssueId) &&
                         t.LanguageId == languageId &&
                         (t.TextTypeId == (int)TextTypeCode.Title || t.TextTypeId == (int)TextTypeCode.ListSummary))
@@ -315,14 +316,49 @@ public class TranslatedTextService : ITranslatedTextService
     {
         try
         {
-            _context.CachedTexts.Add(new CachedText
+            // Check if entity is already being tracked
+            var existingTracked = _context.ChangeTracker.Entries<CachedText>()
+                .FirstOrDefault(e =>
+                    e.Entity.IssueId == issueId &&
+                    e.Entity.LanguageId == languageId &&
+                    e.Entity.TextTypeId == (int)textType);
+
+            if (existingTracked != null)
             {
-                IssueId = issueId,
-                LanguageId = languageId,
-                TextTypeId = (int)textType,
-                Content = content,
-                CachedAt = DateTime.UtcNow
-            });
+                // Update tracked entity
+                existingTracked.Entity.Content = content;
+                existingTracked.Entity.CachedAt = DateTime.UtcNow;
+                existingTracked.State = EntityState.Modified;
+            }
+            else
+            {
+                // Check if exists in database
+                var existingInDb = await _context.CachedTexts
+                    .FirstOrDefaultAsync(c =>
+                        c.IssueId == issueId &&
+                        c.LanguageId == languageId &&
+                        c.TextTypeId == (int)textType, ct);
+
+                if (existingInDb != null)
+                {
+                    // Update existing
+                    existingInDb.Content = content;
+                    existingInDb.CachedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Add new
+                    _context.CachedTexts.Add(new CachedText
+                    {
+                        IssueId = issueId,
+                        LanguageId = languageId,
+                        TextTypeId = (int)textType,
+                        Content = content,
+                        CachedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
             await _context.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
