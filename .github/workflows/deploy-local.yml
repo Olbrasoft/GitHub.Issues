@@ -1,0 +1,44 @@
+name: Deploy GitHub.Issues (Local)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify .NET version
+        run: dotnet --version
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --filter "FullyQualifiedName!~IntegrationTests"
+
+      - name: Deploy using deploy script
+        run: |
+          # Deploy path is passed as argument (SINGLE SOURCE OF TRUTH)
+          sudo ./deploy/deploy.sh /opt/olbrasoft/github-issues
+
+      - name: Restart application
+        run: |
+          # Stop current instance
+          pkill -f "Olbrasoft.GitHub.Issues.AspNetCore.RazorPages" || true
+          sleep 2
+
+          # Start new instance
+          bash /home/jirka/.local/bin/github-start.sh
+          sleep 3
+
+          # Verify it's running on correct port
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:5156 || echo "Application may still be starting..."

@@ -1,0 +1,20 @@
+[Unit]
+Description=GitHub Issues Web Application
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/olbrasoft/github-issues/app
+ExecStart=/home/jirka/.dotnet/dotnet /opt/olbrasoft/github-issues/app/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.dll
+Environment="ASPNETCORE_ENVIRONMENT=Production"
+Environment="DOTNET_ENVIRONMENT=Production"
+Restart=on-failure
+RestartSec=5
+SyslogIdentifier=github-issues
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
