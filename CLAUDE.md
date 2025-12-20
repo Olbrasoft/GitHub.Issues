@@ -124,6 +124,40 @@ gi stop
 
 ---
 
+## GitHub Actions Self-Hosted Runner
+
+### Runner Configuration
+- **Runner Name:** `debian-github-issues`
+- **Location:** `~/actions-runner-github-issues/`
+- **Service:** `actions.runner.Olbrasoft-GitHub.Issues.debian-github-issues.service`
+- **Status Check:** `sudo systemctl status actions.runner.Olbrasoft-GitHub.Issues.debian-github-issues.service`
+
+### ⚠️ CRITICAL: PATH Configuration
+
+**Self-hosted runner MUST have .NET 10 SDK in PATH!**
+
+The runner systemd service MUST include this PATH:
+```ini
+Environment="PATH=/home/jirka/.dotnet:/home/jirka/.local/bin:/usr/local/bin:/usr/bin:/bin"
+```
+
+**Why:** System-wide `dotnet` is .NET SDK 8.0 (in `/usr/share/dotnet/`), but this project requires .NET 10 SDK (in `~/.dotnet/`).
+
+**Location:** `/etc/systemd/system/actions.runner.Olbrasoft-GitHub.Issues.debian-github-issues.service`
+
+**If workflow fails with "NETSDK1045: .NET SDK nepodporuje cílení .NET 10.0":**
+1. Edit systemd service file
+2. Add PATH environment variable with `~/.dotnet` FIRST
+3. Reload: `sudo systemctl daemon-reload`
+4. Restart: `sudo systemctl restart actions.runner.Olbrasoft-GitHub.Issues.debian-github-issues.service`
+
+### Workflow File
+- **Location:** `.github/workflows/deploy-local.yml`
+- **Trigger:** Push to `main` branch
+- **Steps:** Build → Test → Deploy → Restart
+
+---
+
 ## Common Issues
 
 ### Application runs on wrong port (5000 instead of 5156)
@@ -137,6 +171,11 @@ gi stop
 ### "Ollama is not a valid value for EmbeddingProvider"
 - **Cause:** Wrong config file loaded or config merge issue
 - **Fix:** Check `/opt/olbrasoft/github-issues/config/appsettings.json`
+
+### GitHub Actions workflow fails with "NETSDK1045" error
+- **Cause:** Runner using system .NET SDK 8.0 instead of .NET 10
+- **Fix:** Check PATH in systemd service (see GitHub Actions Runner section above)
+- **Verify:** `sudo systemctl cat actions.runner.Olbrasoft-GitHub.Issues.debian-github-issues.service | grep Environment`
 
 ---
 
