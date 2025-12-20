@@ -201,6 +201,43 @@ Before deploying, verify:
 
 ---
 
+## Testing Plan (Post-Deployment)
+
+After deployment, **ALWAYS test the entire application functionality** using Playwright:
+
+### 1. Test GitHub Authentication
+- Click "Přihlásit přes GitHub" button
+- Verify OAuth flow initializes correctly
+- **Tests:** GitHub OAuth authentication handler
+
+### 2. Test Semantic Search (Cohere Embeddings)
+- Enter search query (e.g., "deployment")
+- Click "Hledat" button
+- Verify relevant results appear
+- **Tests:** Cohere embeddings, semantic search functionality
+
+### 3. Test Issue Detail View
+- Click on one of the found issues
+- Verify detail page displays correctly
+- **Tests:** Routing, detail view rendering
+
+### 4. Test AI Summary
+- On issue detail, check if AI summary is displayed
+- **Tests:** OpenAICompatible summarization (Cerebras)
+
+### 5. Test Translation
+- Verify title translation to Czech is displayed
+- **Tests:** Cohere translation or fallback
+
+### 6. Test Filtering
+- Filter by repository name
+- Change state to "Zavřený" (Closed)
+- **Tests:** Database queries, filtering logic
+
+**CRITICAL:** Application is NOT fully functional until ALL tests pass!
+
+---
+
 ## Notes for Claude Code
 
 1. **ALWAYS read this file first** before making changes
@@ -208,7 +245,8 @@ Before deploying, verify:
 3. **NEVER change database from SQL Server to PostgreSQL**
 4. **NEVER commit connection string passwords** to Git
 5. **ALWAYS test after deployment** before marking as complete
-6. **ASK USER** if unsure about any configuration change
+6. **CREATE and EXECUTE testing plan** (see Testing Plan section above)
+7. **ASK USER** if unsure about any configuration change
 
 ---
 
