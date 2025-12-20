@@ -4,6 +4,9 @@ set -e
 # GitHub.Issues Deploy Script
 # Deploys GitHub.Issues web application according to deployment-guide-cz.md
 
+# Ensure .NET 10 SDK is in PATH (required when running with sudo)
+export PATH="/home/jirka/.dotnet:/home/jirka/.local/bin:$PATH"
+
 PROJECT_PATH="/home/jirka/Olbrasoft/GitHub.Issues"
 
 # Deploy script DOSTÁVÁ base directory jako argument (SINGLE SOURCE OF TRUTH)
