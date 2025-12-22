@@ -41,6 +41,23 @@ Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=Tuma/*-+;TrustSe
 
 ---
 
+### ⚠️ TESTOVÁNÍ: NIKDY NESPOUŠTĚT INTEGRAČNÍ TESTY!!!
+
+**VŽDY používej tento příkaz pro testy:**
+```bash
+dotnet test --verbosity minimal --filter "FullyQualifiedName!~IntegrationTests"
+```
+
+**⛔ NIKDY NEPOUŽÍVAT:**
+- ❌ `dotnet test` (bez filtru - spustí integrační testy!)
+- ❌ Jakýkoliv příkaz bez `--filter "FullyQualifiedName!~IntegrationTests"`
+
+**Proč:** Integrační testy volají externí API (GitHub, Cohere) → způsobují problémy na CI/CD.
+
+**Více informací:** `~/GitHub/Olbrasoft/engineering-handbook/development-guidelines/ci-cd/local-apps/CLAUDE.md`
+
+---
+
 ## 🔴 CRITICAL - DO NOT CHANGE
 
 ### Port Configuration
