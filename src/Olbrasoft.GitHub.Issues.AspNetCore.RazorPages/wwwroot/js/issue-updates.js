@@ -310,9 +310,14 @@
         const isTargetLanguage = summaryLanguage === selectedLanguage;
         const isEnglish = summaryLanguage === 'en';
 
+        // Determine cache indicator
+        const isFromCache = data.provider === 'cache';
+        const cacheIndicator = isFromCache ? '⚡ ' : '✨ ';
+        const cacheTitle = isFromCache ? 'Načteno z cache' : 'Nově vygenerováno';
+
         if (isEnglish && summaryEnDiv) {
             // English summary received - show it if English is selected, or as fallback
-            summaryEnDiv.textContent = data.summary;
+            summaryEnDiv.innerHTML = '<span class="' + (isFromCache ? 'cache-indicator' : 'fresh-indicator') + '" title="' + cacheTitle + '">' + cacheIndicator + '</span>' + escapeHtml(data.summary);
             summaryEnDiv.style.display = selectedLanguage === 'en' ? 'block' : 'none';
 
             // Hide body preview when we have AI summary (only if this is the target language)
@@ -331,7 +336,7 @@
             console.log('[issue-updates] English summary set for issue', data.issueId);
         } else if (!isEnglish && summaryCsDiv && isTargetLanguage) {
             // Translated summary received - show if it matches selected language
-            summaryCsDiv.textContent = data.summary;
+            summaryCsDiv.innerHTML = '<span class="' + (isFromCache ? 'cache-indicator' : 'fresh-indicator') + '" title="' + cacheTitle + '">' + cacheIndicator + '</span>' + escapeHtml(data.summary);
             summaryCsDiv.style.display = 'block';
 
             // Hide English summary when translation arrives (replace, don't stack)
@@ -565,6 +570,13 @@
             }, 300);
         }
     };
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', function () {

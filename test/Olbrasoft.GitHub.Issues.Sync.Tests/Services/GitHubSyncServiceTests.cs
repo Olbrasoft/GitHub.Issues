@@ -31,6 +31,7 @@ public class GitHubSyncServiceTests
         mock.Setup(x => x.SyncAllRepositoriesAsync(
                 It.IsAny<DateTimeOffset?>(),
                 It.IsAny<bool>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -38,7 +39,7 @@ public class GitHubSyncServiceTests
         var result = await mock.Object.SyncAllRepositoriesAsync();
 
         // Assert
-        mock.Verify(x => x.SyncAllRepositoriesAsync(null, false, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncAllRepositoriesAsync(null, false, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(10, result.TotalFound);
     }
 
@@ -49,14 +50,14 @@ public class GitHubSyncServiceTests
         var mock = new Mock<IGitHubSyncService>();
         var expectedStats = new SyncStatisticsDto { TotalFound = 5 };
 
-        mock.Setup(x => x.SyncAllRepositoriesAsync(null, true, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.SyncAllRepositoriesAsync(null, true, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
         // Act
         var result = await mock.Object.SyncAllRepositoriesAsync(null, true);
 
         // Assert
-        mock.Verify(x => x.SyncAllRepositoriesAsync(null, true, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncAllRepositoriesAsync(null, true, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(5, result.TotalFound);
     }
 
@@ -72,6 +73,7 @@ public class GitHubSyncServiceTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<DateTimeOffset?>(),
                 It.IsAny<bool>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -79,7 +81,7 @@ public class GitHubSyncServiceTests
         var result = await mock.Object.SyncRepositoriesAsync(repos);
 
         // Assert
-        mock.Verify(x => x.SyncRepositoriesAsync(repos, null, false, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncRepositoriesAsync(repos, null, false, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(20, result.TotalFound);
     }
 
@@ -103,6 +105,7 @@ public class GitHubSyncServiceTests
                 It.IsAny<string>(),
                 It.IsAny<DateTimeOffset?>(),
                 It.IsAny<bool>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -110,7 +113,7 @@ public class GitHubSyncServiceTests
         var result = await mock.Object.SyncRepositoryAsync("owner", "repo", since);
 
         // Assert
-        mock.Verify(x => x.SyncRepositoryAsync("owner", "repo", since, false, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncRepositoryAsync("owner", "repo", since, false, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(15, result.TotalFound);
         Assert.Equal(since, result.SinceTimestamp);
     }

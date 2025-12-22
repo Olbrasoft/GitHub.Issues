@@ -43,6 +43,7 @@ public class IssueSyncServiceTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<DateTimeOffset?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -50,7 +51,7 @@ public class IssueSyncServiceTests
         var result = await mock.Object.SyncIssuesAsync(repository, "owner", "repo", since);
 
         // Assert
-        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", since, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", since, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(10, result.TotalFound);
         Assert.Equal(since, result.SinceTimestamp);
     }
@@ -75,6 +76,7 @@ public class IssueSyncServiceTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 null,
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -82,7 +84,7 @@ public class IssueSyncServiceTests
         var result = await mock.Object.SyncIssuesAsync(repository, "owner", "repo");
 
         // Assert
-        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", null, It.IsAny<CancellationToken>()), Times.Once);
+        mock.Verify(x => x.SyncIssuesAsync(repository, "owner", "repo", null, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.Equal(50, result.TotalFound);
         Assert.Null(result.SinceTimestamp);
     }

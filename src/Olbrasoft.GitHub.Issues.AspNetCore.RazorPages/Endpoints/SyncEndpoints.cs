@@ -19,7 +19,7 @@ public static class SyncEndpoints
             try
             {
                 logger.LogInformation("Starting data import from GitHub (smart sync mode)");
-                await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, ct);
+                await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, generateEmbeddings: true, cancellationToken: ct);
 
                 return Results.Ok(new { success = true, message = "Import dokončen" });
             }

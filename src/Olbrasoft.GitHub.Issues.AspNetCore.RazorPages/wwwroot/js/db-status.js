@@ -469,7 +469,14 @@
         btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
 
         const fullRefresh = modalFullRefreshCheckbox.checked;
-        const repoNames = syncSelectedRepos.map(r => r.fullName);
+        let repoNames = syncSelectedRepos.map(r => r.fullName);
+
+        // FIX: If no tags selected but input has value, use that
+        const inputValue = syncRepoSearchInput.value.trim();
+        if (repoNames.length === 0 && inputValue) {
+            repoNames = [inputValue];
+        }
+
         const repoLabel = repoNames.length > 0 ? repoNames.join(', ') : 'všechny repozitáře';
         const refreshLabel = fullRefresh ? ' (plný refresh)' : '';
 

@@ -11,8 +11,22 @@ public static class AuthEndpoints
 {
     public static WebApplication MapAuthEndpoints(this WebApplication app)
     {
-        app.MapGet("/login", async (HttpContext context) =>
+        app.MapGet("/login", async (HttpContext context, IConfiguration config) =>
         {
+            var gitHubClientSecret = config["GitHub:ClientSecret"];
+
+            // GitHub OAuth není nakonfigurovaný - nelze se přihlásit
+            if (string.IsNullOrEmpty(gitHubClientSecret))
+            {
+                context.Response.StatusCode = 503;
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "GitHub OAuth není nakonfigurovaný",
+                    message = "Pro přihlášení je potřeba nastavit GitHub:ClientSecret"
+                });
+                return;
+            }
+
             var returnUrl = context.Request.Query["returnUrl"].FirstOrDefault() ?? "/";
             await context.ChallengeAsync("GitHub", new AuthenticationProperties
             {

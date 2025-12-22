@@ -1001,6 +1001,21 @@ footer {
     border-left-color: #28a745;
 }
 
+/* Cache indicators */
+.cache-indicator, .fresh-indicator {
+    font-size: 1em;
+    margin-left: 4px;
+    cursor: help;
+}
+
+.cache-indicator {
+    color: #059669;
+}
+
+.fresh-indicator {
+    color: #7c3aed;
+}
+
 /* AI Summary received animation */
 .ai-summary-en.summary-received,
 .ai-summary-cs.summary-received {

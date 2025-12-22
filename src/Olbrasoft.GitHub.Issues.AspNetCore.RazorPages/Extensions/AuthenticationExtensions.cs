@@ -16,7 +16,7 @@ public static class AuthenticationExtensions
         var gitHubClientSecret = configuration["GitHub:ClientSecret"];
         var gitHubOwner = configuration["GitHub:Owner"] ?? "Olbrasoft";
 
-        services.AddAuthentication(options =>
+        var authBuilder = services.AddAuthentication(options =>
         {
             options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = "GitHub";
@@ -26,15 +26,20 @@ public static class AuthenticationExtensions
             options.LoginPath = "/login";
             options.LogoutPath = "/logout";
             options.ExpireTimeSpan = TimeSpan.FromDays(7);
-        })
-        .AddGitHub(options =>
-        {
-            options.ClientId = gitHubClientId ?? throw new InvalidOperationException("GitHub:ClientId not configured");
-            options.ClientSecret = gitHubClientSecret ?? throw new InvalidOperationException("GitHub:ClientSecret not configured. Add it to User Secrets.");
-            options.Scope.Add("read:user");
-            options.CallbackPath = "/signin-github";
-            options.SaveTokens = true;
         });
+
+        // GitHub OAuth authentication (optional - requires ClientSecret)
+        if (!string.IsNullOrEmpty(gitHubClientSecret))
+        {
+            authBuilder.AddGitHub(options =>
+            {
+                options.ClientId = gitHubClientId ?? throw new InvalidOperationException("GitHub:ClientId not configured");
+                options.ClientSecret = gitHubClientSecret;
+                options.Scope.Add("read:user");
+                options.CallbackPath = "/signin-github";
+                options.SaveTokens = true;
+            });
+        }
 
         services.AddAuthorization(options =>
         {

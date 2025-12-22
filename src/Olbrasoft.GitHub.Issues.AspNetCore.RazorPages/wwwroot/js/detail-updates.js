@@ -244,11 +244,15 @@
 
         // Replace loading indicator with actual summary
         const langLabel = isCzech ? 'AI Shrnutí (česky)' : 'AI Summary';
+        const isFromCache = data.provider === 'cache';
+        const cacheIcon = isFromCache ? '<span class="cache-indicator" title="Načteno z cache">⚡</span>' : '<span class="fresh-indicator" title="Nově vygenerováno">✨</span>';
+
         container.innerHTML = `
             <div class="ai-summary">
                 <div class="ai-summary-header">
                     <span class="ai-icon">🤖</span>
                     <span class="ai-label">${langLabel}</span>
+                    ${cacheIcon}
                     <span class="ai-provider">${escapeHtml(data.provider)}</span>
                 </div>
                 <p class="ai-summary-text">${escapeHtml(data.summary)}</p>
