@@ -16,6 +16,15 @@ public interface IGitHubSyncService
     Task<SyncAnalysisDto> AnalyzeRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Analyzes what will be synced for all repositories based on configuration without performing actual sync or API calls to embedding providers.
+    /// </summary>
+    /// <param name="since">If provided, only analyze issues changed since this timestamp (incremental). If null, full analysis.</param>
+    /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of analysis results for each repository.</returns>
+    Task<List<SyncAnalysisDto>> AnalyzeAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Synchronizes a single repository.
     /// </summary>
     /// <param name="owner">Repository owner</param>

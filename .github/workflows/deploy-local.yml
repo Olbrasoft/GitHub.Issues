@@ -23,7 +23,8 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --filter "FullyQualifiedName!~IntegrationTests"
+        run: dotnet test --no-build --configuration Release
+        # Note: Integration tests skip automatically via [SkipOnCIFact] attribute
 
       - name: Deploy using deploy script
         run: |

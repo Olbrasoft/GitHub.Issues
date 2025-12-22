@@ -41,20 +41,22 @@ Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=Tuma/*-+;TrustSe
 
 ---
 
-### ⚠️ TESTOVÁNÍ: NIKDY NESPOUŠTĚT INTEGRAČNÍ TESTY!!!
+### ⚠️ TESTOVÁNÍ: Integrační testy se přeskakují automaticky na CI
 
-**VŽDY používej tento příkaz pro testy:**
+**Správný příkaz pro testy:**
 ```bash
-dotnet test --verbosity minimal --filter "FullyQualifiedName!~IntegrationTests"
+dotnet test --verbosity minimal
 ```
 
-**⛔ NIKDY NEPOUŽÍVAT:**
-- ❌ `dotnet test` (bez filtru - spustí integrační testy!)
-- ❌ Jakýkoliv příkaz bez `--filter "FullyQualifiedName!~IntegrationTests"`
+**Jak to funguje:**
+- Integrační testy používají `[SkipOnCIFact]` atribut z NuGet package `Olbrasoft.Testing.Xunit.Attributes`
+- Atribut **automaticky detekuje CI prostředí** (GitHub Actions, Azure DevOps, atd.)
+- Na CI se integrační testy **přeskočí automaticky**
+- Lokálně se integrační testy **spustí normálně**
 
-**Proč:** Integrační testy volají externí API (GitHub, Cohere) → způsobují problémy na CI/CD.
+**Proč:** Integrační testy volají externí API (GitHub, Cohere) → nelze spouštět na CI.
 
-**Více informací:** `~/GitHub/Olbrasoft/engineering-handbook/development-guidelines/ci-cd/local-apps/CLAUDE.md`
+**Více informací:** https://github.com/Olbrasoft/Testing
 
 ---
 
@@ -123,8 +125,9 @@ dotnet build
 
 ### Test (MUST pass before deploy)
 ```bash
-dotnet test --verbosity minimal --filter "FullyQualifiedName!~IntegrationTests"
+dotnet test --verbosity minimal
 ```
+**Note:** Integration tests skip automatically on CI via `[SkipOnCIFact]` attribute
 
 ### Deploy
 ```bash
