@@ -22,9 +22,10 @@ public interface IGitHubSyncService
     /// <param name="repo">Repository name</param>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
+    /// <param name="generateEmbeddings">If true, generates embeddings via Cohere API. If false, saves issues without embeddings.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Statistics about the sync operation.</returns>
-    Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes all repositories based on configuration:

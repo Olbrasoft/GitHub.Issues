@@ -22,11 +22,13 @@ public interface IIssueSyncService
     /// <summary>
     /// Synchronizes issues from GitHub for a repository.
     /// </summary>
+    /// <param name="generateEmbeddings">If true, generates embeddings via Cohere API. If false, saves issues without embeddings (Embedding = null).</param>
     /// <returns>Statistics about the sync operation.</returns>
     Task<SyncStatisticsDto> SyncIssuesAsync(
         Repository repository,
         string owner,
         string repo,
         DateTimeOffset? since = null,
+        bool generateEmbeddings = true,
         CancellationToken cancellationToken = default);
 }

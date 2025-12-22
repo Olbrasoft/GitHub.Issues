@@ -111,7 +111,7 @@ public class GitHubSyncService : IGitHubSyncService
         return analysis;
     }
 
-    public async Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default)
     {
         var repository = await _repositorySyncService.EnsureRepositoryAsync(owner, repo, cancellationToken);
 
@@ -126,22 +126,24 @@ public class GitHubSyncService : IGitHubSyncService
 
         var mode = smartMode ? "smart" : (effectiveSince.HasValue ? "incremental" : "full");
         var isFirstSync = smartMode && !repository.LastSyncedAt.HasValue;
+        var embeddingMode = generateEmbeddings ? "with embeddings" : "without embeddings";
 
         if (isFirstSync)
         {
-            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo} (first sync - full download)",
-                mode, owner, repo);
+            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo} (first sync - full download, {EmbeddingMode})",
+                mode, owner, repo, embeddingMode);
         }
         else
         {
-            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}{Since}",
+            _logger.LogInformation("Starting {Mode} sync for {Owner}/{Repo}{Since} ({EmbeddingMode})",
                 mode, owner, repo,
-                effectiveSince.HasValue ? $" (since {effectiveSince.Value:u})" : "");
+                effectiveSince.HasValue ? $" (since {effectiveSince.Value:u})" : "",
+                embeddingMode);
         }
 
         // Orchestrate sync operations
         await _labelSyncService.SyncLabelsAsync(repository, owner, repo, cancellationToken);
-        var stats = await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, cancellationToken);
+        var stats = await _issueSyncService.SyncIssuesAsync(repository, owner, repo, effectiveSince, generateEmbeddings, cancellationToken);
         await _eventSyncService.SyncEventsAsync(repository, owner, repo, effectiveSince, cancellationToken);
 
         // Update last synced timestamp ONLY if sync was successful
