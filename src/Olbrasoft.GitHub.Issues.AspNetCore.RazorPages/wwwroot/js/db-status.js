@@ -480,8 +480,13 @@
         const fullRefresh = modalFullRefreshCheckbox.checked;
         let repoNames = syncSelectedRepos.map(r => r.fullName);
 
-        // NOTE: Ignore input field value - only use selected tags
-        // If no tags selected, send null to analyze ALL repositories
+        // If no tags selected, check if user typed a repository name
+        if (repoNames.length === 0) {
+            const inputValue = syncRepoSearchInput.value.trim();
+            if (inputValue) {
+                repoNames = [inputValue];
+            }
+        }
 
         // Store sync parameters for later use after confirmation
         syncParams = {
@@ -569,6 +574,11 @@
             return;
         }
 
+        // IMPORTANT: Store syncParams in local variable BEFORE closing modal
+        // because closeSyncConfirmModal() sets syncParams = null
+        const params = { ...syncParams };
+        const generateEmbeddings = confirmGenerateEmbeddings.checked;
+
         closeSyncConfirmModal();
 
         const btn = syncBtn;
@@ -576,11 +586,10 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
 
-        const generateEmbeddings = confirmGenerateEmbeddings.checked;
-        const repoLabel = syncParams.repositoryFullNames
-            ? syncParams.repositoryFullNames.join(', ')
+        const repoLabel = params.repositoryFullNames
+            ? params.repositoryFullNames.join(', ')
             : 'všechny repozitáře';
-        const refreshLabel = syncParams.fullRefresh ? ' (plný refresh)' : '';
+        const refreshLabel = params.fullRefresh ? ' (plný refresh)' : '';
         const embeddingLabel = generateEmbeddings ? '' : ' (BEZ embeddingů)';
 
         showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}${embeddingLabel}...`, null);
@@ -590,7 +599,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    ...syncParams,
+                    ...params,
                     generateEmbeddings: generateEmbeddings
                 })
             });
