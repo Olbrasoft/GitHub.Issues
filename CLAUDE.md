@@ -12,6 +12,54 @@ ASP.NET Core Razor Pages application for searching GitHub issues with semantic s
 
 ---
 
+## 🔴🔴🔴 KRITICKÉ VAROVÁNÍ - OPAKUJÍCÍ SE PROBLÉM!!! 🔴🔴🔴
+
+### ⚠️ DATABÁZE: POUZE MICROSOFT SQL SERVER 2025 (DOCKER)!!!
+
+**TENTO PROJEKT POUŽÍVÁ:**
+- **Microsoft SQL Server 2025** (Development Edition)
+- **Docker kontejner** `mssql` na `localhost:1433`
+- **Database:** `GitHubIssues`
+- **User:** `sa`
+- **Password:** `Tuma/*-+`
+
+**Connection String:**
+```
+Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=Tuma/*-+;TrustServerCertificate=True;Encrypt=True;
+```
+
+**⛔ NIKDY NEPOUŽÍVAT:**
+- ❌ PostgreSQL (ani `localhost:5432`)
+- ❌ Azure SQL Server (`olbrasoft-mssql.database.windows.net`)
+- ❌ Databázi `github` (je na Azure, ne lokálně!)
+- ❌ Databázi `github_issues` (neexistuje!)
+
+**🚨 POKUD DOSTANEŠ CHYBU S DATABÁZÍ:**
+1. ZASTAV SE
+2. ZKONTROLUJ connection string - MUSÍ být `Server=localhost,1433;Database=GitHubIssues`
+3. ZKONTROLUJ Docker kontejner: `docker ps | grep mssql`
+
+---
+
+### ⚠️ TESTOVÁNÍ: Integrační testy se přeskakují automaticky na CI
+
+**Správný příkaz pro testy:**
+```bash
+dotnet test --verbosity minimal
+```
+
+**Jak to funguje:**
+- Integrační testy používají `[SkipOnCIFact]` atribut z NuGet package `Olbrasoft.Testing.Xunit.Attributes`
+- Atribut **automaticky detekuje CI prostředí** (GitHub Actions, Azure DevOps, atd.)
+- Na CI se integrační testy **přeskočí automaticky**
+- Lokálně se integrační testy **spustí normálně**
+
+**Proč:** Integrační testy volají externí API (GitHub, Cohere) → nelze spouštět na CI.
+
+**Více informací:** https://github.com/Olbrasoft/Testing
+
+---
+
 ## 🔴 CRITICAL - DO NOT CHANGE
 
 ### Port Configuration
@@ -77,8 +125,9 @@ dotnet build
 
 ### Test (MUST pass before deploy)
 ```bash
-dotnet test --verbosity minimal --filter "FullyQualifiedName!~IntegrationTests"
+dotnet test --verbosity minimal
 ```
+**Note:** Integration tests skip automatically on CI via `[SkipOnCIFact]` attribute
 
 ### Deploy
 ```bash

@@ -19,7 +19,7 @@ public static class SyncEndpoints
             try
             {
                 logger.LogInformation("Starting data import from GitHub (smart sync mode)");
-                await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, ct);
+                await syncService.SyncAllRepositoriesAsync(since: null, smartMode: true, generateEmbeddings: true, cancellationToken: ct);
 
                 return Results.Ok(new { success = true, message = "Import dokončen" });
             }
@@ -30,7 +30,7 @@ public static class SyncEndpoints
             }
         }).RequireAuthorization("OwnerOnly");
 
-        app.MapPost("/api/data/sync", async (
+        app.MapPost("/api/data/sync/analyze", async (
             HttpRequest request,
             IGitHubSyncService syncService,
             ILogger<Program> logger,
@@ -75,6 +75,124 @@ public static class SyncEndpoints
                 }
 
                 var smartMode = !fullRefresh;
+
+                List<object> analysisResults;
+
+                if (repositoryFullNames != null && repositoryFullNames.Count > 0)
+                {
+                    // Analyze specific repositories
+                    analysisResults = new List<object>();
+
+                    foreach (var repoFullName in repositoryFullNames)
+                    {
+                        var parts = repoFullName.Split('/');
+                        if (parts.Length != 2)
+                        {
+                            return Results.BadRequest(new { success = false, message = $"Invalid repository format: {repoFullName}. Expected: owner/repo" });
+                        }
+
+                        var analysis = await syncService.AnalyzeRepositoryAsync(parts[0], parts[1], since: null, smartMode: smartMode, ct);
+                        analysisResults.Add(new
+                        {
+                            repository = analysis.RepositoryFullName,
+                            totalIssues = analysis.TotalIssues,
+                            newIssues = analysis.NewIssues,
+                            changedIssues = analysis.ChangedIssues,
+                            missingEmbeddings = analysis.MissingEmbeddings,
+                            requiredCohereApiCalls = analysis.RequiredCohereApiCalls
+                        });
+                    }
+                }
+                else
+                {
+                    // Analyze all repositories (from config)
+                    logger.LogInformation("Analyzing all repositories (smartMode: {SmartMode})", smartMode);
+                    var allAnalysis = await syncService.AnalyzeAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+
+                    analysisResults = allAnalysis.Select(a => new
+                    {
+                        repository = a.RepositoryFullName,
+                        totalIssues = a.TotalIssues,
+                        newIssues = a.NewIssues,
+                        changedIssues = a.ChangedIssues,
+                        missingEmbeddings = a.MissingEmbeddings,
+                        requiredCohereApiCalls = a.RequiredCohereApiCalls
+                    }).Cast<object>().ToList();
+                }
+
+                var totalNewOrChanged = analysisResults.Sum(a => ((dynamic)a).newIssues + ((dynamic)a).changedIssues);
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    repositories = analysisResults,
+                    summary = new
+                    {
+                        totalRepositories = analysisResults.Count,
+                        totalNewOrChanged = totalNewOrChanged,
+                        totalCohereApiCalls = totalNewOrChanged
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Sync analysis failed");
+                return Results.BadRequest(new { success = false, message = ex.Message });
+            }
+        }).RequireAuthorization("OwnerOnly");
+
+        app.MapPost("/api/data/sync", async (
+            HttpRequest request,
+            IGitHubSyncService syncService,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                List<string>? repositoryFullNames = null;
+                bool fullRefresh = false;
+                bool generateEmbeddings = true; // Default: generate embeddings
+
+                if (request.ContentLength > 0)
+                {
+                    using var reader = new StreamReader(request.Body);
+                    var body = await reader.ReadToEndAsync(ct);
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        var json = JsonDocument.Parse(body);
+
+                        if (json.RootElement.TryGetProperty("repositoryFullNames", out var reposElement) &&
+                            reposElement.ValueKind == JsonValueKind.Array)
+                        {
+                            repositoryFullNames = reposElement.EnumerateArray()
+                                .Select(e => e.GetString())
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .Cast<string>()
+                                .ToList();
+                        }
+                        else if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+                        {
+                            var singleRepo = repoElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(singleRepo))
+                            {
+                                repositoryFullNames = [singleRepo];
+                            }
+                        }
+
+                        if (json.RootElement.TryGetProperty("fullRefresh", out var refreshElement))
+                        {
+                            fullRefresh = refreshElement.GetBoolean();
+                        }
+
+                        // Parse generateEmbeddings parameter (default: true)
+                        if (json.RootElement.TryGetProperty("generateEmbeddings", out var embeddingsElement))
+                        {
+                            generateEmbeddings = embeddingsElement.GetBoolean();
+                        }
+                    }
+                }
+
+                var smartMode = !fullRefresh;
                 Olbrasoft.GitHub.Issues.Data.Dtos.SyncStatisticsDto stats;
 
                 if (repositoryFullNames != null && repositoryFullNames.Count > 0)
@@ -88,9 +206,9 @@ public static class SyncEndpoints
                         }
                     }
 
-                    logger.LogInformation("Starting sync for {Count} repositories (smartMode: {SmartMode})",
-                        repositoryFullNames.Count, smartMode);
-                    stats = await syncService.SyncRepositoriesAsync(repositoryFullNames, since: null, smartMode: smartMode, ct);
+                    logger.LogInformation("Starting sync for {Count} repositories (smartMode: {SmartMode}, generateEmbeddings: {GenerateEmbeddings})",
+                        repositoryFullNames.Count, smartMode, generateEmbeddings);
+                    stats = await syncService.SyncRepositoriesAsync(repositoryFullNames, since: null, smartMode: smartMode, generateEmbeddings: generateEmbeddings, ct);
 
                     var repoLabel = repositoryFullNames.Count == 1 ? repositoryFullNames[0] : $"{repositoryFullNames.Count} repozitářů";
                     return Results.Ok(new
@@ -102,8 +220,8 @@ public static class SyncEndpoints
                 }
                 else
                 {
-                    logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode})", smartMode);
-                    stats = await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+                    logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode}, generateEmbeddings: {GenerateEmbeddings})", smartMode, generateEmbeddings);
+                    stats = await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, generateEmbeddings: generateEmbeddings, ct);
 
                     return Results.Ok(new
                     {

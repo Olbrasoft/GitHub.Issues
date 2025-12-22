@@ -39,6 +39,14 @@
     const syncRepoSearchInput = document.getElementById('syncRepoSearchInput');
     const syncAutocompleteDropdown = document.getElementById('syncAutocompleteDropdown');
 
+    // DOM Elements - Sync Confirmation Modal
+    const syncConfirmModal = document.getElementById('syncConfirmModal');
+    const syncAnalysisContent = document.getElementById('syncAnalysisContent');
+    const confirmCloseBtn = document.getElementById('confirmCloseBtn');
+    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+    const confirmSyncBtn = document.getElementById('confirmSyncBtn');
+    const confirmGenerateEmbeddings = document.getElementById('confirmGenerateEmbeddings');
+
     // DOM Elements - Sync Result Modal
     const syncResultModal = document.getElementById('syncResultModal');
     const syncResultTitle = document.getElementById('syncResultTitle');
@@ -59,6 +67,7 @@
     let syncSelectedRepos = []; // Selected repos in sync modal
     let syncSelectedIndex = -1;
     let syncDebounceTimer = null;
+    let syncParams = null; // Stored sync parameters for confirmation step
 
     // ===== Authentication Functions =====
 
@@ -459,29 +468,139 @@
         }
     }
 
-    // Sync from modal
+    // Sync from modal - Step 1: Analyze changes first
     async function syncDataFromModal() {
         closeSyncModal();
 
         const btn = syncBtn;
         const originalHtml = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
+        btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Analyzuji...';
 
         const fullRefresh = modalFullRefreshCheckbox.checked;
-        const repoNames = syncSelectedRepos.map(r => r.fullName);
+        let repoNames = syncSelectedRepos.map(r => r.fullName);
+
+        // If no tags selected, check if user typed a repository name
+        if (repoNames.length === 0) {
+            const inputValue = syncRepoSearchInput.value.trim();
+            if (inputValue) {
+                repoNames = [inputValue];
+            }
+        }
+
+        // Store sync parameters for later use after confirmation
+        syncParams = {
+            repositoryFullNames: repoNames.length > 0 ? repoNames : null,
+            fullRefresh: fullRefresh
+        };
+
         const repoLabel = repoNames.length > 0 ? repoNames.join(', ') : 'všechny repozitáře';
         const refreshLabel = fullRefresh ? ' (plný refresh)' : '';
 
-        showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}...`, null);
+        showBanner('info', '⏳', `Analyzuji změny pro ${repoLabel}${refreshLabel}...`, null);
+
+        try {
+            const response = await fetch('/api/data/sync/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(syncParams)
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                hideBanner();
+                showSyncConfirmation(result);
+            } else {
+                showBanner('error', '❌', `Chyba analýzy: ${result.message}`, null);
+            }
+        } catch (error) {
+            showBanner('error', '❌', `Chyba: ${error.message}`, null);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+
+    // Step 2: Show analysis results and ask for confirmation
+    function showSyncConfirmation(analysisResult) {
+        let html = '';
+
+        if (analysisResult.repositories && analysisResult.repositories.length > 0) {
+            html += '<div class="sync-analysis">';
+            html += '<h3>Analýza změn:</h3>';
+
+            analysisResult.repositories.forEach(repo => {
+                const totalChanges = repo.newIssues + repo.changedIssues;
+                html += `
+                    <div class="analysis-repo">
+                        <div class="analysis-repo-name">${repo.repository}</div>
+                        <div class="analysis-stats">
+                            <span>Celkem issues: ${repo.totalIssues}</span>
+                            <span>Nové: ${repo.newIssues}</span>
+                            <span>Změněné: ${repo.changedIssues}</span>
+                            <span>Bez embeddingů: ${repo.missingEmbeddings}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            html += `
+                <div class="analysis-summary">
+                    <strong>Souhrn:</strong><br/>
+                    Repozitářů: ${analysisResult.summary.totalRepositories}<br/>
+                    Nových nebo změněných issues: ${analysisResult.summary.totalNewOrChanged}<br/>
+                    <strong style="color: #d63384;">Požadované Cohere API volání: ${analysisResult.summary.totalCohereApiCalls}</strong>
+                </div>
+            `;
+        } else {
+            html = '<p>Žádné změny k synchronizaci.</p>';
+        }
+
+        syncAnalysisContent.innerHTML = html;
+        syncConfirmModal.style.display = 'flex';
+        confirmGenerateEmbeddings.checked = true;
+    }
+
+    function closeSyncConfirmModal() {
+        syncConfirmModal.style.display = 'none';
+        syncParams = null;
+    }
+
+    // Step 3: Execute sync after confirmation
+    async function executeConfirmedSync() {
+        if (!syncParams) {
+            console.error('No sync parameters stored');
+            return;
+        }
+
+        // IMPORTANT: Store syncParams in local variable BEFORE closing modal
+        // because closeSyncConfirmModal() sets syncParams = null
+        const params = { ...syncParams };
+        const generateEmbeddings = confirmGenerateEmbeddings.checked;
+
+        closeSyncConfirmModal();
+
+        const btn = syncBtn;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
+
+        const repoLabel = params.repositoryFullNames
+            ? params.repositoryFullNames.join(', ')
+            : 'všechny repozitáře';
+        const refreshLabel = params.fullRefresh ? ' (plný refresh)' : '';
+        const embeddingLabel = generateEmbeddings ? '' : ' (BEZ embeddingů)';
+
+        showBanner('info', '⏳', `Synchronizuji ${repoLabel}${refreshLabel}${embeddingLabel}...`, null);
 
         try {
             const response = await fetch('/api/data/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    repositoryFullNames: repoNames.length > 0 ? repoNames : null,
-                    fullRefresh: fullRefresh
+                    ...params,
+                    generateEmbeddings: generateEmbeddings
                 })
             });
             const result = await response.json();
@@ -496,6 +615,7 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
+            syncParams = null;
         }
     }
 
@@ -578,6 +698,11 @@
     modalCancelBtn?.addEventListener('click', closeSyncModal);
     modalSyncBtn?.addEventListener('click', syncDataFromModal);
 
+    // Confirmation modal buttons
+    confirmCloseBtn?.addEventListener('click', closeSyncConfirmModal);
+    confirmCancelBtn?.addEventListener('click', closeSyncConfirmModal);
+    confirmSyncBtn?.addEventListener('click', executeConfirmedSync);
+
     // Result modal close buttons
     resultCloseBtn?.addEventListener('click', closeSyncResultModal);
     resultOkBtn?.addEventListener('click', closeSyncResultModal);
@@ -586,6 +711,12 @@
     syncModal?.addEventListener('click', function(e) {
         if (e.target === syncModal) {
             closeSyncModal();
+        }
+    });
+
+    syncConfirmModal?.addEventListener('click', function(e) {
+        if (e.target === syncConfirmModal) {
+            closeSyncConfirmModal();
         }
     });
 

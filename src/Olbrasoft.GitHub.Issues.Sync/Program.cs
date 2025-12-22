@@ -4,10 +4,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Sync.ApiClients;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
@@ -19,14 +21,9 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true);
 
-// Configure DbContext (still needed for CQRS handlers)
-builder.Services.AddDbContext<GitHubDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        o => o.UseVector()));
-
-// Register CQRS handlers
-builder.Services.AddCqrs(ServiceLifetime.Scoped, typeof(GitHubDbContext).Assembly);
+// Configure DbContext for SQL Server (NOT PostgreSQL!)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+builder.Services.AddGitHubDbContext(connectionString, DatabaseProvider.SqlServer);
 
 // Register Mediator
 builder.Services.AddMediation(typeof(GitHubDbContext).Assembly).UseRequestHandlerMediator();
@@ -37,8 +34,55 @@ var embeddingSection = textTransformSection.Exists()
     ? textTransformSection.GetSection("Embeddings")
     : builder.Configuration.GetSection("Embeddings");
 builder.Services.Configure<EmbeddingSettings>(embeddingSection);
+
+// PostConfigure to collect Cohere API keys from various locations (same as web app)
+builder.Services.PostConfigure<EmbeddingSettings>(options =>
+{
+    var keys = new List<string>();
+
+    // 1. TextTransformation:Embeddings:Cohere:ApiKeys (array)
+    var cohereSection = builder.Configuration.GetSection("TextTransformation:Embeddings:Cohere:ApiKeys");
+    var arrayKeys = cohereSection.Get<string[]>() ?? [];
+    keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+
+    // 2. AiProviders:Cohere:Keys
+    if (keys.Count == 0)
+    {
+        var aiProviderKeys = builder.Configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
+        keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+    }
+
+    // 3. Single key fallbacks (for user-secrets)
+    if (keys.Count == 0)
+    {
+        var singleKey = builder.Configuration["TextTransformation:Embeddings:Cohere:ApiKey"]
+                     ?? builder.Configuration["Embeddings:CohereApiKey"]
+                     ?? builder.Configuration["CohereApiKey"]
+                     ?? builder.Configuration["Cohere__ApiKey"];
+        if (!string.IsNullOrWhiteSpace(singleKey))
+        {
+            keys.Add(singleKey);
+        }
+    }
+
+    if (keys.Count > 0)
+    {
+        options.Cohere.ApiKeys = keys.ToArray();
+    }
+});
+
 builder.Services.AddHttpClient<CohereEmbeddingService>();
 builder.Services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
+
+// Embedding text builder
+builder.Services.AddSingleton<IEmbeddingTextBuilder>(sp =>
+{
+    var syncSettings = sp.GetRequiredService<IOptions<SyncSettings>>();
+    return new EmbeddingTextBuilder(syncSettings.Value.MaxEmbeddingTextLength);
+});
+
+// Issue embedding generator
+builder.Services.AddScoped<IIssueEmbeddingGenerator, IssueEmbeddingGenerator>();
 
 // Configure settings
 builder.Services.Configure<GitHubSettings>(builder.Configuration.GetSection("GitHub"));
@@ -50,14 +94,64 @@ builder.Services.AddScoped<ILabelSyncBusinessService, LabelSyncBusinessService>(
 builder.Services.AddScoped<IRepositorySyncBusinessService, RepositorySyncBusinessService>();
 builder.Services.AddScoped<IEventSyncBusinessService, EventSyncBusinessService>();
 
-// Register GitHub API client
+// Register GitHub API clients (typed HttpClients - these have HttpClient in constructor)
 builder.Services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
 
+// Configure HTTP clients for GitHub API with base address and authorization
+builder.Services.AddHttpClient<IGitHubRepositoryApiClient, GitHubRepositoryApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+})
+.ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+
+builder.Services.AddHttpClient<IGitHubIssueApiClient, GitHubIssueApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+})
+.ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+
+builder.Services.AddHttpClient<IGitHubEventApiClient, GitHubEventApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Olbrasoft-GitHub-Issues-Sync", "1.0"));
+})
+.ConfigureHttpClient((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GitHubSettings>>();
+    if (!string.IsNullOrEmpty(settings.Value.Token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.Value.Token);
+    }
+});
+
 // Register specialized sync services (SRP - each has one responsibility)
-builder.Services.AddHttpClient<IRepositorySyncService, RepositorySyncService>();
+// These do NOT have HttpClient in constructor - they depend on API client interfaces
+builder.Services.AddScoped<IRepositorySyncService, RepositorySyncService>();
 builder.Services.AddScoped<ILabelSyncService, LabelSyncService>();
-builder.Services.AddHttpClient<IIssueSyncService, IssueSyncService>();
-builder.Services.AddHttpClient<IEventSyncService, EventSyncService>();
+builder.Services.AddScoped<IIssueSyncService, IssueSyncService>();
+builder.Services.AddScoped<IEventSyncService, EventSyncService>();
 
 // Register orchestrator (coordinates all sync services)
 builder.Services.AddScoped<IGitHubSyncService, GitHubSyncService>();

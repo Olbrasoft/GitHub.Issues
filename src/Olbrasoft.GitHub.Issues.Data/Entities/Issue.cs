@@ -23,14 +23,18 @@ public class Issue
     public DateTimeOffset GitHubUpdatedAt { get; set; }
 
     /// <summary>
-    /// Vector embedding for semantic search.
+    /// Vector embedding for semantic search (nullable).
     /// </summary>
     /// <remarks>
-    /// !!! CRITICAL: This property MUST be required (NOT NULL) !!!
-    /// !!! DO NOT make this nullable - without embedding the record is useless !!!
-    /// !!! We search by embedding - records without embedding cannot be found !!!
+    /// Issues WITHOUT embeddings:
+    /// - Are stored in database and visible in lists
+    /// - Can be filtered by repository, state, number
+    /// - Can be found via text search (LIKE fallback)
+    /// - Won't appear in top semantic search results
+    ///
+    /// Use hybrid search strategy to handle both cases.
     /// </remarks>
-    public float[] Embedding { get; set; } = [];
+    public float[]? Embedding { get; set; }
 
     public DateTimeOffset SyncedAt { get; set; }
 

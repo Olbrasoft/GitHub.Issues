@@ -29,11 +29,68 @@ public class IssueSyncService : IIssueSyncService
         _logger = logger;
     }
 
+    public async Task<SyncAnalysisDto> AnalyzeChangesAsync(
+        Repository repository,
+        string owner,
+        string repo,
+        DateTimeOffset? since = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Fetch issues from GitHub API (only GitHub call, NO Cohere calls)
+        var allIssues = await _apiClient.FetchIssuesAsync(owner, repo, since, cancellationToken);
+
+        // Get existing issues for change detection
+        var existingIssues = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
+
+        int newCount = 0;
+        int changedCount = 0;
+        int missingEmbeddings = 0;
+
+        foreach (var ghIssue in allIssues)
+        {
+            // Skip pull requests
+            if (ghIssue.IsPullRequest)
+            {
+                continue;
+            }
+
+            // Check if issue exists and has changed
+            var existingIssue = existingIssues.GetValueOrDefault(ghIssue.Number);
+            var isNew = existingIssue == null;
+            var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < ghIssue.UpdatedAt;
+
+            if (isNew)
+            {
+                newCount++;
+            }
+            else if (hasChanged)
+            {
+                changedCount++;
+            }
+
+            // Check if existing issue is missing embedding
+            if (existingIssue != null && existingIssue.Embedding == null)
+            {
+                missingEmbeddings++;
+            }
+        }
+
+        return new SyncAnalysisDto
+        {
+            RepositoryFullName = $"{owner}/{repo}",
+            TotalIssues = allIssues.Count(i => !i.IsPullRequest),
+            NewIssues = newCount,
+            ChangedIssues = changedCount,
+            MissingEmbeddings = missingEmbeddings
+        };
+    }
+
     public async Task<SyncStatisticsDto> SyncIssuesAsync(
         Repository repository,
         string owner,
         string repo,
         DateTimeOffset? since = null,
+        bool generateEmbeddings = true,
         CancellationToken cancellationToken = default)
     {
         var stats = new SyncStatisticsDto
@@ -74,23 +131,55 @@ public class IssueSyncService : IIssueSyncService
 
             // Generate embedding for new/changed issues (includes comments)
             float[]? embedding;
-            if (isNew || hasChanged)
+            if (generateEmbeddings)
             {
-                embedding = await _embeddingGenerator.GenerateEmbeddingAsync(
-                    owner, repo, ghIssue.Number, ghIssue.Title, ghIssue.Body, ghIssue.LabelNames, cancellationToken);
-                stats.ApiCalls++; // Count comment API call
+                // Mode: Generate embeddings (with Cohere API calls)
+                if (isNew || hasChanged)
+                {
+                    embedding = await _embeddingGenerator.GenerateEmbeddingAsync(
+                        owner, repo, ghIssue.Number, ghIssue.Title, ghIssue.Body, ghIssue.LabelNames, cancellationToken);
+                    stats.ApiCalls++; // Count Cohere API call
+
+                    if (embedding == null)
+                    {
+                        _logger.LogWarning(
+                            "Issue #{Number} ({Title}): Embedding generation failed - SKIPPING issue.",
+                            ghIssue.Number, ghIssue.Title);
+                        stats.EmbeddingsFailed++;
+                        continue; // Skip issue - embedding required in this mode
+                    }
+                }
+                else
+                {
+                    embedding = existingIssue!.Embedding;
+
+                    // If existing issue doesn't have embedding, skip it in this mode
+                    if (embedding == null)
+                    {
+                        _logger.LogWarning(
+                            "Issue #{Number} ({Title}): No existing embedding - SKIPPING unchanged issue.",
+                            ghIssue.Number, ghIssue.Title);
+                        stats.Unchanged++;
+                        continue;
+                    }
+                }
             }
             else
             {
-                embedding = existingIssue!.Embedding;
-            }
-            if (embedding == null)
-            {
-                _logger.LogWarning(
-                    "Issue #{Number} ({Title}): Could not generate embedding - SKIPPING issue (embedding is required).",
-                    ghIssue.Number, ghIssue.Title);
-                stats.EmbeddingsFailed++;
-                continue; // Skip issue - embedding is required
+                // Mode: Save without embeddings (NO Cohere API calls)
+                if (!isNew && existingIssue!.Embedding != null)
+                {
+                    // Keep existing embedding for unchanged issues
+                    embedding = existingIssue.Embedding;
+                }
+                else
+                {
+                    // New or changed issues get null embedding
+                    embedding = null;
+                    _logger.LogInformation(
+                        "Issue #{Number} ({Title}): Saving without embedding (generateEmbeddings=false).",
+                        ghIssue.Number, ghIssue.Title);
+                }
             }
 
             // Save issue
