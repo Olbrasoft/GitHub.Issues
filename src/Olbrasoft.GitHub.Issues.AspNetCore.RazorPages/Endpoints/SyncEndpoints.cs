@@ -137,6 +137,7 @@ public static class SyncEndpoints
             {
                 List<string>? repositoryFullNames = null;
                 bool fullRefresh = false;
+                bool generateEmbeddings = true; // Default: generate embeddings
 
                 if (request.ContentLength > 0)
                 {
@@ -168,6 +169,12 @@ public static class SyncEndpoints
                         {
                             fullRefresh = refreshElement.GetBoolean();
                         }
+
+                        // Parse generateEmbeddings parameter (default: true)
+                        if (json.RootElement.TryGetProperty("generateEmbeddings", out var embeddingsElement))
+                        {
+                            generateEmbeddings = embeddingsElement.GetBoolean();
+                        }
                     }
                 }
 
@@ -185,9 +192,9 @@ public static class SyncEndpoints
                         }
                     }
 
-                    logger.LogInformation("Starting sync for {Count} repositories (smartMode: {SmartMode})",
-                        repositoryFullNames.Count, smartMode);
-                    stats = await syncService.SyncRepositoriesAsync(repositoryFullNames, since: null, smartMode: smartMode, ct);
+                    logger.LogInformation("Starting sync for {Count} repositories (smartMode: {SmartMode}, generateEmbeddings: {GenerateEmbeddings})",
+                        repositoryFullNames.Count, smartMode, generateEmbeddings);
+                    stats = await syncService.SyncRepositoriesAsync(repositoryFullNames, since: null, smartMode: smartMode, generateEmbeddings: generateEmbeddings, ct);
 
                     var repoLabel = repositoryFullNames.Count == 1 ? repositoryFullNames[0] : $"{repositoryFullNames.Count} repozitářů";
                     return Results.Ok(new
@@ -199,8 +206,8 @@ public static class SyncEndpoints
                 }
                 else
                 {
-                    logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode})", smartMode);
-                    stats = await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+                    logger.LogInformation("Starting sync for all repositories (smartMode: {SmartMode}, generateEmbeddings: {GenerateEmbeddings})", smartMode, generateEmbeddings);
+                    stats = await syncService.SyncAllRepositoriesAsync(since: null, smartMode: smartMode, generateEmbeddings: generateEmbeddings, ct);
 
                     return Results.Ok(new
                     {

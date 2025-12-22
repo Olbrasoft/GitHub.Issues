@@ -37,7 +37,7 @@ public class GitHubSyncService : IGitHubSyncService
         _logger = logger;
     }
 
-    public async Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default)
     {
         IEnumerable<string> repositories;
 
@@ -59,10 +59,10 @@ public class GitHubSyncService : IGitHubSyncService
             return new SyncStatisticsDto();
         }
 
-        return await SyncRepositoriesAsync(repositories, since, smartMode, cancellationToken);
+        return await SyncRepositoriesAsync(repositories, since, smartMode, generateEmbeddings, cancellationToken);
     }
 
-    public async Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    public async Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default)
     {
         var aggregatedStats = new SyncStatisticsDto();
 
@@ -75,7 +75,7 @@ public class GitHubSyncService : IGitHubSyncService
                 continue;
             }
 
-            var repoStats = await SyncRepositoryAsync(parts[0], parts[1], since, smartMode, cancellationToken);
+            var repoStats = await SyncRepositoryAsync(parts[0], parts[1], since, smartMode, generateEmbeddings, cancellationToken);
             aggregatedStats.Add(repoStats);
 
             // Keep the first since timestamp (for display purposes)

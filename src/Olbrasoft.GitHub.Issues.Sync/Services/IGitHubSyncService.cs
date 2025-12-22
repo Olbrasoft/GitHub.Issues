@@ -34,9 +34,10 @@ public interface IGitHubSyncService
     /// </summary>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
+    /// <param name="generateEmbeddings">If true, generates embeddings via Cohere API. If false, saves issues without embeddings.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Aggregated statistics about the sync operation.</returns>
-    Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    Task<SyncStatisticsDto> SyncAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Synchronizes a list of repositories provided as arguments.
@@ -44,7 +45,8 @@ public interface IGitHubSyncService
     /// <param name="repositories">List of repositories in "owner/repo" format</param>
     /// <param name="since">If provided, only sync issues changed since this timestamp (incremental). If null, full sync.</param>
     /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
+    /// <param name="generateEmbeddings">If true, generates embeddings via Cohere API. If false, saves issues without embeddings.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Aggregated statistics about the sync operation.</returns>
-    Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+    Task<SyncStatisticsDto> SyncRepositoriesAsync(IEnumerable<string> repositories, DateTimeOffset? since = null, bool smartMode = false, bool generateEmbeddings = true, CancellationToken cancellationToken = default);
 }
