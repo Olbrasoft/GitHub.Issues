@@ -480,11 +480,8 @@
         const fullRefresh = modalFullRefreshCheckbox.checked;
         let repoNames = syncSelectedRepos.map(r => r.fullName);
 
-        // FIX: If no tags selected but input has value, use that
-        const inputValue = syncRepoSearchInput.value.trim();
-        if (repoNames.length === 0 && inputValue) {
-            repoNames = [inputValue];
-        }
+        // NOTE: Ignore input field value - only use selected tags
+        // If no tags selected, send null to analyze ALL repositories
 
         // Store sync parameters for later use after confirmation
         syncParams = {

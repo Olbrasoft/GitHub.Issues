@@ -76,10 +76,12 @@ public static class SyncEndpoints
 
                 var smartMode = !fullRefresh;
 
+                List<object> analysisResults;
+
                 if (repositoryFullNames != null && repositoryFullNames.Count > 0)
                 {
                     // Analyze specific repositories
-                    var analysisResults = new List<object>();
+                    analysisResults = new List<object>();
 
                     foreach (var repoFullName in repositoryFullNames)
                     {
@@ -100,25 +102,37 @@ public static class SyncEndpoints
                             requiredCohereApiCalls = analysis.RequiredCohereApiCalls
                         });
                     }
-
-                    var totalNewOrChanged = analysisResults.Sum(a => ((dynamic)a).newIssues + ((dynamic)a).changedIssues);
-
-                    return Results.Ok(new
-                    {
-                        success = true,
-                        repositories = analysisResults,
-                        summary = new
-                        {
-                            totalRepositories = analysisResults.Count,
-                            totalNewOrChanged = totalNewOrChanged,
-                            totalCohereApiCalls = totalNewOrChanged
-                        }
-                    });
                 }
                 else
                 {
-                    return Results.BadRequest(new { success = false, message = "No repositories specified for analysis. Provide repositoryFullNames or repositoryFullName." });
+                    // Analyze all repositories (from config)
+                    logger.LogInformation("Analyzing all repositories (smartMode: {SmartMode})", smartMode);
+                    var allAnalysis = await syncService.AnalyzeAllRepositoriesAsync(since: null, smartMode: smartMode, ct);
+
+                    analysisResults = allAnalysis.Select(a => new
+                    {
+                        repository = a.RepositoryFullName,
+                        totalIssues = a.TotalIssues,
+                        newIssues = a.NewIssues,
+                        changedIssues = a.ChangedIssues,
+                        missingEmbeddings = a.MissingEmbeddings,
+                        requiredCohereApiCalls = a.RequiredCohereApiCalls
+                    }).Cast<object>().ToList();
                 }
+
+                var totalNewOrChanged = analysisResults.Sum(a => ((dynamic)a).newIssues + ((dynamic)a).changedIssues);
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    repositories = analysisResults,
+                    summary = new
+                    {
+                        totalRepositories = analysisResults.Count,
+                        totalNewOrChanged = totalNewOrChanged,
+                        totalCohereApiCalls = totalNewOrChanged
+                    }
+                });
             }
             catch (Exception ex)
             {

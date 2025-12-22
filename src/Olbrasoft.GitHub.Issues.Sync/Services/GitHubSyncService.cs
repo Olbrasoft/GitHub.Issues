@@ -85,6 +85,46 @@ public class GitHubSyncService : IGitHubSyncService
         return aggregatedStats;
     }
 
+    public async Task<List<SyncAnalysisDto>> AnalyzeAllRepositoriesAsync(DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    {
+        IEnumerable<string> repositories;
+
+        if (_settings.Repositories.Count > 0)
+        {
+            // Use explicit list from config
+            _logger.LogInformation("Analyzing explicit repository list from configuration ({Count} repositories)", _settings.Repositories.Count);
+            repositories = _settings.Repositories;
+        }
+        else if (!string.IsNullOrEmpty(_settings.Owner))
+        {
+            // Discover repos via API
+            _logger.LogInformation("Discovering repositories for owner: {Owner} (type: {OwnerType})", _settings.Owner, _settings.OwnerType);
+            repositories = await _repositorySyncService.FetchAllRepositoriesForOwnerAsync(cancellationToken);
+        }
+        else
+        {
+            _logger.LogWarning("No repositories to analyze. Configure either 'Repositories' list or 'Owner' in settings.");
+            return new List<SyncAnalysisDto>();
+        }
+
+        var analysisResults = new List<SyncAnalysisDto>();
+
+        foreach (var repoFullName in repositories)
+        {
+            var parts = repoFullName.Split('/');
+            if (parts.Length != 2)
+            {
+                _logger.LogWarning("Invalid repository format: {Repository}. Expected 'owner/repo'", repoFullName);
+                continue;
+            }
+
+            var analysis = await AnalyzeRepositoryAsync(parts[0], parts[1], since, smartMode, cancellationToken);
+            analysisResults.Add(analysis);
+        }
+
+        return analysisResults;
+    }
+
     public async Task<SyncAnalysisDto> AnalyzeRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         var repository = await _repositorySyncService.EnsureRepositoryAsync(owner, repo, cancellationToken);
