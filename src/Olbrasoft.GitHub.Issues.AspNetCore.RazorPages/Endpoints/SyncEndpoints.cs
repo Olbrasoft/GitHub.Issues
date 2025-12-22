@@ -30,6 +30,103 @@ public static class SyncEndpoints
             }
         }).RequireAuthorization("OwnerOnly");
 
+        app.MapPost("/api/data/sync/analyze", async (
+            HttpRequest request,
+            IGitHubSyncService syncService,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                List<string>? repositoryFullNames = null;
+                bool fullRefresh = false;
+
+                if (request.ContentLength > 0)
+                {
+                    using var reader = new StreamReader(request.Body);
+                    var body = await reader.ReadToEndAsync(ct);
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        var json = JsonDocument.Parse(body);
+
+                        if (json.RootElement.TryGetProperty("repositoryFullNames", out var reposElement) &&
+                            reposElement.ValueKind == JsonValueKind.Array)
+                        {
+                            repositoryFullNames = reposElement.EnumerateArray()
+                                .Select(e => e.GetString())
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .Cast<string>()
+                                .ToList();
+                        }
+                        else if (json.RootElement.TryGetProperty("repositoryFullName", out var repoElement))
+                        {
+                            var singleRepo = repoElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(singleRepo))
+                            {
+                                repositoryFullNames = [singleRepo];
+                            }
+                        }
+
+                        if (json.RootElement.TryGetProperty("fullRefresh", out var refreshElement))
+                        {
+                            fullRefresh = refreshElement.GetBoolean();
+                        }
+                    }
+                }
+
+                var smartMode = !fullRefresh;
+
+                if (repositoryFullNames != null && repositoryFullNames.Count > 0)
+                {
+                    // Analyze specific repositories
+                    var analysisResults = new List<object>();
+
+                    foreach (var repoFullName in repositoryFullNames)
+                    {
+                        var parts = repoFullName.Split('/');
+                        if (parts.Length != 2)
+                        {
+                            return Results.BadRequest(new { success = false, message = $"Invalid repository format: {repoFullName}. Expected: owner/repo" });
+                        }
+
+                        var analysis = await syncService.AnalyzeRepositoryAsync(parts[0], parts[1], since: null, smartMode: smartMode, ct);
+                        analysisResults.Add(new
+                        {
+                            repository = analysis.RepositoryFullName,
+                            totalIssues = analysis.TotalIssues,
+                            newIssues = analysis.NewIssues,
+                            changedIssues = analysis.ChangedIssues,
+                            missingEmbeddings = analysis.MissingEmbeddings,
+                            requiredCohereApiCalls = analysis.RequiredCohereApiCalls
+                        });
+                    }
+
+                    var totalNewOrChanged = analysisResults.Sum(a => ((dynamic)a).newIssues + ((dynamic)a).changedIssues);
+
+                    return Results.Ok(new
+                    {
+                        success = true,
+                        repositories = analysisResults,
+                        summary = new
+                        {
+                            totalRepositories = analysisResults.Count,
+                            totalNewOrChanged = totalNewOrChanged,
+                            totalCohereApiCalls = totalNewOrChanged
+                        }
+                    });
+                }
+                else
+                {
+                    return Results.BadRequest(new { success = false, message = "No repositories specified for analysis. Provide repositoryFullNames or repositoryFullName." });
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Sync analysis failed");
+                return Results.BadRequest(new { success = false, message = ex.Message });
+            }
+        }).RequireAuthorization("OwnerOnly");
+
         app.MapPost("/api/data/sync", async (
             HttpRequest request,
             IGitHubSyncService syncService,
