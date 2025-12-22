@@ -29,6 +29,62 @@ public class IssueSyncService : IIssueSyncService
         _logger = logger;
     }
 
+    public async Task<SyncAnalysisDto> AnalyzeChangesAsync(
+        Repository repository,
+        string owner,
+        string repo,
+        DateTimeOffset? since = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Fetch issues from GitHub API (only GitHub call, NO Cohere calls)
+        var allIssues = await _apiClient.FetchIssuesAsync(owner, repo, since, cancellationToken);
+
+        // Get existing issues for change detection
+        var existingIssues = await _issueSyncBusiness.GetIssuesByRepositoryAsync(repository.Id, cancellationToken);
+
+        int newCount = 0;
+        int changedCount = 0;
+        int missingEmbeddings = 0;
+
+        foreach (var ghIssue in allIssues)
+        {
+            // Skip pull requests
+            if (ghIssue.IsPullRequest)
+            {
+                continue;
+            }
+
+            // Check if issue exists and has changed
+            var existingIssue = existingIssues.GetValueOrDefault(ghIssue.Number);
+            var isNew = existingIssue == null;
+            var hasChanged = !isNew && existingIssue!.GitHubUpdatedAt < ghIssue.UpdatedAt;
+
+            if (isNew)
+            {
+                newCount++;
+            }
+            else if (hasChanged)
+            {
+                changedCount++;
+            }
+
+            // Check if existing issue is missing embedding
+            if (existingIssue != null && existingIssue.Embedding == null)
+            {
+                missingEmbeddings++;
+            }
+        }
+
+        return new SyncAnalysisDto
+        {
+            RepositoryFullName = $"{owner}/{repo}",
+            TotalIssues = allIssues.Count(i => !i.IsPullRequest),
+            NewIssues = newCount,
+            ChangedIssues = changedCount,
+            MissingEmbeddings = missingEmbeddings
+        };
+    }
+
     public async Task<SyncStatisticsDto> SyncIssuesAsync(
         Repository repository,
         string owner,
