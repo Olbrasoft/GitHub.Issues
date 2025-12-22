@@ -925,6 +925,78 @@ footer {
     margin-bottom: 0.5rem;
 }
 
+/* Sync Analysis Styles */
+.sync-analysis {
+    margin-bottom: 1.5rem;
+}
+
+.sync-analysis h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #24292e;
+}
+
+.analysis-repo {
+    background-color: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.analysis-repo-name {
+    font-weight: 600;
+    color: #0366d6;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.analysis-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.analysis-stats span {
+    color: #586069;
+}
+
+.analysis-summary {
+    background-color: #fff8e1;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.sync-stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e1e4e8;
+}
+
+.sync-stat-row:last-child {
+    border-bottom: none;
+}
+
+.sync-stat-row.sync-stat-warning {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.sync-stat-label {
+    color: #586069;
+}
+
+.sync-stat-value {
+    font-weight: 600;
+    color: #24292e;
+}
+
 /* Real-time issue update highlight animation */
 .result-item.issue-updated {
     animation: issue-highlight 2s ease-out;
