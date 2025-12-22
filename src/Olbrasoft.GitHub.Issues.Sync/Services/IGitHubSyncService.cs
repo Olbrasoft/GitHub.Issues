@@ -5,6 +5,17 @@ namespace Olbrasoft.GitHub.Issues.Sync.Services;
 public interface IGitHubSyncService
 {
     /// <summary>
+    /// Analyzes what will be synced for a single repository without performing actual sync or API calls to embedding providers.
+    /// </summary>
+    /// <param name="owner">Repository owner</param>
+    /// <param name="repo">Repository name</param>
+    /// <param name="since">If provided, only analyze issues changed since this timestamp (incremental). If null, full analysis.</param>
+    /// <param name="smartMode">If true, automatically use stored last_synced_at timestamp from DB</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Analysis showing what would be synced.</returns>
+    Task<SyncAnalysisDto> AnalyzeRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Synchronizes a single repository.
     /// </summary>
     /// <param name="owner">Repository owner</param>

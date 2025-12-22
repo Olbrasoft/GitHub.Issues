@@ -85,6 +85,32 @@ public class GitHubSyncService : IGitHubSyncService
         return aggregatedStats;
     }
 
+    public async Task<SyncAnalysisDto> AnalyzeRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
+    {
+        var repository = await _repositorySyncService.EnsureRepositoryAsync(owner, repo, cancellationToken);
+
+        // In smart mode, use stored last_synced_at if available
+        var effectiveSince = since;
+        if (smartMode && !since.HasValue && repository.LastSyncedAt.HasValue)
+        {
+            effectiveSince = repository.LastSyncedAt;
+            _logger.LogInformation("Smart analysis: using stored timestamp {Timestamp:u} for {Owner}/{Repo}",
+                effectiveSince.Value, owner, repo);
+        }
+
+        _logger.LogInformation("Analyzing changes for {Owner}/{Repo}{Since}",
+            owner, repo,
+            effectiveSince.HasValue ? $" (since {effectiveSince.Value:u})" : "");
+
+        // Analyze issues (NO Cohere API calls, only GitHub)
+        var analysis = await _issueSyncService.AnalyzeChangesAsync(repository, owner, repo, effectiveSince, cancellationToken);
+
+        _logger.LogInformation("Analysis completed for {Owner}/{Repo}: Total={Total}, New={New}, Changed={Changed}, RequiredCohereApiCalls={ApiCalls}",
+            owner, repo, analysis.TotalIssues, analysis.NewIssues, analysis.ChangedIssues, analysis.RequiredCohereApiCalls);
+
+        return analysis;
+    }
+
     public async Task<SyncStatisticsDto> SyncRepositoryAsync(string owner, string repo, DateTimeOffset? since = null, bool smartMode = false, CancellationToken cancellationToken = default)
     {
         var repository = await _repositorySyncService.EnsureRepositoryAsync(owner, repo, cancellationToken);
