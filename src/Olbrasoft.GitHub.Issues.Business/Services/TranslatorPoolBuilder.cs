@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.Azure;
 using Olbrasoft.Text.Translation.DeepL;
+using Olbrasoft.Text.Translation.Google;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
@@ -36,11 +37,10 @@ public class TranslatorPoolBuilder
     }
 
     /// <summary>
-    /// Builds provider groups for strict provider alternation.
+    /// Builds provider groups for strict provider alternation in configured order.
     /// </summary>
     public IReadOnlyList<ProviderGroup> BuildProviderGroups()
     {
-        var groups = new List<ProviderGroup>();
         var logger = _loggerFactory.CreateLogger<TranslatorPoolBuilder>();
 
         var azureKeys = _settings.AzureApiKeys
@@ -52,8 +52,15 @@ public class TranslatorPoolBuilder
             .ToList();
 
         logger.LogInformation(
-            "[TranslatorPoolBuilder] Building provider groups: {AzureCount} Azure keys, {DeepLCount} DeepL keys",
-            azureKeys.Count, deepLKeys.Count);
+            "[TranslatorPoolBuilder] Building provider groups: {AzureCount} Azure keys, {DeepLCount} DeepL keys, Google: {GoogleEnabled}",
+            azureKeys.Count, deepLKeys.Count, _settings.GoogleEnabled);
+
+        logger.LogInformation(
+            "[TranslatorPoolBuilder] Provider order: {Order}",
+            string.Join(" → ", _settings.ProviderOrder));
+
+        // Build provider groups based on configured order
+        var providerGroups = new Dictionary<string, ProviderGroup>(StringComparer.OrdinalIgnoreCase);
 
         // Create Azure provider group
         if (azureKeys.Count > 0)
@@ -63,11 +70,10 @@ public class TranslatorPoolBuilder
             {
                 var translator = CreateAzureTranslator(azureKeys[i], i);
                 azureTranslators.Add(translator);
-
                 logger.LogDebug("[TranslatorPoolBuilder] Created Azure translator [{Index}]", i);
             }
 
-            groups.Add(new ProviderGroup("Azure", azureTranslators));
+            providerGroups["Azure"] = new ProviderGroup("Azure", azureTranslators);
             logger.LogInformation("[TranslatorPoolBuilder] Azure group: {Count} translator(s)", azureTranslators.Count);
         }
 
@@ -79,20 +85,42 @@ public class TranslatorPoolBuilder
             {
                 var translator = CreateDeepLTranslator(deepLKeys[i], i);
                 deepLTranslators.Add(translator);
-
                 logger.LogDebug("[TranslatorPoolBuilder] Created DeepL translator [{Index}]", i);
             }
 
-            groups.Add(new ProviderGroup("DeepL", deepLTranslators));
+            providerGroups["DeepL"] = new ProviderGroup("DeepL", deepLTranslators);
             logger.LogInformation("[TranslatorPoolBuilder] DeepL group: {Count} translator(s)", deepLTranslators.Count);
         }
 
-        var totalTranslators = groups.Sum(g => g.Translators.Count);
-        logger.LogInformation(
-            "[TranslatorPoolBuilder] Built {GroupCount} provider groups with {TotalCount} translators",
-            groups.Count, totalTranslators);
+        // Create Google provider group (no API key required)
+        if (_settings.GoogleEnabled)
+        {
+            var googleTranslator = CreateGoogleTranslator();
+            providerGroups["Google"] = new ProviderGroup("Google", new List<ITranslator> { googleTranslator });
+            logger.LogInformation("[TranslatorPoolBuilder] Google group: 1 translator (free, no API key)");
+        }
 
-        return groups;
+        // Arrange groups according to configured order
+        var orderedGroups = new List<ProviderGroup>();
+        foreach (var providerName in _settings.ProviderOrder)
+        {
+            if (providerGroups.TryGetValue(providerName, out var group))
+            {
+                orderedGroups.Add(group);
+                logger.LogDebug("[TranslatorPoolBuilder] Added {Provider} to position {Position}", providerName, orderedGroups.Count);
+            }
+            else
+            {
+                logger.LogWarning("[TranslatorPoolBuilder] Provider {Provider} in order config but not configured/enabled", providerName);
+            }
+        }
+
+        var totalTranslators = orderedGroups.Sum(g => g.Translators.Count);
+        logger.LogInformation(
+            "[TranslatorPoolBuilder] Built {GroupCount} provider groups with {TotalCount} translators in order: {Order}",
+            orderedGroups.Count, totalTranslators, string.Join(" → ", orderedGroups.Select(g => g.Name)));
+
+        return orderedGroups;
     }
 
     /// <summary>
@@ -153,5 +181,17 @@ public class TranslatorPoolBuilder
         var logger = _loggerFactory.CreateLogger<DeepLTranslator>();
 
         return new DeepLTranslator(httpClient, settings, logger);
+    }
+
+    private GoogleFreeTranslator CreateGoogleTranslator()
+    {
+        var settings = Options.Create(new GoogleFreeTranslatorSettings
+        {
+            TimeoutSeconds = _settings.GoogleTimeoutSeconds
+        });
+
+        var logger = _loggerFactory.CreateLogger<GoogleFreeTranslator>();
+
+        return new GoogleFreeTranslator(settings, logger);
     }
 }

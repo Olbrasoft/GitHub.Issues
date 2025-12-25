@@ -30,7 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.1" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.2" />
     <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.1" />
   </ItemGroup>
 

@@ -7,6 +7,12 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 public class TranslatorPoolSettings
 {
     /// <summary>
+    /// Provider order for fallback chain. Default: ["Azure", "DeepL", "Google"]
+    /// Example: ["Google", "Azure", "DeepL"] - tries Google first, then Azure, then DeepL
+    /// </summary>
+    public string[] ProviderOrder { get; set; } = ["Azure", "DeepL", "Google"];
+
+    /// <summary>
     /// Azure Translator API keys. Each key creates a separate translator instance.
     /// </summary>
     public string[] AzureApiKeys { get; set; } = [];
@@ -37,6 +43,17 @@ public class TranslatorPoolSettings
     /// DeepL API endpoint for free accounts.
     /// </summary>
     public string DeepLFreeEndpoint { get; set; } = "https://api-free.deepl.com/v2/";
+
+    /// <summary>
+    /// Enable Google Translate free service (unofficial API, no key required).
+    /// Default: true (enabled)
+    /// </summary>
+    public bool GoogleEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Timeout in seconds for Google Translate requests. Default: 10 seconds.
+    /// </summary>
+    public int GoogleTimeoutSeconds { get; set; } = 10;
 
     /// <summary>
     /// Returns true if any translator keys are configured.
