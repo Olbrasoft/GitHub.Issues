@@ -51,9 +51,8 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // Temporarily show detailed errors for debugging
-    app.UseDeveloperExceptionPage();
-    // app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
 }
 
 app.UseStaticFiles();
