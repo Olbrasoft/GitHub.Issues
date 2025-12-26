@@ -14,6 +14,7 @@ public class IssueEventsSaveBatchCommandHandler
 
     public IssueEventsSaveBatchCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<int> ExecuteCommandAsync(

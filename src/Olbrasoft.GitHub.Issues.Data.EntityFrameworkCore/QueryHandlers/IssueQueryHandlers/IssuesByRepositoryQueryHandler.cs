@@ -12,6 +12,7 @@ public class IssuesByRepositoryQueryHandler
 {
     public IssuesByRepositoryQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Dictionary<int, Issue>> GetResultToHandleAsync(

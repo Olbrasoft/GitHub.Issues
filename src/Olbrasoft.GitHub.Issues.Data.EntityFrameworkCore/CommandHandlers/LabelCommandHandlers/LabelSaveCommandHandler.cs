@@ -12,6 +12,7 @@ public class LabelSaveCommandHandler
 {
     public LabelSaveCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Label> ExecuteCommandAsync(

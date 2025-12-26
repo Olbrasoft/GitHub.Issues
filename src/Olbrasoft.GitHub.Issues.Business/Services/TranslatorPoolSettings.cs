@@ -56,11 +56,24 @@ public class TranslatorPoolSettings
     public int GoogleTimeoutSeconds { get; set; } = 10;
 
     /// <summary>
-    /// Returns true if any translator keys are configured.
+    /// Enable Bing Translate free service (unofficial API, no key required).
+    /// Default: false (disabled)
+    /// </summary>
+    public bool BingEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Timeout in seconds for Bing Translate requests. Default: 10 seconds.
+    /// </summary>
+    public int BingTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Returns true if any translator is configured (Azure, DeepL, Google, or Bing).
     /// </summary>
     public bool HasAnyTranslators =>
         AzureApiKeys.Any(k => !string.IsNullOrWhiteSpace(k)) ||
-        DeepLApiKeys.Any(k => !string.IsNullOrWhiteSpace(k));
+        DeepLApiKeys.Any(k => !string.IsNullOrWhiteSpace(k)) ||
+        GoogleEnabled ||
+        BingEnabled;
 
     /// <summary>
     /// Returns the appropriate DeepL endpoint for the given API key.

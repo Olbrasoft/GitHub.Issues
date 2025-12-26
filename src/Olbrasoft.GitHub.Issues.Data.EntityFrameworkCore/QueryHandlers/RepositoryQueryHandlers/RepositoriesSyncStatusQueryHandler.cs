@@ -14,6 +14,7 @@ public class RepositoriesSyncStatusQueryHandler
 {
     public RepositoriesSyncStatusQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<IEnumerable<RepositorySyncStatusDto>> GetResultToHandleAsync(

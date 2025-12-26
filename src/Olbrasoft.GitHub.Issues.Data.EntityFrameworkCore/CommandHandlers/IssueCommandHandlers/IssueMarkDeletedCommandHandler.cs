@@ -13,6 +13,7 @@ public class IssueMarkDeletedCommandHandler
 {
     public IssueMarkDeletedCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<int> ExecuteCommandAsync(

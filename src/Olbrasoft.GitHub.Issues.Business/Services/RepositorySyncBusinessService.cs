@@ -13,6 +13,7 @@ public class RepositorySyncBusinessService : Service, IRepositorySyncBusinessSer
 {
     public RepositorySyncBusinessService(IMediator mediator) : base(mediator)
     {
+        ArgumentNullException.ThrowIfNull(mediator);
     }
 
     public async Task<Repository?> GetByFullNameAsync(string fullName, CancellationToken ct = default)

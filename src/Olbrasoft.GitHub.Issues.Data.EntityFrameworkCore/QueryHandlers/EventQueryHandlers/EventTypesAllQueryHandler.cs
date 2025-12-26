@@ -12,6 +12,7 @@ public class EventTypesAllQueryHandler
 {
     public EventTypesAllQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Dictionary<string, EventType>> GetResultToHandleAsync(

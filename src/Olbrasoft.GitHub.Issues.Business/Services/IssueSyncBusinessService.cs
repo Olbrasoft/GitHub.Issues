@@ -13,6 +13,7 @@ public class IssueSyncBusinessService : Service, IIssueSyncBusinessService
 {
     public IssueSyncBusinessService(IMediator mediator) : base(mediator)
     {
+        ArgumentNullException.ThrowIfNull(mediator);
     }
 
     public async Task<Issue?> GetIssueAsync(int repositoryId, int number, CancellationToken ct = default)

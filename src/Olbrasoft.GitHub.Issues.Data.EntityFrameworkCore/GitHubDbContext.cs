@@ -11,11 +11,15 @@ public class GitHubDbContext : DbContext
     public GitHubDbContext(DbContextOptions<GitHubDbContext> options)
         : base(options)
     {
+        ArgumentNullException.ThrowIfNull(options);
     }
 
     public GitHubDbContext(DbContextOptions<GitHubDbContext> options, DatabaseSettings settings)
         : base(options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(settings);
+
         _settings = settings;
     }
 

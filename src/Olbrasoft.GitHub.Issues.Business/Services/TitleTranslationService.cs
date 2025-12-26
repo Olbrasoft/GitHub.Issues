@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Entities;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
@@ -11,10 +11,11 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 /// Service for translating issue titles using dedicated translation services.
 /// Primary: Azure Translator. Fallback: DeepL (or any other ITranslator).
 /// Note: Cohere (AI-based) removed per Issue #209 - translations must use proper translators.
+/// Updated to follow DIP by depending on ITranslationRepository abstraction.
 /// </summary>
 public class TitleTranslationService : ITitleTranslationService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly ITranslationRepository _translationRepository;
     private readonly ITranslator _translator;
     private readonly ITranslator? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
@@ -22,14 +23,20 @@ public class TitleTranslationService : ITitleTranslationService
     private readonly ILogger<TitleTranslationService> _logger;
 
     public TitleTranslationService(
-        GitHubDbContext dbContext,
+        ITranslationRepository translationRepository,
         ITranslator translator,
         ITitleTranslationNotifier notifier,
         TimeProvider timeProvider,
         ILogger<TitleTranslationService> logger,
         ITranslator? fallbackTranslator = null)
     {
-        _dbContext = dbContext;
+        ArgumentNullException.ThrowIfNull(translationRepository);
+        ArgumentNullException.ThrowIfNull(translator);
+        ArgumentNullException.ThrowIfNull(notifier);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _translationRepository = translationRepository;
         _translator = translator;
         _fallbackTranslator = fallbackTranslator;
         _notifier = notifier;
@@ -48,7 +55,7 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
-        var issue = await _dbContext.Issues.FindAsync(new object[] { issueId }, cancellationToken);
+        var issue = await _translationRepository.GetIssueByIdAsync(issueId, cancellationToken);
 
         if (issue == null)
         {
@@ -65,11 +72,11 @@ public class TitleTranslationService : ITitleTranslationService
         }
 
         // Check cache first
-        var cached = await _dbContext.CachedTexts
-            .FirstOrDefaultAsync(t =>
-                t.IssueId == issueId &&
-                t.LanguageId == languageId &&
-                t.TextTypeId == (int)TextTypeCode.Title, cancellationToken);
+        var cached = await _translationRepository.GetCachedTranslationAsync(
+            issueId,
+            languageId,
+            (int)TextTypeCode.Title,
+            cancellationToken);
 
         if (cached != null)
         {
@@ -90,8 +97,7 @@ public class TitleTranslationService : ITitleTranslationService
             // Cache is stale - delete it and regenerate
             _logger.LogInformation("[TitleTranslation] Cache STALE for issue {Id} - issue updated {IssueUpdated}, cache created {CacheCreated}",
                 issueId, issueUpdatedAt, cached.CachedAt);
-            _dbContext.CachedTexts.Remove(cached);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _translationRepository.DeleteCachedTextAsync(cached, cancellationToken);
         }
 
         _logger.LogInformation("[TitleTranslation] Cache MISS for issue {Id}, language {Lang}", issueId, targetLanguage);
@@ -196,15 +202,15 @@ public class TitleTranslationService : ITitleTranslationService
     {
         try
         {
-            _dbContext.CachedTexts.Add(new CachedText
+            var cachedText = new CachedText
             {
                 IssueId = issueId,
                 LanguageId = languageId,
                 TextTypeId = (int)TextTypeCode.Title,
                 Content = content,
                 CachedAt = _timeProvider.GetUtcNow().UtcDateTime
-            });
-            await _dbContext.SaveChangesAsync(ct);
+            };
+            await _translationRepository.SaveCachedTextAsync(cachedText, ct);
             _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
         }
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))

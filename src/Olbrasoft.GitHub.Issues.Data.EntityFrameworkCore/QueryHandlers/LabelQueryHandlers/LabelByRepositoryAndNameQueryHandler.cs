@@ -12,6 +12,7 @@ public class LabelByRepositoryAndNameQueryHandler
 {
     public LabelByRepositoryAndNameQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Label?> GetResultToHandleAsync(

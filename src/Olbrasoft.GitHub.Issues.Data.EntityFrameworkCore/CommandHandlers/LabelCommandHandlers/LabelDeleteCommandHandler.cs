@@ -13,6 +13,7 @@ public class LabelDeleteCommandHandler
 {
     public LabelDeleteCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<bool> ExecuteCommandAsync(
