@@ -12,6 +12,7 @@ public class IssueBatchSetParentsCommandHandler
 {
     public IssueBatchSetParentsCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<int> ExecuteCommandAsync(

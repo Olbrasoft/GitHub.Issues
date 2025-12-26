@@ -17,6 +17,9 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
 
     public IssueSearchQueryHandler(GitHubDbContext context, IOptions<DatabaseSettings> settings) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(settings);
+
         _settings = settings.Value;
     }
 

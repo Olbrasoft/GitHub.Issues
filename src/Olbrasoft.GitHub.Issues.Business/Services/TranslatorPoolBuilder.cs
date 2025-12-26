@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.Azure;
+using Olbrasoft.Text.Translation.Bing;
 using Olbrasoft.Text.Translation.DeepL;
 using Olbrasoft.Text.Translation.Google;
 
@@ -52,8 +53,8 @@ public class TranslatorPoolBuilder
             .ToList();
 
         logger.LogInformation(
-            "[TranslatorPoolBuilder] Building provider groups: {AzureCount} Azure keys, {DeepLCount} DeepL keys, Google: {GoogleEnabled}",
-            azureKeys.Count, deepLKeys.Count, _settings.GoogleEnabled);
+            "[TranslatorPoolBuilder] Building provider groups: {AzureCount} Azure keys, {DeepLCount} DeepL keys, Google: {GoogleEnabled}, Bing: {BingEnabled}",
+            azureKeys.Count, deepLKeys.Count, _settings.GoogleEnabled, _settings.BingEnabled);
 
         logger.LogInformation(
             "[TranslatorPoolBuilder] Provider order: {Order}",
@@ -98,6 +99,14 @@ public class TranslatorPoolBuilder
             var googleTranslator = CreateGoogleTranslator();
             providerGroups["Google"] = new ProviderGroup("Google", new List<ITranslator> { googleTranslator });
             logger.LogInformation("[TranslatorPoolBuilder] Google group: 1 translator (free, no API key)");
+        }
+
+        // Create Bing provider group (no API key required)
+        if (_settings.BingEnabled)
+        {
+            var bingTranslator = CreateBingTranslator();
+            providerGroups["Bing"] = new ProviderGroup("Bing", new List<ITranslator> { bingTranslator });
+            logger.LogInformation("[TranslatorPoolBuilder] Bing group: 1 translator (free, no API key)");
         }
 
         // Arrange groups according to configured order
@@ -193,5 +202,17 @@ public class TranslatorPoolBuilder
         var logger = _loggerFactory.CreateLogger<GoogleFreeTranslator>();
 
         return new GoogleFreeTranslator(settings, logger);
+    }
+
+    private BingFreeTranslator CreateBingTranslator()
+    {
+        var settings = Options.Create(new BingFreeTranslatorSettings
+        {
+            TimeoutSeconds = _settings.BingTimeoutSeconds
+        });
+
+        var logger = _loggerFactory.CreateLogger<BingFreeTranslator>();
+
+        return new BingFreeTranslator(settings, logger);
     }
 }

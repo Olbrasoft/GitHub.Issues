@@ -12,6 +12,7 @@ public class IssueSaveCommandHandler
 {
     public IssueSaveCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Issue> ExecuteCommandAsync(

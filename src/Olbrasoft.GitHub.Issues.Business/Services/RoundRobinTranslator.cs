@@ -32,6 +32,9 @@ public class RoundRobinTranslator : ITranslator
         IEnumerable<ProviderGroup> providerGroups,
         ILogger<RoundRobinTranslator> logger)
     {
+        ArgumentNullException.ThrowIfNull(providerGroups);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _providers = providerGroups.Where(p => p.Translators.Count > 0).ToList();
         _logger = logger;
         _providerIndex = -1; // Will be incremented to 0 on first call
@@ -56,6 +59,8 @@ public class RoundRobinTranslator : ITranslator
         ILogger<RoundRobinTranslator> logger)
         : this(new[] { new ProviderGroup("Default", translators.ToList()) }, logger)
     {
+        ArgumentNullException.ThrowIfNull(translators);
+        ArgumentNullException.ThrowIfNull(logger);
     }
 
     /// <summary>

@@ -13,6 +13,7 @@ public class EventSyncBusinessService : Service, IEventSyncBusinessService
 {
     public EventSyncBusinessService(IMediator mediator) : base(mediator)
     {
+        ArgumentNullException.ThrowIfNull(mediator);
     }
 
     public async Task<Dictionary<string, EventType>> GetAllEventTypesAsync(CancellationToken ct = default)

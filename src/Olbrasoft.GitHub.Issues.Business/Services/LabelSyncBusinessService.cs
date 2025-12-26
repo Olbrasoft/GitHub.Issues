@@ -13,6 +13,7 @@ public class LabelSyncBusinessService : Service, ILabelSyncBusinessService
 {
     public LabelSyncBusinessService(IMediator mediator) : base(mediator)
     {
+        ArgumentNullException.ThrowIfNull(mediator);
     }
 
     public async Task<Label?> GetLabelAsync(int repositoryId, string name, CancellationToken ct = default)

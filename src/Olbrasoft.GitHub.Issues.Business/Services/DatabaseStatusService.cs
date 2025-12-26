@@ -14,6 +14,9 @@ public class DatabaseStatusService : IDatabaseStatusService
 
     public DatabaseStatusService(GitHubDbContext context, ILogger<DatabaseStatusService> logger)
     {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _context = context;
         _logger = logger;
     }

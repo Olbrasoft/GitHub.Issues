@@ -12,6 +12,7 @@ public class RepositorySaveCommandHandler
 {
     public RepositorySaveCommandHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<Repository> ExecuteCommandAsync(

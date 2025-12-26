@@ -13,6 +13,7 @@ public class IssueTextSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueText
 {
     public IssueTextSearchQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<IssueSearchPageDto> GetResultToHandleAsync(

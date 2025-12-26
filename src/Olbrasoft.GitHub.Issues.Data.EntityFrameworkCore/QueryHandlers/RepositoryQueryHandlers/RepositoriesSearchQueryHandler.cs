@@ -13,6 +13,7 @@ public class RepositoriesSearchQueryHandler
 {
     public RepositoriesSearchQueryHandler(GitHubDbContext context) : base(context)
     {
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     protected override async Task<IEnumerable<RepositorySearchResultDto>> GetResultToHandleAsync(

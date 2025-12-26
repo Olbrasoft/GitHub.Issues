@@ -13,6 +13,8 @@ public class OctokitGitHubApiClient : IGitHubApiClient
 
     public OctokitGitHubApiClient(IOptions<GitHubSettings> settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
+
         _client = new GitHubClient(new ProductHeaderValue("Olbrasoft-GitHub-Issues-Sync"));
 
         if (!string.IsNullOrEmpty(settings.Value.Token))
