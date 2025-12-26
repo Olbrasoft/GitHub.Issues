@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Olbrasoft.Data.Cqrs;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 
@@ -58,6 +60,10 @@ public static class ServiceCollectionExtensions
 
         // Register CQRS handlers from this assembly (replaces legacy IVectorSearchRepository)
         services.AddCqrs(ServiceLifetime.Scoped, typeof(GitHubDbContext).Assembly);
+
+        // Register repository abstractions (Dependency Inversion Principle)
+        services.AddScoped<IIssueRepository, EfCoreIssueRepository>();
+        services.AddScoped<ITranslationRepository, EfCoreTranslationRepository>();
 
         return services;
     }

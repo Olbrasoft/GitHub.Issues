@@ -1,18 +1,18 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for fetching issue details including body from GraphQL and AI summary.
 /// Refactored to use separate services for preview generation and summarization.
+/// Updated to follow DIP by depending on IIssueRepository abstraction.
 /// </summary>
 public class IssueDetailService : IIssueDetailService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly IIssueRepository _issueRepository;
     private readonly IGitHubGraphQLClient _graphQLClient;
     private readonly IIssueSummaryService _summaryService;
     private readonly IBodyPreviewGenerator _previewGenerator;
@@ -21,7 +21,7 @@ public class IssueDetailService : IIssueDetailService
     private readonly ILogger<IssueDetailService> _logger;
 
     public IssueDetailService(
-        GitHubDbContext dbContext,
+        IIssueRepository issueRepository,
         IGitHubGraphQLClient graphQLClient,
         IIssueSummaryService summaryService,
         IBodyPreviewGenerator previewGenerator,
@@ -29,7 +29,15 @@ public class IssueDetailService : IIssueDetailService
         IOptions<BodyPreviewSettings> bodyPreviewSettings,
         ILogger<IssueDetailService> logger)
     {
-        _dbContext = dbContext;
+        ArgumentNullException.ThrowIfNull(issueRepository);
+        ArgumentNullException.ThrowIfNull(graphQLClient);
+        ArgumentNullException.ThrowIfNull(summaryService);
+        ArgumentNullException.ThrowIfNull(previewGenerator);
+        ArgumentNullException.ThrowIfNull(bodyNotifier);
+        ArgumentNullException.ThrowIfNull(bodyPreviewSettings);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _issueRepository = issueRepository;
         _graphQLClient = graphQLClient;
         _summaryService = summaryService;
         _previewGenerator = previewGenerator;
@@ -40,11 +48,7 @@ public class IssueDetailService : IIssueDetailService
 
     public async Task<IssueDetailResult> GetIssueDetailAsync(int issueId, CancellationToken cancellationToken = default)
     {
-        var issue = await _dbContext.Issues
-            .Include(i => i.Repository)
-            .Include(i => i.IssueLabels)
-                .ThenInclude(il => il.Label)
-            .FirstOrDefaultAsync(i => i.Id == issueId, cancellationToken);
+        var issue = await _issueRepository.GetIssueWithDetailsAsync(issueId, cancellationToken);
 
         if (issue == null)
         {
@@ -121,9 +125,7 @@ public class IssueDetailService : IIssueDetailService
     {
         _logger.LogInformation("[GenerateSummary] START for issue {Id}, language={Language}", issueId, language);
 
-        var issue = await _dbContext.Issues
-            .Include(i => i.Repository)
-            .FirstOrDefaultAsync(i => i.Id == issueId, cancellationToken);
+        var issue = await _issueRepository.GetIssueWithRepositoryAsync(issueId, cancellationToken);
 
         if (issue == null)
         {
@@ -178,10 +180,7 @@ public class IssueDetailService : IIssueDetailService
         _logger.LogInformation("[FetchBodies] START for {Count} issues: {Ids}", idList.Count, string.Join(", ", idList));
 
         // Load issues with repository info
-        var issues = await _dbContext.Issues
-            .Include(i => i.Repository)
-            .Where(i => idList.Contains(i.Id))
-            .ToListAsync(cancellationToken);
+        var issues = await _issueRepository.GetIssuesByIdsWithRepositoryAsync(idList, cancellationToken);
 
         if (issues.Count == 0)
         {
