@@ -1,27 +1,40 @@
 using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Olbrasoft.GitHub.Issues.Business.GraphQL;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// GitHub GraphQL API client for batch-fetching issue bodies.
+/// REFACTORED (Issue #279): Now uses IGraphQLQueryBuilder and IGraphQLResponseParser for SRP.
 /// </summary>
 public class GitHubGraphQLClient : IGitHubGraphQLClient
 {
     private readonly HttpClient _httpClient;
     private readonly GitHubSettings _settings;
+    private readonly IGraphQLQueryBuilder _queryBuilder;
+    private readonly IGraphQLResponseParser _responseParser;
     private readonly ILogger<GitHubGraphQLClient> _logger;
 
     public GitHubGraphQLClient(
         HttpClient httpClient,
         IOptions<GitHubSettings> settings,
+        IGraphQLQueryBuilder queryBuilder,
+        IGraphQLResponseParser responseParser,
         ILogger<GitHubGraphQLClient> logger)
     {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(queryBuilder);
+        ArgumentNullException.ThrowIfNull(responseParser);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _httpClient = httpClient;
         _settings = settings.Value;
+        _queryBuilder = queryBuilder;
+        _responseParser = responseParser;
         _logger = logger;
 
         ConfigureHttpClient();
@@ -57,12 +70,14 @@ public class GitHubGraphQLClient : IGitHubGraphQLClient
 
         try
         {
-            var query = BuildQuery(issueList);
+            // Delegate to GraphQLQueryBuilder for query construction
+            var query = _queryBuilder.BuildBatchIssueBodyQuery(issueList);
             var response = await ExecuteQueryAsync(query, cancellationToken);
 
             if (response.HasValue)
             {
-                ParseResponse(response.Value, issueList, result);
+                // Delegate to GraphQLResponseParser for parsing
+                result = _responseParser.ParseBatchIssueBodyResponse(response.Value, issueList);
             }
         }
         catch (Exception ex)
@@ -73,32 +88,6 @@ public class GitHubGraphQLClient : IGitHubGraphQLClient
         return result;
     }
 
-    private static string BuildQuery(List<IssueBodyRequest> issues)
-    {
-        // Group issues by repository for efficient querying
-        var byRepo = issues.GroupBy(i => (i.Owner, i.Repo));
-
-        var sb = new StringBuilder();
-        sb.AppendLine("{");
-
-        var repoIndex = 0;
-        foreach (var repoGroup in byRepo)
-        {
-            var repoAlias = $"repo{repoIndex++}";
-            sb.AppendLine($"  {repoAlias}: repository(owner: \"{repoGroup.Key.Owner}\", name: \"{repoGroup.Key.Repo}\") {{");
-
-            foreach (var issue in repoGroup)
-            {
-                var issueAlias = $"issue{issue.Number}";
-                sb.AppendLine($"    {issueAlias}: issue(number: {issue.Number}) {{ body number }}");
-            }
-
-            sb.AppendLine("  }");
-        }
-
-        sb.AppendLine("}");
-        return sb.ToString();
-    }
 
     private async Task<JsonElement?> ExecuteQueryAsync(string query, CancellationToken cancellationToken)
     {
@@ -130,43 +119,4 @@ public class GitHubGraphQLClient : IGitHubGraphQLClient
         return null;
     }
 
-    private void ParseResponse(
-        JsonElement data,
-        List<IssueBodyRequest> issues,
-        Dictionary<(string Owner, string Repo, int Number), string> result)
-    {
-        // Group issues by repository to match query structure
-        var byRepo = issues.GroupBy(i => (i.Owner, i.Repo)).ToList();
-
-        var repoIndex = 0;
-        foreach (var repoGroup in byRepo)
-        {
-            var repoAlias = $"repo{repoIndex++}";
-
-            if (!data.TryGetProperty(repoAlias, out var repoData) || repoData.ValueKind == JsonValueKind.Null)
-            {
-                _logger.LogWarning("Repository {Owner}/{Repo} not found in GraphQL response",
-                    repoGroup.Key.Owner, repoGroup.Key.Repo);
-                continue;
-            }
-
-            foreach (var issue in repoGroup)
-            {
-                var issueAlias = $"issue{issue.Number}";
-
-                if (repoData.TryGetProperty(issueAlias, out var issueData) &&
-                    issueData.ValueKind != JsonValueKind.Null &&
-                    issueData.TryGetProperty("body", out var bodyProp))
-                {
-                    var body = bodyProp.GetString() ?? string.Empty;
-                    result[(repoGroup.Key.Owner, repoGroup.Key.Repo, issue.Number)] = body;
-                }
-                else
-                {
-                    _logger.LogDebug("Issue {Owner}/{Repo}#{Number} body not found in response",
-                        issue.Owner, issue.Repo, issue.Number);
-                }
-            }
-        }
-    }
 }

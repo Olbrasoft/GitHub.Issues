@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.Business.GraphQL;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Business.Strategies;
@@ -162,6 +163,10 @@ public static class ServiceExtensions
         // Register Cohere embedding service (primary)
         services.AddHttpClient<CohereEmbeddingService>();
         services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
+
+        // Register GraphQL components (issue #279 - SRP refactoring)
+        services.AddScoped<IGraphQLQueryBuilder, GraphQLQueryBuilder>();
+        services.AddScoped<IGraphQLResponseParser, GraphQLResponseParser>();
 
         // Register core services
         services.AddHttpClient<GitHubGraphQLClient>();
