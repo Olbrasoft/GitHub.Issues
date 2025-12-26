@@ -3,23 +3,25 @@
 [![Build and Deploy](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml/badge.svg)](https://github.com/Olbrasoft/GitHub.Issues/actions/workflows/deploy.yml)
 [![Uptime Status](https://img.shields.io/uptimerobot/status/m801985171-b443ff66e892b834307a53a1?label=Uptime&style=flat-square)](https://stats.uptimerobot.com/ueMqtXp5wJ)
 
-Semantic search for GitHub issues using vector embeddings. Supports **dual embedding providers**: Ollama (local) and Cohere (cloud). Synchronizes issues from multiple GitHub repositories and enables natural language search.
+Semantic search for GitHub issues using vector embeddings. Supports **dual embedding providers**: Cohere (cloud) and Ollama (local). Synchronizes issues from multiple GitHub repositories and enables natural language search.
 
-**Live Demo:** https://github-issues.azurewebsites.net
+**Production:** https://plumbaginous-zoe-unexcusedly.ngrok-free.dev
+**Demo:** https://github-issues.azurewebsites.net
 
 ## Features
 
 - **Semantic Search**: Find issues by meaning, not just keywords (using vector embeddings)
-- **Dual Embedding Providers**: Ollama (local, 768d) or Cohere (cloud, 1024d)
-- **AI Issue Summarization**: Automatic issue summaries using OpenRouter/Ollama with provider rotation
+- **Dual Embedding Providers**: Cohere (cloud, 1024d) or Ollama (local, 768d)
+- **AI Issue Summarization**: Automatic issue summaries using Cerebras/Groq/OpenRouter/Ollama with provider rotation
+- **AI Translation**: Czech translations via Cohere/Google/Azure/Bing with fallback support
 - **Multi-Repository Support**: Sync and search across multiple GitHub repositories
 - **Repository Filter**: Filter search results by specific repositories
 - **Smart Incremental Sync**: Only sync changed issues using stored timestamps
 - **Sub-Issues Hierarchy**: Track parent-child relationships between issues
 - **Issue Events**: Track issue lifecycle events (opened, closed, labeled, etc.)
 - **Labels Sync**: Full label synchronization with colors
-- **Multi-Provider Database**: PostgreSQL (local) or SQL Server (Azure)
-- **Clean Architecture**: Layered design with CQRS pattern, **205+ unit tests**
+- **Multi-Provider Database**: SQL Server 2025 (Docker) or PostgreSQL + pgvector
+- **Clean Architecture**: Layered design with CQRS pattern, **393+ unit tests**
 
 ## Architecture
 
@@ -80,7 +82,7 @@ External Services:
 ### Data Flow
 
 ```
-User Request → Business Service → Command/Query → Handler → DbContext → PostgreSQL
+User Request → Business Service → Command/Query → Handler → DbContext → SQL Server / PostgreSQL
                      ↓
               Uses IMediator.Send()
                      ↓
@@ -89,21 +91,21 @@ User Request → Business Service → Command/Query → Handler → DbContext �
 
 ## Multi-Provider Support
 
-The project supports both **PostgreSQL** and **SQL Server** databases with separate migration assemblies.
+The project supports both **SQL Server** and **PostgreSQL** databases with separate migration assemblies.
 
 ### Database Providers
 
 | Provider | Use Case | Vector Storage | Migration Project |
 |----------|----------|----------------|-------------------|
-| PostgreSQL | Development | `vector(768)` (pgvector) | `Migrations.PostgreSQL` |
-| SQL Server | Production (Azure) | `varbinary(max)` | `Migrations.SqlServer` |
+| SQL Server | Production (Docker) | `varbinary(max)` | `Migrations.SqlServer` |
+| PostgreSQL | Optional | `vector(768)` (pgvector) | `Migrations.PostgreSQL` |
 
 ### Embedding Providers
 
 | Provider | Use Case | Dimensions | Model |
 |----------|----------|------------|-------|
-| Ollama | Local development | 768 | `nomic-embed-text` |
-| Cohere | Azure production | 1024 | `embed-multilingual-v3.0` |
+| Cohere | Production (default) | 1024 | `embed-multilingual-v3.0` |
+| Ollama | Local development (optional) | 768 | `nomic-embed-text` |
 
 ### Configuration
 
@@ -112,11 +114,10 @@ Configure the provider in `appsettings.json`:
 ```json
 {
   "Database": {
-    "Provider": "PostgreSQL"  // or "SqlServer"
+    "Provider": "SqlServer"  // or "PostgreSQL"
   },
   "ConnectionStrings": {
-    "PostgreSQLConnection": "Host=localhost;Database=github_issues;...",
-    "SqlServerConnection": "Server=localhost;Database=GitHubIssues;..."
+    "DefaultConnection": "Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=xxx;TrustServerCertificate=True;Encrypt=True;"
   }
 }
 ```
@@ -281,7 +282,7 @@ GitHub.Issues/
 │       │   └── IssueSearchService.cs       # Search service
 │       └── Program.cs                      # Entry point (51 lines)
 │
-├── test/                                    # 205+ Unit Tests
+├── test/                                    # 393+ Unit Tests
 │   ├── Olbrasoft.GitHub.Issues.Data.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests/
 │   ├── Olbrasoft.GitHub.Issues.Business.Tests/
@@ -325,19 +326,25 @@ GitHub.Issues/
 ## Requirements
 
 - .NET 10.0+
-- PostgreSQL 15+ with pgvector extension
-- Ollama with `nomic-embed-text` model
+- SQL Server 2025 (Docker) or PostgreSQL 15+ with pgvector extension
+- Cohere API key or Ollama with `nomic-embed-text` model
 
 ## Quick Start
 
 ### 1. Install Prerequisites
 
 ```bash
-# PostgreSQL with pgvector
+# SQL Server (Docker - default)
+co start mssql
+
+# OR PostgreSQL with pgvector (optional)
 sudo apt install postgresql postgresql-contrib
 sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-# Ollama
+# Cohere API key (production)
+# Get from https://cohere.com
+
+# OR Ollama (local development)
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull nomic-embed-text
 ```
@@ -345,6 +352,10 @@ ollama pull nomic-embed-text
 ### 2. Setup Database
 
 ```bash
+# SQL Server is auto-created by migrations
+# Default: Server=localhost,1433; Database=GitHubIssues; User=sa
+
+# OR PostgreSQL (if using)
 sudo -u postgres psql
 CREATE DATABASE github;
 CREATE USER github_user WITH PASSWORD 'your_password';
@@ -360,7 +371,8 @@ cd src/Olbrasoft.GitHub.Issues.Sync
 dotnet user-secrets init
 dotnet user-secrets set "GitHub:Token" "ghp_your_token_here"
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
-  "Host=localhost;Database=github;Username=github_user;Password=your_password"
+  "Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=your_password;TrustServerCertificate=True;Encrypt=True;"
+dotnet user-secrets set "Embeddings:ApiKey" "your_cohere_api_key"
 ```
 
 ### 4. Run Migrations & Sync
@@ -413,11 +425,11 @@ dotnet run -- sync --since 2025-12-01T00:00:00Z
 
 ## Testing
 
-The project includes **205+ unit tests** using xUnit and Moq.
+The project includes **393+ unit tests** using xUnit and Moq.
 
 ```bash
-# Run all tests
-dotnet test
+# Run all tests (integration tests skip automatically on CI via [SkipOnCIFact] attribute)
+dotnet test --verbosity minimal
 
 # Run specific test project
 dotnet test test/Olbrasoft.GitHub.Issues.Business.Tests
@@ -448,13 +460,14 @@ You can manually trigger deployment via GitHub Actions → "Build and Deploy" �
 | Entity | Description |
 |--------|-------------|
 | `Repository` | GitHub repository (owner/name, URL, last_synced_at) |
-| `Issue` | Issue with title, state, URL, vector embedding (768d) |
+| `Issue` | Issue with title, state, URL, vector embedding |
 | `Label` | Repository labels with colors |
 | `IssueLabel` | Many-to-many: Issue ↔ Label |
 | `EventType` | Event types (opened, closed, labeled, etc.) |
 | `IssueEvent` | Issue events with actor and timestamp |
+| `CachedText` | Cached translations (title, summary) with language and text type |
 
-Vector dimensions: **768** (Ollama/nomic-embed-text) or **1024** (Cohere/embed-multilingual-v3.0)
+Vector dimensions: **1024** (Cohere - default) or **768** (Ollama - optional)
 
 ## CQRS Pattern
 
