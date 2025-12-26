@@ -221,7 +221,13 @@ public static class ServiceExtensions
 
         // Business services
         services.AddScoped<IIssueSearchService, IssueSearchService>();
-        services.AddScoped<IIssueDetailService, IssueDetailService>();
+
+        // Issue detail services (refactored for SRP - issue #278)
+        services.AddScoped<IIssueDetailQueryService, IssueDetailQueryService>();
+        services.AddScoped<IIssueBodyFetchService, IssueBodyFetchService>();
+        services.AddScoped<IIssueSummaryOrchestrator, IssueSummaryOrchestrator>();
+        services.AddScoped<IIssueDetailService, IssueDetailService>(); // Keep for backward compatibility
+
         services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
 
         // Translation cache services (#262)
@@ -234,16 +240,8 @@ public static class ServiceExtensions
         services.AddScoped<ITitleTranslationNotifier, SignalRTitleTranslationNotifier>();
 
         // Title translation service - uses RoundRobinTranslator which handles rotation and fallback
-        services.AddScoped<ITitleTranslationService>(sp =>
-        {
-            var dbContext = sp.GetRequiredService<GitHubDbContext>();
-            var translator = sp.GetRequiredService<ITranslator>();
-            var notifier = sp.GetRequiredService<ITitleTranslationNotifier>();
-            var timeProvider = sp.GetRequiredService<TimeProvider>();
-            var logger = sp.GetRequiredService<ILogger<TitleTranslationService>>();
-            // No separate fallback - RoundRobinTranslator handles it
-            return new TitleTranslationService(dbContext, translator, notifier, timeProvider, logger, fallbackTranslator: null);
-        });
+        // Updated to use ITranslationRepository for DIP compliance (issue #280)
+        services.AddScoped<ITitleTranslationService, TitleTranslationService>();
 
         // Sync services
         services.AddSingleton<IGitHubApiClient, OctokitGitHubApiClient>();
