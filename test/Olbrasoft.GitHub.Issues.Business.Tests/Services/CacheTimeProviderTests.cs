@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
 
@@ -57,7 +58,7 @@ public class CacheTimeProviderTests
             });
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -113,7 +114,7 @@ public class CacheTimeProviderTests
         await context.SaveChangesAsync();
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -185,7 +186,7 @@ public class CacheTimeProviderTests
             });
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -234,7 +235,7 @@ public class CacheTimeProviderTests
         await context.SaveChangesAsync();
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -299,7 +300,7 @@ public class CacheTimeProviderTests
         _fakeTimeProvider.Advance(TimeSpan.FromDays(30));
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,

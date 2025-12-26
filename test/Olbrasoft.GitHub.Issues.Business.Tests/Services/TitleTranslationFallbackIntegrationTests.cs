@@ -4,6 +4,7 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.Testing.Xunit.Attributes;
 using Olbrasoft.Text.Translation;
 using Olbrasoft.Text.Translation.DeepL;
@@ -68,7 +69,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with failing primary and real DeepL fallback
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -127,7 +128,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with failing primary and mocked fallback
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -185,7 +186,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with both failing
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -237,7 +238,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service WITHOUT fallback (null)
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,

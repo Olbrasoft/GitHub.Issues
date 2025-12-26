@@ -5,6 +5,7 @@ using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.Testing.Xunit.Attributes;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
@@ -67,7 +68,7 @@ public class CacheIntegrationTests
             });
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -140,7 +141,7 @@ public class CacheIntegrationTests
             });
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -206,7 +207,7 @@ public class CacheIntegrationTests
             .ReturnsAsync(new TranslatorResult { Success = true, Translation = "Neue Funktion", Provider = "Azure" });
 
         var service = new TitleTranslationService(
-            context,
+            new EfCoreTranslationRepository(context),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,

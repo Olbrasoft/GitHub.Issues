@@ -3,6 +3,7 @@ using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
@@ -15,8 +16,9 @@ public class TitleTranslationServiceTests
 
     private TitleTranslationService CreateService(GitHubDbContext context, ITranslator? fallback = null)
     {
+        var repository = new EfCoreTranslationRepository(context);
         return new TitleTranslationService(
-            context,
+            repository,
             _mockTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
