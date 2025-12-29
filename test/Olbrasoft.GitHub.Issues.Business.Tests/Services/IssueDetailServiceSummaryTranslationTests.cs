@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
@@ -14,7 +14,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 /// </summary>
 public class IssueSummaryServiceTests
 {
-    private readonly Mock<GitHubDbContext> _dbContextMock;
+    private readonly Mock<ICachedTextRepository> _cachedTextRepositoryMock;
     private readonly Mock<ISummarizationService> _summarizationServiceMock;
     private readonly Mock<ITranslationFallbackService> _translationServiceMock;
     private readonly Mock<ISummaryNotifier> _summaryNotifierMock;
@@ -22,7 +22,7 @@ public class IssueSummaryServiceTests
 
     public IssueSummaryServiceTests()
     {
-        _dbContextMock = new Mock<GitHubDbContext>();
+        _cachedTextRepositoryMock = new Mock<ICachedTextRepository>();
         _summarizationServiceMock = new Mock<ISummarizationService>();
         _translationServiceMock = new Mock<ITranslationFallbackService>();
         _summaryNotifierMock = new Mock<ISummaryNotifier>();
@@ -31,13 +31,13 @@ public class IssueSummaryServiceTests
 
     /// <summary>
     /// Creates the service under test.
-    /// Note: Most tests are skipped because GitHubDbContext.DbSet properties are not virtual
-    /// and cannot be properly mocked. Use integration tests with real database for cache testing.
+    /// Note: Most tests are skipped because cache repository operations cannot be easily mocked.
+    /// Use integration tests with real database for cache testing.
     /// </summary>
     private IssueSummaryService CreateService()
     {
         return new IssueSummaryService(
-            _dbContextMock.Object,
+            _cachedTextRepositoryMock.Object,
             _summarizationServiceMock.Object,
             _translationServiceMock.Object,
             _summaryNotifierMock.Object,

@@ -1,9 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Entities;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
@@ -14,7 +13,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 /// </summary>
 public class IssueSummaryService : IIssueSummaryService
 {
-    private readonly GitHubDbContext _dbContext;
+    private readonly ICachedTextRepository _cachedTextRepository;
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslationFallbackService _translationService;
     private readonly ISummaryNotifier _summaryNotifier;
@@ -22,14 +21,14 @@ public class IssueSummaryService : IIssueSummaryService
     private readonly ILogger<IssueSummaryService> _logger;
 
     public IssueSummaryService(
-        GitHubDbContext dbContext,
+        ICachedTextRepository cachedTextRepository,
         ISummarizationService summarizationService,
         ITranslationFallbackService translationService,
         ISummaryNotifier summaryNotifier,
         TimeProvider timeProvider,
         ILogger<IssueSummaryService> logger)
     {
-        _dbContext = dbContext;
+        _cachedTextRepository = cachedTextRepository;
         _summarizationService = summarizationService;
         _translationService = translationService;
         _summaryNotifier = summaryNotifier;
@@ -43,7 +42,7 @@ public class IssueSummaryService : IIssueSummaryService
         _logger.LogInformation("[IssueSummaryService] START for issue {Id}, language={Language}", issueId, language);
 
         // Get issue for cache timestamp validation
-        var issue = await _dbContext.Issues.FindAsync([issueId], cancellationToken);
+        var issue = await _cachedTextRepository.GetIssueByIdAsync(issueId, cancellationToken);
         if (issue == null)
         {
             _logger.LogWarning("[IssueSummaryService] Issue {Id} not found", issueId);
@@ -193,11 +192,7 @@ public class IssueSummaryService : IIssueSummaryService
     /// </summary>
     private async Task<string?> GetCachedSummaryAsync(int issueId, int languageId, int textTypeId, DateTime issueUpdatedAt, CancellationToken ct)
     {
-        var cached = await _dbContext.CachedTexts
-            .FirstOrDefaultAsync(t =>
-                t.IssueId == issueId &&
-                t.LanguageId == languageId &&
-                t.TextTypeId == textTypeId, ct);
+        var cached = await _cachedTextRepository.GetByIssueAsync(issueId, languageId, textTypeId, ct);
 
         if (cached == null) return null;
 
@@ -205,8 +200,7 @@ public class IssueSummaryService : IIssueSummaryService
         if (issueUpdatedAt > cached.CachedAt)
         {
             _logger.LogDebug("[IssueSummaryService] Cache STALE for issue {IssueId}, language {LangId}", issueId, languageId);
-            _dbContext.CachedTexts.Remove(cached);
-            await _dbContext.SaveChangesAsync(ct);
+            await _cachedTextRepository.DeleteAsync(cached, ct);
             return null;
         }
 
@@ -218,29 +212,15 @@ public class IssueSummaryService : IIssueSummaryService
     /// </summary>
     private async Task SaveToCacheAsync(int issueId, int languageId, int textTypeId, string content, CancellationToken ct)
     {
-        try
+        await _cachedTextRepository.SaveAsync(new CachedText
         {
-            _dbContext.CachedTexts.Add(new CachedText
-            {
-                IssueId = issueId,
-                LanguageId = languageId,
-                TextTypeId = textTypeId,
-                Content = content,
-                CachedAt = _timeProvider.GetUtcNow().UtcDateTime
-            });
-            await _dbContext.SaveChangesAsync(ct);
-            _logger.LogDebug("[IssueSummaryService] Saved to cache: Issue {IssueId}, Language {LangId}, Type {TypeId}", issueId, languageId, textTypeId);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            _logger.LogDebug("[IssueSummaryService] Concurrent cache insert for Issue {IssueId}", issueId);
-        }
-    }
+            IssueId = issueId,
+            LanguageId = languageId,
+            TextTypeId = textTypeId,
+            Content = content,
+            CachedAt = _timeProvider.GetUtcNow().UtcDateTime
+        }, ct);
 
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") || message.Contains("2627") || message.Contains("2601") ||
-               message.Contains("duplicate key") || message.Contains("unique constraint");
+        _logger.LogDebug("[IssueSummaryService] Saved to cache: Issue {IssueId}, Language {LangId}, Type {TypeId}", issueId, languageId, textTypeId);
     }
 }

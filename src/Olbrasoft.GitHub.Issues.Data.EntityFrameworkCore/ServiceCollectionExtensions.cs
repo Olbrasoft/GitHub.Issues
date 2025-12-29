@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         // Register repository abstractions (Dependency Inversion Principle)
         services.AddScoped<IIssueRepository, EfCoreIssueRepository>();
         services.AddScoped<ITranslationRepository, EfCoreTranslationRepository>();
+        services.AddScoped<ICachedTextRepository, EfCoreCachedTextRepository>();
 
         return services;
     }
