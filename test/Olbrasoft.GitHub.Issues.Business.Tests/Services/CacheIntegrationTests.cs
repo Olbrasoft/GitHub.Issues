@@ -260,8 +260,9 @@ public class CacheIntegrationTests
         );
         await context.SaveChangesAsync();
 
+        var repository = new EfCoreCachedTextRepository(context);
         var mockLogger = new Mock<ILogger<TranslationCacheService>>();
-        var cacheService = new TranslationCacheService(context, mockLogger.Object);
+        var cacheService = new TranslationCacheService(repository, mockLogger.Object);
 
         // Act 1: Invalidate single issue
         var deleted = await cacheService.InvalidateAsync(issue1.Id);
@@ -299,8 +300,9 @@ public class CacheIntegrationTests
         );
         await context.SaveChangesAsync();
 
+        var repository = new EfCoreCachedTextRepository(context);
         var mockLogger = new Mock<ILogger<TranslationCacheService>>();
-        var cacheService = new TranslationCacheService(context, mockLogger.Object);
+        var cacheService = new TranslationCacheService(repository, mockLogger.Object);
 
         // Act
         var stats = await cacheService.GetStatisticsAsync();

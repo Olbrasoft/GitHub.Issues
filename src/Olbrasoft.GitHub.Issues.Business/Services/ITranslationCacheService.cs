@@ -1,3 +1,5 @@
+using Olbrasoft.GitHub.Issues.Data;
+
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
@@ -47,14 +49,4 @@ public interface ITranslationCacheService
     /// <param name="ct">Cancellation token</param>
     /// <returns>Cache statistics</returns>
     Task<CacheStatistics> GetStatisticsAsync(CancellationToken ct = default);
-}
-
-/// <summary>
-/// Cache statistics for admin UI.
-/// </summary>
-public class CacheStatistics
-{
-    public int TotalRecords { get; set; }
-    public Dictionary<string, int> ByLanguage { get; set; } = new();
-    public Dictionary<string, int> ByTextType { get; set; } = new();
 }
