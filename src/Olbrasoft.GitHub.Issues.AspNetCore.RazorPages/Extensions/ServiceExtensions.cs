@@ -56,8 +56,9 @@ public static class ServiceExtensions
         services.AddScoped<IIssueSummaryOrchestrator, IssueSummaryOrchestrator>();
         services.AddScoped<IIssueDetailService, IssueDetailService>(); // Keep for backward compatibility
 
-        // Issue summary services (issue #317 - SRP refactoring)
+        // Issue summary services (issues #317, #318 - SRP refactoring)
         services.AddScoped<ISummaryCacheService, SummaryCacheService>();
+        services.AddScoped<IAiSummarizationService, AiSummarizationService>();
         services.AddScoped<IIssueSummaryService, IssueSummaryService>();
 
         // SignalR notifiers
