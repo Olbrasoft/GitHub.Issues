@@ -32,7 +32,10 @@ public class RepositoryIntegrationTests : IDisposable
 
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=Tuma/*-+;TrustServerCertificate=True;Encrypt=True;";
+            ?? throw new InvalidOperationException(
+                "A database connection string must be configured for RepositoryIntegrationTests. " +
+                "Configure 'ConnectionStrings:DefaultConnection' in user secrets or set the " +
+                "'ConnectionStrings__DefaultConnection' environment variable.");
 
         var options = new DbContextOptionsBuilder<GitHubDbContext>()
             .UseSqlServer(connectionString)

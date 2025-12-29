@@ -29,7 +29,10 @@ public class DatabaseIntegrationTests : IDisposable
 
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Server=localhost,1433;Database=GitHubIssues;User Id=sa;Password=Tuma/*-+;TrustServerCertificate=True;Encrypt=True;";
+            ?? throw new InvalidOperationException(
+                "Database connection string is not configured. " +
+                "Please configure 'ConnectionStrings:DefaultConnection' using user secrets " +
+                "or the 'ConnectionStrings__DefaultConnection' environment variable.");
 
         var options = new DbContextOptionsBuilder<GitHubDbContext>()
             .UseSqlServer(_connectionString)
@@ -58,7 +61,10 @@ public class DatabaseIntegrationTests : IDisposable
         var pendingMigrations = await _context.Database.GetPendingMigrationsAsync();
         var appliedMigrations = await _context.Database.GetAppliedMigrationsAsync();
 
-        // Assert - No strict assertion, just logging for information
+        // Assert
+        Assert.NotNull(pendingMigrations);
+        Assert.NotNull(appliedMigrations);
+
         _output.WriteLine($"Applied migrations: {appliedMigrations.Count()}");
         _output.WriteLine($"Pending migrations: {pendingMigrations.Count()}");
 
@@ -80,15 +86,15 @@ public class DatabaseIntegrationTests : IDisposable
         var canConnect = await _context.Database.CanConnectAsync();
         Assert.True(canConnect, "Must be connected to check tables");
 
-        // Check if main tables exist by querying them
-        var issuesExist = await _context.Issues.AnyAsync();
-        var repositoriesExist = await _context.Repositories.AnyAsync();
+        // Check if main tables exist by querying them (will throw if tables are missing)
+        var issueCount = await _context.Issues.CountAsync();
+        var repositoryCount = await _context.Repositories.CountAsync();
 
-        // Assert - Log results (tables may be empty but should exist)
-        _output.WriteLine($"Issues table accessible: {true}"); // If we got here, table exists
-        _output.WriteLine($"Repositories table accessible: {true}");
-        _output.WriteLine($"Issues count: {await _context.Issues.CountAsync()}");
-        _output.WriteLine($"Repositories count: {await _context.Repositories.CountAsync()}");
+        // Assert - Tables must be accessible (may be empty but should exist)
+        _output.WriteLine($"Issues table accessible");
+        _output.WriteLine($"Repositories table accessible");
+        _output.WriteLine($"Issues count: {issueCount}");
+        _output.WriteLine($"Repositories count: {repositoryCount}");
     }
 
     [SkipOnCIFact]

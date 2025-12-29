@@ -13,11 +13,13 @@ namespace Olbrasoft.GitHub.Issues.IntegrationTests;
 /// Integration tests for Cohere embedding service.
 /// These tests call real Cohere API and are skipped on CI environments.
 /// </summary>
-public class CohereEmbeddingIntegrationTests
+public class CohereEmbeddingIntegrationTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
     private readonly IEmbeddingService _embeddingService;
     private readonly string _apiKey;
+    private readonly HttpClient _httpClient;
+    private readonly ILoggerFactory _loggerFactory;
 
     public CohereEmbeddingIntegrationTests(ITestOutputHelper output)
     {
@@ -47,16 +49,16 @@ public class CohereEmbeddingIntegrationTests
         var options = Options.Create(settings);
 
         // Create logger
-        var loggerFactory = LoggerFactory.Create(builder =>
+        _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.AddConsole();
             builder.SetMinimumLevel(LogLevel.Debug);
         });
-        var logger = loggerFactory.CreateLogger<CohereEmbeddingService>();
+        var logger = _loggerFactory.CreateLogger<CohereEmbeddingService>();
 
         // Create service
-        var httpClient = new HttpClient();
-        _embeddingService = new CohereEmbeddingService(httpClient, options, logger);
+        _httpClient = new HttpClient();
+        _embeddingService = new CohereEmbeddingService(_httpClient, options, logger);
     }
 
     [SkipOnCIFact]
@@ -168,5 +170,11 @@ public class CohereEmbeddingIntegrationTests
         Assert.True(isAvailable, "Service should be available with valid API key");
 
         _output.WriteLine($"IsAvailable: {isAvailable}");
+    }
+
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
+        _loggerFactory?.Dispose();
     }
 }
