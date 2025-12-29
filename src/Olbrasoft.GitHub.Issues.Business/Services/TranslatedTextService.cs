@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Entities;
-using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Translation;
 
@@ -14,20 +13,26 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 /// </summary>
 public class TranslatedTextService : ITranslatedTextService
 {
-    private readonly GitHubDbContext _context;
+    private readonly ICachedTextRepository _repository;
     private readonly ITranslator _translator;
     private readonly ISummarizationService _summarizer;
     private readonly ITranslationCacheService _cacheService;
     private readonly ILogger<TranslatedTextService> _logger;
 
     public TranslatedTextService(
-        GitHubDbContext context,
+        ICachedTextRepository repository,
         ITranslator translator,
         ISummarizationService summarizer,
         ITranslationCacheService cacheService,
         ILogger<TranslatedTextService> logger)
     {
-        _context = context;
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(translator);
+        ArgumentNullException.ThrowIfNull(summarizer);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _repository = repository;
         _translator = translator;
         _summarizer = summarizer;
         _cacheService = cacheService;
@@ -40,7 +45,7 @@ public class TranslatedTextService : ITranslatedTextService
         // English doesn't need title translation
         if (languageId.IsEnglish())
         {
-            var issue = await _context.Issues.FindAsync([issueId], ct);
+            var issue = await _repository.GetIssueByIdAsync(issueId, ct);
             return issue?.Title ?? string.Empty;
         }
 
@@ -129,17 +134,14 @@ public class TranslatedTextService : ITranslatedTextService
         if (ids.Count == 0) return result;
 
         // Load issues for timestamp validation
-        var issues = await _context.Issues
-            .Where(i => ids.Contains(i.Id))
-            .ToDictionaryAsync(i => i.Id, i => i, ct);
+        var issues = await _repository.GetIssuesByIdsAsync(ids, ct);
 
-        // Load all cached in one query (AsNoTracking to prevent tracking conflicts)
-        var cached = await _context.CachedTexts
-            .AsNoTracking()
-            .Where(t => ids.Contains(t.IssueId) &&
-                        t.LanguageId == languageId &&
-                        (t.TextTypeId == (int)TextTypeCode.Title || t.TextTypeId == (int)TextTypeCode.ListSummary))
-            .ToListAsync(ct);
+        // Load all cached in one query
+        var cached = await _repository.GetMultipleCachedTextsAsync(
+            ids,
+            languageId,
+            new[] { (int)TextTypeCode.Title, (int)TextTypeCode.ListSummary },
+            ct);
 
         var staleIssueIds = new List<int>();
 
@@ -212,15 +214,11 @@ public class TranslatedTextService : ITranslatedTextService
         CancellationToken ct)
     {
         // Get issue for timestamp validation
-        var issue = await _context.Issues.FindAsync([issueId], ct);
+        var issue = await _repository.GetIssueByIdAsync(issueId, ct);
         if (issue == null) return string.Empty;
 
         // Check cache first
-        var cached = await _context.CachedTexts
-            .FirstOrDefaultAsync(t =>
-                t.IssueId == issueId &&
-                t.LanguageId == languageId &&
-                t.TextTypeId == (int)textType, ct);
+        var cached = await _repository.GetByIssueAsync(issueId, languageId, (int)textType, ct);
 
         // Validate cache freshness (fallback for missed webhooks)
         if (cached != null)
@@ -314,73 +312,16 @@ public class TranslatedTextService : ITranslatedTextService
         string content,
         CancellationToken ct)
     {
-        try
+        var cachedText = new CachedText
         {
-            // Check if entity is already being tracked
-            var existingTracked = _context.ChangeTracker.Entries<CachedText>()
-                .FirstOrDefault(e =>
-                    e.Entity.IssueId == issueId &&
-                    e.Entity.LanguageId == languageId &&
-                    e.Entity.TextTypeId == (int)textType);
+            IssueId = issueId,
+            LanguageId = languageId,
+            TextTypeId = (int)textType,
+            Content = content,
+            CachedAt = DateTime.UtcNow
+        };
 
-            if (existingTracked != null)
-            {
-                // Update tracked entity
-                existingTracked.Entity.Content = content;
-                existingTracked.Entity.CachedAt = DateTime.UtcNow;
-                existingTracked.State = EntityState.Modified;
-            }
-            else
-            {
-                // Check if exists in database
-                var existingInDb = await _context.CachedTexts
-                    .FirstOrDefaultAsync(c =>
-                        c.IssueId == issueId &&
-                        c.LanguageId == languageId &&
-                        c.TextTypeId == (int)textType, ct);
-
-                if (existingInDb != null)
-                {
-                    // Update existing
-                    existingInDb.Content = content;
-                    existingInDb.CachedAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Add new
-                    _context.CachedTexts.Add(new CachedText
-                    {
-                        IssueId = issueId,
-                        LanguageId = languageId,
-                        TextTypeId = (int)textType,
-                        Content = content,
-                        CachedAt = DateTime.UtcNow
-                    });
-                }
-            }
-
-            await _context.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            // Duplicate key - another request already inserted
-            _logger.LogDebug(
-                "[TranslatedTextService] Concurrent insert detected for Issue {IssueId}, Language {LanguageId}, TextType {TextType}",
-                issueId, languageId, textType);
-            // Value is equivalent, no need to fetch existing
-        }
-    }
-
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        // PostgreSQL unique violation: 23505
-        // SQL Server unique violation: 2627 or 2601
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") ||
-               message.Contains("2627") ||
-               message.Contains("2601") ||
-               message.Contains("duplicate key") ||
-               message.Contains("unique constraint");
+        await _repository.SaveOrUpdateAsync(cachedText, ct);
     }
 
     private static string GetLanguageCulture(int languageId)
