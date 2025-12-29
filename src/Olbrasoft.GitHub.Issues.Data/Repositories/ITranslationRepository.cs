@@ -45,4 +45,21 @@ public interface ITranslationRepository
     /// <param name="cachedText">Cached text entity to save</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task SaveCachedTextAsync(CachedText cachedText, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets cached text if it exists AND is fresh (not older than issue update).
+    /// Automatically deletes stale cache entries.
+    /// </summary>
+    /// <param name="issueId">Internal issue ID</param>
+    /// <param name="languageId">Language LCID</param>
+    /// <param name="textTypeId">Text type ID</param>
+    /// <param name="issueUpdatedAt">Issue last updated timestamp for freshness validation</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Cached text content if found and fresh; otherwise null</returns>
+    Task<string?> GetIfFreshAsync(
+        int issueId,
+        int languageId,
+        int textTypeId,
+        DateTime issueUpdatedAt,
+        CancellationToken cancellationToken = default);
 }

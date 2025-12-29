@@ -58,8 +58,8 @@ public class IssueSummaryService : IIssueSummaryService
         var csLanguageId = (int)LanguageCode.CsCZ;
         var listSummaryTypeId = (int)TextTypeCode.ListSummary;
 
-        var cachedEnSummary = await GetCachedSummaryAsync(issueId, enLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken);
-        var cachedCsSummary = processCzech ? await GetCachedSummaryAsync(issueId, csLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken) : null;
+        var cachedEnSummary = await _cachedTextRepository.GetIfFreshAsync(issueId, enLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken);
+        var cachedCsSummary = processCzech ? await _cachedTextRepository.GetIfFreshAsync(issueId, csLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken) : null;
 
         // If all requested summaries are cached, send them and return
         if ((processEnglish && cachedEnSummary != null) && (!processCzech || cachedCsSummary != null))
@@ -185,26 +185,6 @@ public class IssueSummaryService : IIssueSummaryService
 
             _logger.LogInformation("[IssueSummaryService] COMPLETE (EN fallback) for issue {Id}", issueId);
         }
-    }
-
-    /// <summary>
-    /// Gets cached summary if exists and is fresh.
-    /// </summary>
-    private async Task<string?> GetCachedSummaryAsync(int issueId, int languageId, int textTypeId, DateTime issueUpdatedAt, CancellationToken ct)
-    {
-        var cached = await _cachedTextRepository.GetByIssueAsync(issueId, languageId, textTypeId, ct);
-
-        if (cached == null) return null;
-
-        // Validate freshness
-        if (issueUpdatedAt > cached.CachedAt)
-        {
-            _logger.LogDebug("[IssueSummaryService] Cache STALE for issue {IssueId}, language {LangId}", issueId, languageId);
-            await _cachedTextRepository.DeleteAsync(cached, ct);
-            return null;
-        }
-
-        return cached.Content;
     }
 
     /// <summary>

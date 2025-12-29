@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Entities;
@@ -71,33 +70,24 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
-        // Check cache first
-        var cached = await _translationRepository.GetCachedTranslationAsync(
+        // Check cache first (with automatic freshness validation)
+        var cachedTranslation = await _translationRepository.GetIfFreshAsync(
             issueId,
             languageId,
             (int)TextTypeCode.Title,
+            issue.GitHubUpdatedAt.UtcDateTime,
             cancellationToken);
 
-        if (cached != null)
+        if (cachedTranslation != null)
         {
-            // Validate cache freshness
-            var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
-            if (issueUpdatedAt <= cached.CachedAt)
-            {
-                // Cache is fresh - use it!
-                _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
+            // Cache hit - fresh translation found
+            _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
 
-                await _notifier.NotifyTitleTranslatedAsync(
-                    new TitleTranslationNotificationDto(issueId, cached.Content, targetLanguage, "cache"),
-                    cancellationToken);
+            await _notifier.NotifyTitleTranslatedAsync(
+                new TitleTranslationNotificationDto(issueId, cachedTranslation, targetLanguage, "cache"),
+                cancellationToken);
 
-                return;
-            }
-
-            // Cache is stale - delete it and regenerate
-            _logger.LogInformation("[TitleTranslation] Cache STALE for issue {Id} - issue updated {IssueUpdated}, cache created {CacheCreated}",
-                issueId, issueUpdatedAt, cached.CachedAt);
-            await _translationRepository.DeleteCachedTextAsync(cached, cancellationToken);
+            return;
         }
 
         _logger.LogInformation("[TitleTranslation] Cache MISS for issue {Id}, language {Lang}", issueId, targetLanguage);
@@ -197,40 +187,20 @@ public class TitleTranslationService : ITitleTranslationService
 
     /// <summary>
     /// Saves translation to the cache table.
+    /// Note: Duplicate key exception handling is in repository.
     /// </summary>
     private async Task SaveToCacheAsync(int issueId, int languageId, string content, CancellationToken ct)
     {
-        try
+        var cachedText = new CachedText
         {
-            var cachedText = new CachedText
-            {
-                IssueId = issueId,
-                LanguageId = languageId,
-                TextTypeId = (int)TextTypeCode.Title,
-                Content = content,
-                CachedAt = _timeProvider.GetUtcNow().UtcDateTime
-            };
-            await _translationRepository.SaveCachedTextAsync(cachedText, ct);
-            _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            // Concurrent insert - another request already cached it
-            _logger.LogDebug("[TitleTranslation] Concurrent cache insert detected for Issue {IssueId}", issueId);
-        }
-    }
-
-    /// <summary>
-    /// Checks if the exception is a duplicate key violation.
-    /// </summary>
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") ||    // PostgreSQL
-               message.Contains("2627") ||     // SQL Server
-               message.Contains("2601") ||     // SQL Server
-               message.Contains("duplicate key") ||
-               message.Contains("unique constraint");
+            IssueId = issueId,
+            LanguageId = languageId,
+            TextTypeId = (int)TextTypeCode.Title,
+            Content = content,
+            CachedAt = _timeProvider.GetUtcNow().UtcDateTime
+        };
+        await _translationRepository.SaveCachedTextAsync(cachedText, ct);
+        _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
     }
 
     /// <summary>
