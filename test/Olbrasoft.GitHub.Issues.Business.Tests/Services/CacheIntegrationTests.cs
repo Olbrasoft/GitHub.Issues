@@ -69,7 +69,7 @@ public class CacheIntegrationTests
             });
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -142,7 +142,7 @@ public class CacheIntegrationTests
             });
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -208,7 +208,7 @@ public class CacheIntegrationTests
             .ReturnsAsync(new TranslatorResult { Success = true, Translation = "Neue Funktion", Provider = "Azure" });
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -261,7 +261,7 @@ public class CacheIntegrationTests
         );
         await context.SaveChangesAsync();
 
-        var repository = new EfCoreCachedTextRepository(context);
+        var repository = new EfCoreCachedTextRepository(context, new Mock<ILogger<EfCoreCachedTextRepository>>().Object);
         var mockLogger = new Mock<ILogger<TranslationCacheService>>();
         var cacheService = new TranslationCacheService(repository, mockLogger.Object);
 
@@ -301,7 +301,7 @@ public class CacheIntegrationTests
         );
         await context.SaveChangesAsync();
 
-        var repository = new EfCoreCachedTextRepository(context);
+        var repository = new EfCoreCachedTextRepository(context, new Mock<ILogger<EfCoreCachedTextRepository>>().Object);
         var mockLogger = new Mock<ILogger<TranslationCacheService>>();
         var cacheService = new TranslationCacheService(repository, mockLogger.Object);
 

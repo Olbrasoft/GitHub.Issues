@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 
@@ -7,15 +8,11 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 /// <summary>
 /// Entity Framework Core implementation of ICachedTextRepository.
 /// </summary>
-public class EfCoreCachedTextRepository : ICachedTextRepository
+public class EfCoreCachedTextRepository : EfCoreRepositoryBase, ICachedTextRepository
 {
-    private readonly GitHubDbContext _context;
-
-    public EfCoreCachedTextRepository(GitHubDbContext context)
+    public EfCoreCachedTextRepository(GitHubDbContext context, ILogger<EfCoreCachedTextRepository> logger)
+        : base(context, logger)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
-        _context = context;
     }
 
     public async Task<CachedText?> GetByIssueAsync(
@@ -24,31 +21,17 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         int textTypeId,
         CancellationToken cancellationToken = default)
     {
-        return await _context.CachedTexts
-            .FirstOrDefaultAsync(t =>
-                t.IssueId == issueId &&
-                t.LanguageId == languageId &&
-                t.TextTypeId == textTypeId, cancellationToken);
+        return await GetCachedTextInternalAsync(issueId, languageId, textTypeId, cancellationToken);
     }
 
     public async Task SaveAsync(CachedText cachedText, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            _context.CachedTexts.Add(cachedText);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            // Concurrent insert - another thread/request already cached this text
-            // This is expected behavior, no action needed
-        }
+        await SaveCachedTextInternalAsync(cachedText, cancellationToken);
     }
 
     public async Task DeleteAsync(CachedText cachedText, CancellationToken cancellationToken = default)
     {
-        _context.CachedTexts.Remove(cachedText);
-        await _context.SaveChangesAsync(cancellationToken);
+        await DeleteCachedTextInternalAsync(cachedText, cancellationToken);
     }
 
     public async Task<List<CachedText>> GetMultipleCachedTextsAsync(
@@ -60,7 +43,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         var ids = issueIds.ToList();
         var typeIds = textTypeIds.ToList();
 
-        return await _context.CachedTexts
+        return await Context.CachedTexts
             .AsNoTracking()
             .Where(t => ids.Contains(t.IssueId) &&
                         t.LanguageId == languageId &&
@@ -73,7 +56,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         CancellationToken cancellationToken = default)
     {
         var ids = issueIds.ToList();
-        return await _context.Issues
+        return await Context.Issues
             .AsNoTracking()
             .Where(i => ids.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i, cancellationToken);
@@ -84,7 +67,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         try
         {
             // Check if entity is already being tracked
-            var existingTracked = _context.ChangeTracker.Entries<CachedText>()
+            var existingTracked = Context.ChangeTracker.Entries<CachedText>()
                 .FirstOrDefault(e =>
                     e.Entity.IssueId == cachedText.IssueId &&
                     e.Entity.LanguageId == cachedText.LanguageId &&
@@ -100,7 +83,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
             else
             {
                 // Check if exists in database
-                var existingInDb = await _context.CachedTexts
+                var existingInDb = await Context.CachedTexts
                     .FirstOrDefaultAsync(c =>
                         c.IssueId == cachedText.IssueId &&
                         c.LanguageId == cachedText.LanguageId &&
@@ -111,34 +94,38 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
                     // Update existing
                     existingInDb.Content = cachedText.Content;
                     existingInDb.CachedAt = cachedText.CachedAt;
-                    _context.Entry(existingInDb).State = EntityState.Modified;
+                    Context.Entry(existingInDb).State = EntityState.Modified;
                 }
                 else
                 {
                     // Add new
-                    _context.CachedTexts.Add(cachedText);
+                    Context.CachedTexts.Add(cachedText);
                 }
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await Context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {
             // Concurrent insert - another thread/request already cached this text
-            // This is expected behavior, no action needed
+            Logger.LogDebug(
+                "[Cache] Concurrent cache insert detected for Issue {IssueId}, Language {LanguageId}, TextType {TextTypeId}",
+                cachedText.IssueId,
+                cachedText.LanguageId,
+                cachedText.TextTypeId);
         }
     }
 
     public async Task<int> InvalidateByIssueAsync(int issueId, CancellationToken cancellationToken = default)
     {
-        return await _context.CachedTexts
+        return await Context.CachedTexts
             .Where(t => t.IssueId == issueId)
             .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task<int> InvalidateByIssueAndTextTypeAsync(int issueId, int textTypeId, CancellationToken cancellationToken = default)
     {
-        return await _context.CachedTexts
+        return await Context.CachedTexts
             .Where(t => t.IssueId == issueId && t.TextTypeId == textTypeId)
             .ExecuteDeleteAsync(cancellationToken);
     }
@@ -147,27 +134,27 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
     {
         var repoIds = repositoryIds.ToList();
 
-        return await _context.CachedTexts
+        return await Context.CachedTexts
             .Where(t => repoIds.Contains(t.Issue.RepositoryId))
             .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task<int> InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.CachedTexts
+        return await Context.CachedTexts
             .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task<Data.CacheStatistics> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
-        var total = await _context.CachedTexts.CountAsync(cancellationToken);
+        var total = await Context.CachedTexts.CountAsync(cancellationToken);
 
-        var byLanguage = await _context.CachedTexts
+        var byLanguage = await Context.CachedTexts
             .GroupBy(t => t.Language.CultureName)
             .Select(g => new { Language = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Language, x => x.Count, cancellationToken);
 
-        var byTextType = await _context.CachedTexts
+        var byTextType = await Context.CachedTexts
             .GroupBy(t => t.TextType.Name)
             .Select(g => new { TextType = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.TextType, x => x.Count, cancellationToken);
@@ -182,7 +169,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
 
     public async Task<Issue?> GetIssueByIdAsync(int issueId, CancellationToken cancellationToken = default)
     {
-        return await _context.Issues.FindAsync(new object[] { issueId }, cancellationToken);
+        return await Context.Issues.FindAsync(new object[] { issueId }, cancellationToken);
     }
 
     public async Task<string?> GetIfFreshAsync(
@@ -192,33 +179,6 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         DateTime issueUpdatedAt,
         CancellationToken cancellationToken = default)
     {
-        var cached = await GetByIssueAsync(issueId, languageId, textTypeId, cancellationToken);
-
-        if (cached == null) return null;
-
-        // Validate freshness - if issue was updated after cache, invalidate
-        if (issueUpdatedAt > cached.CachedAt)
-        {
-            // Cache is stale - delete it
-            await DeleteAsync(cached, cancellationToken);
-            return null;
-        }
-
-        // Cache is fresh
-        return cached.Content;
-    }
-
-    /// <summary>
-    /// Checks if exception is a duplicate key violation.
-    /// Supports PostgreSQL (23505), SQL Server (2627, 2601).
-    /// </summary>
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") || // PostgreSQL unique violation
-               message.Contains("2627") ||  // SQL Server unique constraint
-               message.Contains("2601") ||  // SQL Server unique index
-               message.Contains("duplicate key") ||
-               message.Contains("unique constraint");
+        return await GetIfFreshInternalAsync(issueId, languageId, textTypeId, issueUpdatedAt, cancellationToken);
     }
 }

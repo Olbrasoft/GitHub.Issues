@@ -58,7 +58,7 @@ public class CacheTimeProviderTests
             });
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -114,7 +114,7 @@ public class CacheTimeProviderTests
         await context.SaveChangesAsync();
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -186,7 +186,7 @@ public class CacheTimeProviderTests
             });
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -235,7 +235,7 @@ public class CacheTimeProviderTests
         await context.SaveChangesAsync();
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
@@ -300,7 +300,7 @@ public class CacheTimeProviderTests
         _fakeTimeProvider.Advance(TimeSpan.FromDays(30));
 
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             _mockTranslator.Object,
             _mockNotifier.Object,
             _fakeTimeProvider,
