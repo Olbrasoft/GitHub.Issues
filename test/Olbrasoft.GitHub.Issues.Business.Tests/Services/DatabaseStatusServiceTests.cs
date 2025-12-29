@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 
@@ -14,6 +15,8 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 public class DatabaseStatusServiceTests
 {
     private readonly Mock<ILogger<DatabaseStatusService>> _mockLogger = new();
+    private readonly Mock<IIssueRepository> _mockIssueRepository = new();
+    private readonly Mock<IRepositoryRepository> _mockRepositoryRepository = new();
 
     [Fact]
     public void Constructor_AcceptsValidDependencies()
@@ -22,7 +25,11 @@ public class DatabaseStatusServiceTests
         using var context = Data.EntityFrameworkCore.Tests.TestDbContextFactory.Create();
 
         // Act
-        var service = new DatabaseStatusService(context, _mockLogger.Object);
+        var service = new DatabaseStatusService(
+            context,
+            _mockIssueRepository.Object,
+            _mockRepositoryRepository.Object,
+            _mockLogger.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -34,7 +41,11 @@ public class DatabaseStatusServiceTests
         // Arrange - create a mock context that throws when used
         var mockContext = new Mock<GitHubDbContext>(new Microsoft.EntityFrameworkCore.DbContextOptions<GitHubDbContext>());
 
-        var service = new DatabaseStatusService(mockContext.Object, _mockLogger.Object);
+        var service = new DatabaseStatusService(
+            mockContext.Object,
+            _mockIssueRepository.Object,
+            _mockRepositoryRepository.Object,
+            _mockLogger.Object);
 
         // Act - The mock context will throw because it's not properly configured
         var result = await service.GetStatusAsync(CancellationToken.None);

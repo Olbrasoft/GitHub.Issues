@@ -41,4 +41,9 @@ public class EfCoreIssueRepository : IIssueRepository
             .Where(i => issueIds.Contains(i.Id))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Issues.CountAsync(cancellationToken);
+    }
 }

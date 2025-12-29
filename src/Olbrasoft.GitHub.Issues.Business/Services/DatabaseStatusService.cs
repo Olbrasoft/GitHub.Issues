@@ -1,23 +1,35 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
+using Olbrasoft.GitHub.Issues.Data.Repositories;
 
 namespace Olbrasoft.GitHub.Issues.Business.Services;
 
 /// <summary>
 /// Service for checking database status using Entity Framework Core.
+/// Note: Database migration operations still use DbContext directly - will be refactored to IMigrationManager (Issue #316).
 /// </summary>
 public class DatabaseStatusService : IDatabaseStatusService
 {
     private readonly GitHubDbContext _context;
+    private readonly IIssueRepository _issueRepository;
+    private readonly IRepositoryRepository _repositoryRepository;
     private readonly ILogger<DatabaseStatusService> _logger;
 
-    public DatabaseStatusService(GitHubDbContext context, ILogger<DatabaseStatusService> logger)
+    public DatabaseStatusService(
+        GitHubDbContext context,
+        IIssueRepository issueRepository,
+        IRepositoryRepository repositoryRepository,
+        ILogger<DatabaseStatusService> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(issueRepository);
+        ArgumentNullException.ThrowIfNull(repositoryRepository);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
+        _issueRepository = issueRepository;
+        _repositoryRepository = repositoryRepository;
         _logger = logger;
     }
 
@@ -75,8 +87,8 @@ public class DatabaseStatusService : IDatabaseStatusService
             }
 
             // Check data counts
-            var issueCount = await _context.Issues.CountAsync(cancellationToken);
-            var repositoryCount = await _context.Repositories.CountAsync(cancellationToken);
+            var issueCount = await _issueRepository.CountAsync(cancellationToken);
+            var repositoryCount = await _repositoryRepository.CountAsync(cancellationToken);
 
             if (issueCount == 0)
             {

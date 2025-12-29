@@ -65,6 +65,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IIssueRepository, EfCoreIssueRepository>();
         services.AddScoped<ITranslationRepository, EfCoreTranslationRepository>();
         services.AddScoped<ICachedTextRepository, EfCoreCachedTextRepository>();
+        services.AddScoped<IRepositoryRepository, EfCoreRepositoryRepository>();
+        services.AddScoped<ILabelRepository, EfCoreLabelRepository>();
 
         return services;
     }

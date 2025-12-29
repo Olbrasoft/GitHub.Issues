@@ -35,4 +35,12 @@ public interface IIssueRepository
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of issues with Repository includes</returns>
     Task<List<Issue>> GetIssuesByIdsWithRepositoryAsync(List<int> issueIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the total count of issues in the database.
+    /// Used for database status checking and statistics.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Total number of issues</returns>
+    Task<int> CountAsync(CancellationToken cancellationToken = default);
 }
