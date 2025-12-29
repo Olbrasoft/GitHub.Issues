@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Olbrasoft.GitHub.Issues.Business.Detail;
 using Olbrasoft.GitHub.Issues.Business.Translation;
 using Olbrasoft.GitHub.Issues.Data;
+using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 
 namespace Olbrasoft.GitHub.Issues.Business.Summarization;
@@ -17,6 +19,8 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
     private readonly IAiSummarizationService _aiService;
     private readonly ITranslationFallbackService _translationService;
     private readonly ISummaryNotificationService _notificationService;
+    private readonly IGitHubGraphQLClient _graphQLClient;
+    private readonly IIssueDetailQueryService _queryService;
     private readonly ILogger<IssueSummaryOrchestrator> _logger;
 
     public IssueSummaryOrchestrator(
@@ -25,6 +29,8 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
         IAiSummarizationService aiService,
         ITranslationFallbackService translationService,
         ISummaryNotificationService notificationService,
+        IGitHubGraphQLClient graphQLClient,
+        IIssueDetailQueryService queryService,
         ILogger<IssueSummaryOrchestrator> logger)
     {
         ArgumentNullException.ThrowIfNull(repository);
@@ -32,6 +38,8 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
         ArgumentNullException.ThrowIfNull(aiService);
         ArgumentNullException.ThrowIfNull(translationService);
         ArgumentNullException.ThrowIfNull(notificationService);
+        ArgumentNullException.ThrowIfNull(graphQLClient);
+        ArgumentNullException.ThrowIfNull(queryService);
         ArgumentNullException.ThrowIfNull(logger);
 
         _repository = repository;
@@ -39,6 +47,8 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
         _aiService = aiService;
         _translationService = translationService;
         _notificationService = notificationService;
+        _graphQLClient = graphQLClient;
+        _queryService = queryService;
         _logger = logger;
     }
 
@@ -78,7 +88,8 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
             : null;
 
         // If all requested summaries cached, send them and return
-        if ((processEnglish && cachedEn != null) && (!processCzech || cachedCs != null))
+        // Logic: "either we don't need EN OR we have it" AND "either we don't need CS OR we have it"
+        if ((!processEnglish || cachedEn != null) && (!processCzech || cachedCs != null))
         {
             _logger.LogInformation("[IssueSummaryOrchestrator] Cache HIT - serving from cache");
 
@@ -204,19 +215,48 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
     /// <inheritdoc />
     public async Task GenerateSummaryAsync(int issueId, string language, CancellationToken cancellationToken = default)
     {
-        // Get issue with body from repository
-        var issue = await _repository.GetIssueByIdAsync(issueId, cancellationToken);
+        _logger.LogInformation("[IssueSummaryOrchestrator] START for issue {Id}, language={Language}", issueId, language);
+
+        // Get issue metadata from database
+        var issues = await _queryService.GetIssuesByIdsAsync(new[] { issueId }, cancellationToken);
+        var issue = issues.FirstOrDefault();
+
         if (issue == null)
         {
-            _logger.LogWarning("[IssueSummaryOrchestrator] Issue {IssueId} not found", issueId);
+            _logger.LogWarning("[IssueSummaryOrchestrator] Issue {Id} not found", issueId);
             return;
         }
 
-        // Note: ICachedTextRepository doesn't have Body property exposed
-        // This method delegates to IIssueSummaryService which has the existing logic
-        // For now, log warning - proper implementation would need repository enhancement
-        _logger.LogWarning(
-            "[IssueSummaryOrchestrator] GenerateSummaryAsync(issueId, language) requires body fetch - not yet implemented");
+        _logger.LogInformation("[IssueSummaryOrchestrator] Issue {Id} found: {Title}", issueId, issue.Title);
+
+        // Fetch body from GraphQL
+        var (owner, repoName) = ParseRepositoryFullName(issue.Repository.FullName);
+        string? body = null;
+
+        if (!string.IsNullOrEmpty(owner) && !string.IsNullOrEmpty(repoName))
+        {
+            _logger.LogInformation("[IssueSummaryOrchestrator] Fetching body from GraphQL for {Owner}/{Repo}#{Number}", owner, repoName, issue.Number);
+            var requests = new[] { new IssueBodyRequest(owner, repoName, issue.Number) };
+            var bodies = await _graphQLClient.FetchBodiesAsync(requests, cancellationToken);
+            bodies.TryGetValue((owner, repoName, issue.Number), out body);
+            _logger.LogInformation("[IssueSummaryOrchestrator] Body fetched, length: {Length}", body?.Length ?? 0);
+        }
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            _logger.LogWarning("[IssueSummaryOrchestrator] No body available for issue {Id} - cannot generate summary", issueId);
+            return;
+        }
+
+        await GenerateSummaryFromBodyAsync(issueId, body, language, cancellationToken);
+    }
+
+    private static (string Owner, string RepoName) ParseRepositoryFullName(string fullName)
+    {
+        var parts = fullName.Split('/');
+        return parts.Length == 2
+            ? (parts[0], parts[1])
+            : (string.Empty, string.Empty);
     }
 
     /// <inheritdoc />
@@ -225,9 +265,25 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
         string language = "en",
         CancellationToken cancellationToken = default)
     {
-        foreach (var (issueId, body) in issuesWithBodies)
+        var issues = issuesWithBodies.ToList();
+        _logger.LogInformation("[IssueSummaryOrchestrator] Triggering summarization for {Count} issues", issues.Count);
+
+        // Trigger summarization for each issue (sequential to avoid LLM overload)
+        foreach (var (issueId, body) in issues)
         {
-            await GenerateSummaryFromBodyAsync(issueId, body, language, cancellationToken);
+            try
+            {
+                await GenerateSummaryFromBodyAsync(issueId, body, language, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "[IssueSummaryOrchestrator] Failed to generate summary for issue {IssueId}. Continuing with remaining issues.",
+                    issueId);
+            }
         }
+
+        _logger.LogInformation("[IssueSummaryOrchestrator] COMPLETE for {Count} issues", issues.Count);
     }
 }
