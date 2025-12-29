@@ -10,33 +10,30 @@ namespace Olbrasoft.GitHub.Issues.Business.Strategies;
 /// Strategy for searching issues by exact issue number references.
 /// Handles patterns like #123, issue 123, repo#123.
 /// </summary>
-public class ExactMatchSearchStrategy : ISearchStrategy
+public class ExactMatchSearchStrategy : SearchStrategyBase
 {
     private readonly IMediator _mediator;
-    private readonly ILogger<ExactMatchSearchStrategy> _logger;
-    private readonly int _previewMaxLength;
 
     public ExactMatchSearchStrategy(
         IMediator mediator,
         ILogger<ExactMatchSearchStrategy> logger,
         IOptions<AiSummarySettings> aiSummarySettings)
+        : base(aiSummarySettings.Value.MaxLength, logger)
     {
         _mediator = mediator;
-        _logger = logger;
-        _previewMaxLength = aiSummarySettings.Value.MaxLength;
     }
 
     /// <summary>
     /// Highest priority - exact matches should always be found first.
     /// </summary>
-    public int Priority => 100;
+    public override int Priority => 100;
 
-    public bool CanHandle(SearchCriteria criteria)
+    public override bool CanHandle(SearchCriteria criteria)
     {
         return criteria.HasIssueNumbers;
     }
 
-    public async Task<StrategySearchResult> ExecuteAsync(
+    public override async Task<StrategySearchResult> ExecuteAsync(
         SearchCriteria criteria,
         IReadOnlySet<int> existingResults,
         CancellationToken cancellationToken)
@@ -54,20 +51,10 @@ public class ExactMatchSearchStrategy : ISearchStrategy
 
         var matches = await query.ToResultAsync(cancellationToken);
 
-        var result = new StrategySearchResult
-        {
-            Results = [],
-            FoundIds = []
-        };
+        // Use base class mapping method to eliminate duplication
+        var result = MapToStrategyResult(matches, existingResults, isExactMatch: true);
 
-        foreach (var dto in matches.Where(d => !existingResults.Contains(d.Id)))
-        {
-            var searchResult = SearchResultMapper.MapToSearchResult(dto, isExactMatch: true, _previewMaxLength);
-            result.Results.Add(searchResult);
-            result.FoundIds.Add(dto.Id);
-        }
-
-        _logger.LogDebug("ExactMatchStrategy found {Count} matches for issue numbers: {Numbers}",
+        Logger.LogDebug("ExactMatchStrategy found {Count} matches for issue numbers: {Numbers}",
             result.Results.Count, string.Join(", ", issueNumbers));
 
         return result;

@@ -52,10 +52,10 @@ public class StrategySearchResult
     /// <summary>
     /// Total count if available (for pagination).
     /// </summary>
-    public int? TotalCount { get; init; }
+    public int? TotalCount { get; set; }
 
     /// <summary>
     /// Whether this result should be returned directly (bypassing other strategies).
     /// </summary>
-    public bool IsTerminal { get; init; }
+    public bool IsTerminal { get; set; }
 }

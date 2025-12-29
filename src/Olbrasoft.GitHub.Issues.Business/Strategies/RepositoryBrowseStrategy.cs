@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business.Models;
@@ -10,25 +11,25 @@ namespace Olbrasoft.GitHub.Issues.Business.Strategies;
 /// Strategy for browsing issues in specific repositories without a search query.
 /// Used when user selects repositories but doesn't enter search text.
 /// </summary>
-public class RepositoryBrowseStrategy : ISearchStrategy
+public class RepositoryBrowseStrategy : SearchStrategyBase
 {
     private readonly IMediator _mediator;
-    private readonly int _previewMaxLength;
 
     public RepositoryBrowseStrategy(
         IMediator mediator,
+        ILogger<RepositoryBrowseStrategy> logger,
         IOptions<AiSummarySettings> aiSummarySettings)
+        : base(aiSummarySettings.Value.MaxLength, logger)
     {
         _mediator = mediator;
-        _previewMaxLength = aiSummarySettings.Value.MaxLength;
     }
 
     /// <summary>
     /// Lower priority - only used when no search terms are provided.
     /// </summary>
-    public int Priority => 50;
+    public override int Priority => 50;
 
-    public bool CanHandle(SearchCriteria criteria)
+    public override bool CanHandle(SearchCriteria criteria)
     {
         // Only handle when there's no search criteria but we have repository filters
         return !criteria.HasIssueNumbers
@@ -36,7 +37,7 @@ public class RepositoryBrowseStrategy : ISearchStrategy
                && criteria.HasRepositoryFilter;
     }
 
-    public async Task<StrategySearchResult> ExecuteAsync(
+    public override async Task<StrategySearchResult> ExecuteAsync(
         SearchCriteria criteria,
         IReadOnlySet<int> existingResults,
         CancellationToken cancellationToken)
@@ -51,23 +52,12 @@ public class RepositoryBrowseStrategy : ISearchStrategy
 
         var page = await query.ToResultAsync(cancellationToken);
 
-        var results = new List<IssueSearchResult>();
-        var foundIds = new HashSet<int>();
-
-        foreach (var dto in page.Results.Where(d => !existingResults.Contains(d.Id)))
-        {
-            var searchResult = SearchResultMapper.MapToSearchResult(dto, isExactMatch: false, _previewMaxLength);
-            results.Add(searchResult);
-            foundIds.Add(dto.Id);
-        }
-
+        // Use base class mapping method to eliminate duplication
         // This strategy returns a terminal result with proper pagination
-        return new StrategySearchResult
-        {
-            Results = results,
-            FoundIds = foundIds,
-            TotalCount = page.TotalCount,
-            IsTerminal = true
-        };
+        var result = MapToStrategyResult(page.Results, existingResults, isExactMatch: false);
+        result.TotalCount = page.TotalCount;
+        result.IsTerminal = true;
+
+        return result;
     }
 }

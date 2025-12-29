@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business;
@@ -12,11 +13,12 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Strategies;
 public class RepositoryBrowseStrategyTests
 {
     private readonly Mock<IMediator> _mockMediator = new();
+    private readonly Mock<ILogger<RepositoryBrowseStrategy>> _mockLogger = new();
     private readonly IOptions<AiSummarySettings> _options = Options.Create(new AiSummarySettings { MaxLength = 500 });
 
     private RepositoryBrowseStrategy CreateStrategy()
     {
-        return new RepositoryBrowseStrategy(_mockMediator.Object, _options);
+        return new RepositoryBrowseStrategy(_mockMediator.Object, _mockLogger.Object, _options);
     }
 
     [Fact]
