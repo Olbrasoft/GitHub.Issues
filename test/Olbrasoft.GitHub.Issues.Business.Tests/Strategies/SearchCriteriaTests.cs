@@ -1,5 +1,5 @@
-using Olbrasoft.GitHub.Issues.Business.Strategies;
-using static Olbrasoft.GitHub.Issues.Business.Services.IssueNumberParser;
+using Olbrasoft.GitHub.Issues.Business.Search.Strategies;
+using static Olbrasoft.GitHub.Issues.Business.Detail.IssueNumberParser;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Strategies;
 

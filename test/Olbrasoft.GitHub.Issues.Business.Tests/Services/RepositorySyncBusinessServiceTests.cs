@@ -1,5 +1,5 @@
 using Moq;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Data.Commands.RepositoryCommands;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Queries.RepositoryQueries;

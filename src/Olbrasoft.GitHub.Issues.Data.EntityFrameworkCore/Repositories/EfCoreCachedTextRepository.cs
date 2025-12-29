@@ -185,6 +185,29 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
         return await _context.Issues.FindAsync(new object[] { issueId }, cancellationToken);
     }
 
+    public async Task<string?> GetIfFreshAsync(
+        int issueId,
+        int languageId,
+        int textTypeId,
+        DateTime issueUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var cached = await GetByIssueAsync(issueId, languageId, textTypeId, cancellationToken);
+
+        if (cached == null) return null;
+
+        // Validate freshness - if issue was updated after cache, invalidate
+        if (issueUpdatedAt > cached.CachedAt)
+        {
+            // Cache is stale - delete it
+            await DeleteAsync(cached, cancellationToken);
+            return null;
+        }
+
+        // Cache is fresh
+        return cached.Content;
+    }
+
     /// <summary>
     /// Checks if exception is a duplicate key violation.
     /// Supports PostgreSQL (23505), SQL Server (2627, 2601).

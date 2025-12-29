@@ -44,7 +44,52 @@ public class EfCoreTranslationRepository : ITranslationRepository
 
     public async Task SaveCachedTextAsync(CachedText cachedText, CancellationToken cancellationToken = default)
     {
-        _context.CachedTexts.Add(cachedText);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _context.CachedTexts.Add(cachedText);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+        {
+            // Concurrent insert - another request already cached this text
+            // This is expected behavior, no action needed
+        }
+    }
+
+    public async Task<string?> GetIfFreshAsync(
+        int issueId,
+        int languageId,
+        int textTypeId,
+        DateTime issueUpdatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var cached = await GetCachedTranslationAsync(issueId, languageId, textTypeId, cancellationToken);
+
+        if (cached == null) return null;
+
+        // Validate freshness - if issue was updated after cache, invalidate
+        if (issueUpdatedAt > cached.CachedAt)
+        {
+            // Cache is stale - delete it
+            await DeleteCachedTextAsync(cached, cancellationToken);
+            return null;
+        }
+
+        // Cache is fresh
+        return cached.Content;
+    }
+
+    /// <summary>
+    /// Checks if exception is a duplicate key violation.
+    /// Supports PostgreSQL (23505), SQL Server (2627, 2601).
+    /// </summary>
+    private static bool IsDuplicateKeyException(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? string.Empty;
+        return message.Contains("23505") || // PostgreSQL unique violation
+               message.Contains("2627") ||  // SQL Server unique constraint
+               message.Contains("2601") ||  // SQL Server unique index
+               message.Contains("duplicate key") ||
+               message.Contains("unique constraint");
     }
 }

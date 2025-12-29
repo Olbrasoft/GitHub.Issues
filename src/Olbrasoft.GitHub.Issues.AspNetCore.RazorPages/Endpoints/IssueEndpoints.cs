@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Translation;
 using Olbrasoft.GitHub.Issues.Data.Commands.IssueCommands;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;

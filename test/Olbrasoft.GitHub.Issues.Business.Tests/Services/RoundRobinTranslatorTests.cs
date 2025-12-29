@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Translation;
 using Olbrasoft.Text.Translation;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;

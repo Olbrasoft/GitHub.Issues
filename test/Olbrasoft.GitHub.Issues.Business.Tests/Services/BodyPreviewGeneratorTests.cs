@@ -1,4 +1,4 @@
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Detail;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 

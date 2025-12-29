@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Options;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Business.Strategies;
+using Olbrasoft.GitHub.Issues.Business.Search.Strategies;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Queries.IssueQueries;
 using Olbrasoft.Mediation;
-using static Olbrasoft.GitHub.Issues.Business.Services.IssueNumberParser;
+using static Olbrasoft.GitHub.Issues.Business.Detail.IssueNumberParser;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Strategies;
 

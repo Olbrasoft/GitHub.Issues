@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Summarization;
+using Olbrasoft.GitHub.Issues.Business.Translation;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
