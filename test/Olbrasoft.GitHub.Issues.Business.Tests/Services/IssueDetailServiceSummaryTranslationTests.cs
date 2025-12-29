@@ -15,6 +15,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 public class IssueSummaryServiceTests
 {
     private readonly Mock<ICachedTextRepository> _cachedTextRepositoryMock;
+    private readonly Mock<ISummaryCacheService> _cacheServiceMock;
     private readonly Mock<ISummarizationService> _summarizationServiceMock;
     private readonly Mock<ITranslationFallbackService> _translationServiceMock;
     private readonly Mock<ISummaryNotifier> _summaryNotifierMock;
@@ -23,6 +24,7 @@ public class IssueSummaryServiceTests
     public IssueSummaryServiceTests()
     {
         _cachedTextRepositoryMock = new Mock<ICachedTextRepository>();
+        _cacheServiceMock = new Mock<ISummaryCacheService>();
         _summarizationServiceMock = new Mock<ISummarizationService>();
         _translationServiceMock = new Mock<ITranslationFallbackService>();
         _summaryNotifierMock = new Mock<ISummaryNotifier>();
@@ -38,10 +40,10 @@ public class IssueSummaryServiceTests
     {
         return new IssueSummaryService(
             _cachedTextRepositoryMock.Object,
+            _cacheServiceMock.Object,
             _summarizationServiceMock.Object,
             _translationServiceMock.Object,
             _summaryNotifierMock.Object,
-            TimeProvider.System,
             _loggerMock.Object);
     }
 

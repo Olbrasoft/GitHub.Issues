@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
 using Olbrasoft.GitHub.Issues.Data.Dtos;
-using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Transformation.Abstractions;
 
@@ -14,26 +13,26 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 public class IssueSummaryService : IIssueSummaryService
 {
     private readonly ICachedTextRepository _cachedTextRepository;
+    private readonly ISummaryCacheService _cacheService;
     private readonly ISummarizationService _summarizationService;
     private readonly ITranslationFallbackService _translationService;
     private readonly ISummaryNotifier _summaryNotifier;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<IssueSummaryService> _logger;
 
     public IssueSummaryService(
         ICachedTextRepository cachedTextRepository,
+        ISummaryCacheService cacheService,
         ISummarizationService summarizationService,
         ITranslationFallbackService translationService,
         ISummaryNotifier summaryNotifier,
-        TimeProvider timeProvider,
         ILogger<IssueSummaryService> logger)
     {
-        _cachedTextRepository = cachedTextRepository;
-        _summarizationService = summarizationService;
-        _translationService = translationService;
-        _summaryNotifier = summaryNotifier;
-        _timeProvider = timeProvider;
-        _logger = logger;
+        _cachedTextRepository = cachedTextRepository ?? throw new ArgumentNullException(nameof(cachedTextRepository));
+        _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+        _summarizationService = summarizationService ?? throw new ArgumentNullException(nameof(summarizationService));
+        _translationService = translationService ?? throw new ArgumentNullException(nameof(translationService));
+        _summaryNotifier = summaryNotifier ?? throw new ArgumentNullException(nameof(summaryNotifier));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc />
@@ -58,8 +57,8 @@ public class IssueSummaryService : IIssueSummaryService
         var csLanguageId = (int)LanguageCode.CsCZ;
         var listSummaryTypeId = (int)TextTypeCode.ListSummary;
 
-        var cachedEnSummary = await GetCachedSummaryAsync(issueId, enLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken);
-        var cachedCsSummary = processCzech ? await GetCachedSummaryAsync(issueId, csLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken) : null;
+        var cachedEnSummary = await _cacheService.GetCachedSummaryAsync(issueId, enLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken);
+        var cachedCsSummary = processCzech ? await _cacheService.GetCachedSummaryAsync(issueId, csLanguageId, listSummaryTypeId, issue.GitHubUpdatedAt.UtcDateTime, cancellationToken) : null;
 
         // If all requested summaries are cached, send them and return
         if ((processEnglish && cachedEnSummary != null) && (!processCzech || cachedCsSummary != null))
@@ -116,7 +115,7 @@ public class IssueSummaryService : IIssueSummaryService
             _logger.LogInformation("[IssueSummaryService] Summarization succeeded via {Provider}", enProvider);
 
             // Save to cache
-            await SaveToCacheAsync(issueId, enLanguageId, listSummaryTypeId, englishSummary, cancellationToken);
+            await _cacheService.SaveSummaryAsync(issueId, enLanguageId, listSummaryTypeId, englishSummary, cancellationToken);
         }
 
         // Send English summary if requested
@@ -157,7 +156,7 @@ public class IssueSummaryService : IIssueSummaryService
             _logger.LogInformation("[IssueSummaryService] Translation succeeded via {Provider}", translateResult.Provider);
 
             // Save to cache
-            await SaveToCacheAsync(issueId, csLanguageId, listSummaryTypeId, translateResult.Translation, cancellationToken);
+            await _cacheService.SaveSummaryAsync(issueId, csLanguageId, listSummaryTypeId, translateResult.Translation, cancellationToken);
 
             // Send translated summary
             await _summaryNotifier.NotifySummaryReadyAsync(
@@ -185,42 +184,5 @@ public class IssueSummaryService : IIssueSummaryService
 
             _logger.LogInformation("[IssueSummaryService] COMPLETE (EN fallback) for issue {Id}", issueId);
         }
-    }
-
-    /// <summary>
-    /// Gets cached summary if exists and is fresh.
-    /// </summary>
-    private async Task<string?> GetCachedSummaryAsync(int issueId, int languageId, int textTypeId, DateTime issueUpdatedAt, CancellationToken ct)
-    {
-        var cached = await _cachedTextRepository.GetByIssueAsync(issueId, languageId, textTypeId, ct);
-
-        if (cached == null) return null;
-
-        // Validate freshness
-        if (issueUpdatedAt > cached.CachedAt)
-        {
-            _logger.LogDebug("[IssueSummaryService] Cache STALE for issue {IssueId}, language {LangId}", issueId, languageId);
-            await _cachedTextRepository.DeleteAsync(cached, ct);
-            return null;
-        }
-
-        return cached.Content;
-    }
-
-    /// <summary>
-    /// Saves summary to cache.
-    /// </summary>
-    private async Task SaveToCacheAsync(int issueId, int languageId, int textTypeId, string content, CancellationToken ct)
-    {
-        await _cachedTextRepository.SaveAsync(new CachedText
-        {
-            IssueId = issueId,
-            LanguageId = languageId,
-            TextTypeId = textTypeId,
-            Content = content,
-            CachedAt = _timeProvider.GetUtcNow().UtcDateTime
-        }, ct);
-
-        _logger.LogDebug("[IssueSummaryService] Saved to cache: Issue {IssueId}, Language {LangId}, Type {TypeId}", issueId, languageId, textTypeId);
     }
 }

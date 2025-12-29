@@ -221,6 +221,9 @@ public static class ServiceExtensions
             return new TranslationFallbackService(translator, logger, fallbackTranslator: null);
         });
 
+        // Summary cache service (refactored from IssueSummaryService for SRP - issue #310)
+        services.AddScoped<ISummaryCacheService, SummaryCacheService>();
+
         // Issue summary service (summarization + translation + notification)
         services.AddScoped<IIssueSummaryService, IssueSummaryService>();
 
