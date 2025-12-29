@@ -8,9 +8,9 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 
 /// <summary>
 /// Tests for DatabaseHealthChecker.
-/// Note: In-memory provider doesn't support migrations, so we can only test
-/// limited scenarios using a real (non-in-memory) database context.
-/// These tests focus on the service's error handling and constructor behavior.
+/// Note: These tests do not use a real database connection, so they cannot
+/// fully validate end-to-end connectivity or database state.
+/// They focus on the service's error handling and constructor behavior.
 /// </summary>
 public class DatabaseHealthCheckerTests
 {

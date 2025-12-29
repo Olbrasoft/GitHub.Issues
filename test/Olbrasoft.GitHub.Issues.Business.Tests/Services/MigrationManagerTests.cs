@@ -8,8 +8,9 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 /// <summary>
 /// Tests for MigrationManager.
 /// Note: In-memory provider doesn't support migrations, so we can only test
-/// limited scenarios using a real (non-in-memory) database context.
-/// These tests focus on the service's error handling and constructor behavior.
+/// limited scenarios by using test and mocked <see cref="GitHubDbContext"/> instances.
+/// These tests focus on the service's constructor behavior and error handling when
+/// the database context is misconfigured or unavailable.
 /// </summary>
 public class MigrationManagerTests
 {

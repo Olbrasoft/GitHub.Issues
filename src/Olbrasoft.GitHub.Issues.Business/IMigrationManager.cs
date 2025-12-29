@@ -8,7 +8,7 @@ public interface IMigrationManager
 {
     /// <summary>
     /// Applies any pending database migrations.
-    /// This is a dangerous write operation that modifies the database schema.
+    /// This is a write operation that applies pending schema changes to the database.
     /// </summary>
     /// <returns>Result indicating success and which migrations were applied.</returns>
     Task<MigrationResult> ApplyMigrationsAsync(CancellationToken cancellationToken = default);
