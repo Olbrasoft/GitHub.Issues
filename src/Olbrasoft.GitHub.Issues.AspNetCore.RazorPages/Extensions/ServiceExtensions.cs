@@ -21,10 +21,12 @@ public static class ServiceExtensions
         IConfiguration configuration)
     {
         // Register services by functional area (issue #313 - SRP refactoring)
+        // NOTE: Order matters! AddGitHubSyncServices must be called first because
+        // AddAiServices depends on SyncSettings configured in sync services.
+        services.AddGitHubSyncServices(configuration);
         services.AddAiServices(configuration);
         services.AddTranslationServices(configuration);
         services.AddSearchServices(configuration);
-        services.AddGitHubSyncServices(configuration);
         services.AddDatabaseServices();
 
         // Configure remaining settings
