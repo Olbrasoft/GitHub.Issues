@@ -74,6 +74,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
     {
         var ids = issueIds.ToList();
         return await _context.Issues
+            .AsNoTracking()
             .Where(i => ids.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i, cancellationToken);
     }
@@ -110,6 +111,7 @@ public class EfCoreCachedTextRepository : ICachedTextRepository
                     // Update existing
                     existingInDb.Content = cachedText.Content;
                     existingInDb.CachedAt = cachedText.CachedAt;
+                    _context.Entry(existingInDb).State = EntityState.Modified;
                 }
                 else
                 {
