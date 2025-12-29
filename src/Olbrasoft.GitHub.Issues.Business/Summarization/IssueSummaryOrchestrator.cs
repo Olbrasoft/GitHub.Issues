@@ -93,14 +93,14 @@ public class IssueSummaryOrchestrator : IIssueSummaryOrchestrator
         {
             _logger.LogInformation("[IssueSummaryOrchestrator] Cache HIT - serving from cache");
 
-            if (processEnglish && cachedEn != null)
+            if (processEnglish)
             {
-                await _notificationService.NotifySummaryAsync(issueId, cachedEn, "cache", "en", cancellationToken);
+                await _notificationService.NotifySummaryAsync(issueId, cachedEn!, "cache", "en", cancellationToken);
             }
 
-            if (processCzech && cachedCs != null)
+            if (processCzech)
             {
-                await _notificationService.NotifySummaryAsync(issueId, cachedCs, "cache", "cs", cancellationToken);
+                await _notificationService.NotifySummaryAsync(issueId, cachedCs!, "cache", "cs", cancellationToken);
             }
 
             return;

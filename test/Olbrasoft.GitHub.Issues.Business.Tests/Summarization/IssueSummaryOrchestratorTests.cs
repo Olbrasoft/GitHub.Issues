@@ -136,6 +136,77 @@ public class IssueSummaryOrchestratorTests
     }
 
     [Fact]
+    public async Task GenerateSummaryFromBodyAsync_WhenBothLanguagesWithEmptyCaches_GeneratesAndTranslates()
+    {
+        // Arrange
+        const int issueId = 123;
+        const string body = "Issue body content";
+        const string enSummary = "English summary";
+        const string csSummary = "Český souhrn";
+        const string provider = "Cerebras/llama3.1-8b";
+        var issue = CreateTestIssue(issueId);
+
+        _mockRepository.Setup(r => r.GetIssueByIdAsync(issueId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(issue);
+
+        // Empty caches
+        _mockCacheService.Setup(s => s.GetIfFreshAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        _mockAiService.Setup(s => s.GenerateSummaryAsync(body, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiSummarizationResult(
+                Success: true,
+                Summary: enSummary,
+                Provider: provider,
+                Error: null));
+
+        _mockTranslationService.Setup(s => s.TranslateWithFallbackAsync(
+                enSummary,
+                "cs",
+                "en",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TranslationFallbackResult(
+                Success: true,
+                Translation: csSummary,
+                Provider: "DeepL",
+                UsedFallback: false,
+                Error: null));
+
+        // Act
+        await _orchestrator.GenerateSummaryFromBodyAsync(issueId, body, "both");
+
+        // Assert
+        // AI summarization called
+        _mockAiService.Verify(s => s.GenerateSummaryAsync(body, It.IsAny<CancellationToken>()), Times.Once);
+
+        // Translation called
+        _mockTranslationService.Verify(s => s.TranslateWithFallbackAsync(
+            enSummary, "cs", "en", It.IsAny<CancellationToken>()), Times.Once);
+
+        // Both EN and CS cached
+        _mockCacheService.Verify(s => s.SaveAsync(
+            issueId,
+            (int)LanguageCode.EnUS,
+            enSummary,
+            It.IsAny<CancellationToken>()), Times.Once);
+        _mockCacheService.Verify(s => s.SaveAsync(
+            issueId,
+            (int)LanguageCode.CsCZ,
+            csSummary,
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        // Both EN and CS notifications sent
+        _mockNotificationService.Verify(s => s.NotifySummaryAsync(
+            issueId, enSummary, provider, "en", It.IsAny<CancellationToken>()), Times.Once);
+        _mockNotificationService.Verify(s => s.NotifySummaryAsync(
+            issueId, csSummary, $"{provider} → DeepL", "cs", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GenerateSummaryFromBodyAsync_WhenEmptyBody_ReturnsEarly()
     {
         // Arrange
@@ -282,11 +353,22 @@ public class IssueSummaryOrchestratorTests
         // Assert
         _mockTranslationService.Verify(s => s.TranslateWithFallbackAsync(
             enSummary, "cs", "en", It.IsAny<CancellationToken>()), Times.Once);
+
+        // Verify both EN and CS cache saves
+        _mockCacheService.Verify(s => s.SaveAsync(
+            issueId,
+            (int)LanguageCode.EnUS,
+            enSummary,
+            It.IsAny<CancellationToken>()), Times.Once);
         _mockCacheService.Verify(s => s.SaveAsync(
             issueId,
             (int)LanguageCode.CsCZ,
             csSummary,
             It.IsAny<CancellationToken>()), Times.Once);
+
+        // Verify only CS notification sent (EN not sent when language=cs)
+        _mockNotificationService.Verify(s => s.NotifySummaryAsync(
+            issueId, enSummary, It.IsAny<string>(), "en", It.IsAny<CancellationToken>()), Times.Never);
         _mockNotificationService.Verify(s => s.NotifySummaryAsync(
             issueId, csSummary, $"{provider} → DeepL", "cs", It.IsAny<CancellationToken>()), Times.Once);
     }
