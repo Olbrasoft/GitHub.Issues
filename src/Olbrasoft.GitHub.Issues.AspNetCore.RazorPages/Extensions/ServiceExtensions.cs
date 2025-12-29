@@ -233,7 +233,10 @@ public static class ServiceExtensions
         services.AddScoped<IIssueSummaryOrchestrator, IssueSummaryOrchestrator>();
         services.AddScoped<IIssueDetailService, IssueDetailService>(); // Keep for backward compatibility
 
-        services.AddScoped<IDatabaseStatusService, DatabaseStatusService>();
+        // Database services (refactored for SRP - issue #316)
+        services.AddScoped<IDatabaseHealthChecker, DatabaseHealthChecker>();
+        services.AddScoped<IMigrationManager, MigrationManager>();
+        services.AddScoped<IDatabaseStatusService, DatabaseStatusService>(); // Keep for backward compatibility
 
         // Translation cache services (#262)
         services.AddScoped<ITranslationCacheService, TranslationCacheService>();
