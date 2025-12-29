@@ -67,6 +67,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICachedTextRepository, EfCoreCachedTextRepository>();
         services.AddScoped<IRepositoryRepository, EfCoreRepositoryRepository>();
         services.AddScoped<ILabelRepository, EfCoreLabelRepository>();
+        services.AddScoped<IEventRepository, EfCoreEventRepository>();
 
         return services;
     }

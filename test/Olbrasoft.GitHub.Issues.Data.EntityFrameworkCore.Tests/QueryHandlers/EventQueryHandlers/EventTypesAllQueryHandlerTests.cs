@@ -2,6 +2,7 @@ using Moq;
 using Olbrasoft.Data.Cqrs;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.QueryHandlers.EventQueryHandlers;
+using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 using Olbrasoft.GitHub.Issues.Data.Queries.EventQueries;
 
 namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Tests.QueryHandlers.EventQueryHandlers;
@@ -15,7 +16,8 @@ public class EventTypesAllQueryHandlerTests
     {
         // Arrange
         await using var context = TestDbContextFactory.Create();
-        var handler = new EventTypesAllQueryHandler(context);
+        var repository = new EfCoreEventRepository(context);
+        var handler = new EventTypesAllQueryHandler(repository);
         var query = new EventTypesAllQuery(_mockProcessor.Object);
 
         // Act
@@ -37,7 +39,8 @@ public class EventTypesAllQueryHandlerTests
         );
         await context.SaveChangesAsync();
 
-        var handler = new EventTypesAllQueryHandler(context);
+        var repository = new EfCoreEventRepository(context);
+        var handler = new EventTypesAllQueryHandler(repository);
         var query = new EventTypesAllQuery(_mockProcessor.Object);
 
         // Act
@@ -61,7 +64,8 @@ public class EventTypesAllQueryHandlerTests
         );
         await context.SaveChangesAsync();
 
-        var handler = new EventTypesAllQueryHandler(context);
+        var repository = new EfCoreEventRepository(context);
+        var handler = new EventTypesAllQueryHandler(repository);
         var query = new EventTypesAllQuery(_mockProcessor.Object);
 
         // Act
