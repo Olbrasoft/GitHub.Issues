@@ -12,15 +12,15 @@ public static class DatabaseEndpoints
 {
     public static WebApplication MapDatabaseEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/database/status", async (IDatabaseStatusService dbStatus, CancellationToken ct) =>
+        app.MapGet("/api/database/status", async (IDatabaseHealthChecker healthChecker, CancellationToken ct) =>
         {
-            var status = await dbStatus.GetStatusAsync(ct);
+            var status = await healthChecker.GetStatusAsync(ct);
             return Results.Ok(status);
         });
 
-        app.MapPost("/api/database/migrate", async (IDatabaseStatusService dbStatus, CancellationToken ct) =>
+        app.MapPost("/api/database/migrate", async (IMigrationManager migrationManager, CancellationToken ct) =>
         {
-            var result = await dbStatus.ApplyMigrationsAsync(ct);
+            var result = await migrationManager.ApplyMigrationsAsync(ct);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         }).RequireAuthorization("OwnerOnly");
 
