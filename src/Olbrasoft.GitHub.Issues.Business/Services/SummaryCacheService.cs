@@ -67,6 +67,17 @@ public class SummaryCacheService : ISummaryCacheService
         string content,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            _logger.LogDebug(
+                "[SummaryCacheService] Skipping cache save due to empty content: Issue {IssueId}, Language {LangId}, Type {TypeId}",
+                issueId,
+                languageId,
+                textTypeId);
+
+            return;
+        }
+
         await _cachedTextRepository.SaveAsync(new CachedText
         {
             IssueId = issueId,

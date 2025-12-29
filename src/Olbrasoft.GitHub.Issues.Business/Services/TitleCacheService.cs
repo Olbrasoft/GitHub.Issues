@@ -74,6 +74,16 @@ public class TitleCacheService : ITitleCacheService
         string content,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            _logger.LogDebug(
+                "[TitleCacheService] Skipping cache save due to empty content: Issue {IssueId}, Language {LangId}",
+                issueId,
+                languageId);
+
+            return;
+        }
+
         var cachedText = new CachedText
         {
             IssueId = issueId,
