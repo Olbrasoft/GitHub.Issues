@@ -1,4 +1,9 @@
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Detail;
+using Olbrasoft.GitHub.Issues.Business.Search;
+using Olbrasoft.GitHub.Issues.Business.Summarization;
+using Olbrasoft.GitHub.Issues.Business.Translation;
+using Olbrasoft.GitHub.Issues.Business.Sync;
+using Olbrasoft.GitHub.Issues.Business.Database;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 

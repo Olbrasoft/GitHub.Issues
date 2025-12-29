@@ -1,6 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Detail;
+using Olbrasoft.GitHub.Issues.Business.Search;
+using Olbrasoft.GitHub.Issues.Business.Summarization;
+using Olbrasoft.GitHub.Issues.Business.Translation;
+using Olbrasoft.GitHub.Issues.Business.Sync;
+using Olbrasoft.GitHub.Issues.Business.Database;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
