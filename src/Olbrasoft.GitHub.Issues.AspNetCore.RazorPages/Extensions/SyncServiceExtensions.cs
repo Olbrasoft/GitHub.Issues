@@ -1,5 +1,5 @@
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Business.Services;
+using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;

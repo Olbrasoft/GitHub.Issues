@@ -4,7 +4,6 @@ using Olbrasoft.GitHub.Issues.Business.GraphQL;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Business.Detail;
 using Olbrasoft.GitHub.Issues.Business.Summarization;
-using Olbrasoft.GitHub.Issues.Business.Services;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.Mediation;
 

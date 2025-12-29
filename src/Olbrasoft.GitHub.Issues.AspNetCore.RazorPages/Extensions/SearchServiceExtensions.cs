@@ -1,6 +1,6 @@
 using Olbrasoft.GitHub.Issues.Business;
-using Olbrasoft.GitHub.Issues.Business.Services;
-using Olbrasoft.GitHub.Issues.Business.Strategies;
+using Olbrasoft.GitHub.Issues.Business.Search;
+using Olbrasoft.GitHub.Issues.Business.Search.Strategies;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 
