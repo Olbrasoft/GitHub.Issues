@@ -1,7 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data;
-using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 using Olbrasoft.Text.Translation;
 
@@ -12,35 +10,36 @@ namespace Olbrasoft.GitHub.Issues.Business.Services;
 /// Primary: Azure Translator. Fallback: DeepL (or any other ITranslator).
 /// Note: Cohere (AI-based) removed per Issue #209 - translations must use proper translators.
 /// Updated to follow DIP by depending on ITranslationRepository abstraction.
+/// Cache operations extracted to ITitleCacheService for SRP compliance (issue #312).
 /// </summary>
 public class TitleTranslationService : ITitleTranslationService
 {
     private readonly ITranslationRepository _translationRepository;
+    private readonly ITitleCacheService _cacheService;
     private readonly ITranslator _translator;
     private readonly ITranslator? _fallbackTranslator;
     private readonly ITitleTranslationNotifier _notifier;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<TitleTranslationService> _logger;
 
     public TitleTranslationService(
         ITranslationRepository translationRepository,
+        ITitleCacheService cacheService,
         ITranslator translator,
         ITitleTranslationNotifier notifier,
-        TimeProvider timeProvider,
         ILogger<TitleTranslationService> logger,
         ITranslator? fallbackTranslator = null)
     {
         ArgumentNullException.ThrowIfNull(translationRepository);
+        ArgumentNullException.ThrowIfNull(cacheService);
         ArgumentNullException.ThrowIfNull(translator);
         ArgumentNullException.ThrowIfNull(notifier);
-        ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(logger);
 
         _translationRepository = translationRepository;
+        _cacheService = cacheService;
         _translator = translator;
         _fallbackTranslator = fallbackTranslator;
         _notifier = notifier;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -71,33 +70,23 @@ public class TitleTranslationService : ITitleTranslationService
             return;
         }
 
-        // Check cache first
-        var cached = await _translationRepository.GetCachedTranslationAsync(
+        // Check cache first (with automatic freshness validation)
+        var cachedTitle = await _cacheService.GetCachedTitleAsync(
             issueId,
             languageId,
-            (int)TextTypeCode.Title,
+            issue.GitHubUpdatedAt.UtcDateTime,
             cancellationToken);
 
-        if (cached != null)
+        if (cachedTitle != null)
         {
-            // Validate cache freshness
-            var issueUpdatedAt = issue.GitHubUpdatedAt.UtcDateTime;
-            if (issueUpdatedAt <= cached.CachedAt)
-            {
-                // Cache is fresh - use it!
-                _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
+            // Cache is fresh - use it!
+            _logger.LogInformation("[TitleTranslation] Cache HIT for issue {Id}, language {Lang}", issueId, targetLanguage);
 
-                await _notifier.NotifyTitleTranslatedAsync(
-                    new TitleTranslationNotificationDto(issueId, cached.Content, targetLanguage, "cache"),
-                    cancellationToken);
+            await _notifier.NotifyTitleTranslatedAsync(
+                new TitleTranslationNotificationDto(issueId, cachedTitle, targetLanguage, "cache"),
+                cancellationToken);
 
-                return;
-            }
-
-            // Cache is stale - delete it and regenerate
-            _logger.LogInformation("[TitleTranslation] Cache STALE for issue {Id} - issue updated {IssueUpdated}, cache created {CacheCreated}",
-                issueId, issueUpdatedAt, cached.CachedAt);
-            await _translationRepository.DeleteCachedTextAsync(cached, cancellationToken);
+            return;
         }
 
         _logger.LogInformation("[TitleTranslation] Cache MISS for issue {Id}, language {Lang}", issueId, targetLanguage);
@@ -107,7 +96,7 @@ public class TitleTranslationService : ITitleTranslationService
         {
             _logger.LogInformation("[TitleTranslation] Title already looks Czech for issue {Id}, using as-is", issueId);
 
-            await SaveToCacheAsync(issueId, languageId, issue.Title, cancellationToken);
+            await _cacheService.SaveTitleAsync(issueId, languageId, issue.Title, cancellationToken);
 
             await _notifier.NotifyTitleTranslatedAsync(
                 new TitleTranslationNotificationDto(issueId, issue.Title, targetLanguage, "original"),
@@ -120,7 +109,7 @@ public class TitleTranslationService : ITitleTranslationService
         {
             _logger.LogInformation("[TitleTranslation] Title already looks German for issue {Id}, using as-is", issueId);
 
-            await SaveToCacheAsync(issueId, languageId, issue.Title, cancellationToken);
+            await _cacheService.SaveTitleAsync(issueId, languageId, issue.Title, cancellationToken);
 
             await _notifier.NotifyTitleTranslatedAsync(
                 new TitleTranslationNotificationDto(issueId, issue.Title, targetLanguage, "original"),
@@ -145,7 +134,7 @@ public class TitleTranslationService : ITitleTranslationService
                 _logger.LogInformation("[TitleTranslation] Fallback succeeded via {Provider}: '{Translation}'",
                     fallbackResult.Provider, fallbackResult.Translation);
 
-                await SaveToCacheAsync(issueId, languageId, fallbackResult.Translation, cancellationToken);
+                await _cacheService.SaveTitleAsync(issueId, languageId, fallbackResult.Translation, cancellationToken);
 
                 await _notifier.NotifyTitleTranslatedAsync(
                     new TitleTranslationNotificationDto(issueId, fallbackResult.Translation, targetLanguage, fallbackResult.Provider ?? "DeepL"),
@@ -174,7 +163,7 @@ public class TitleTranslationService : ITitleTranslationService
             result.Provider, result.Translation);
 
         // Save to cache
-        await SaveToCacheAsync(issueId, languageId, result.Translation, cancellationToken);
+        await _cacheService.SaveTitleAsync(issueId, languageId, result.Translation, cancellationToken);
 
         // Send notification via SignalR
         await _notifier.NotifyTitleTranslatedAsync(
@@ -194,44 +183,6 @@ public class TitleTranslationService : ITitleTranslationService
         "en" => (int)LanguageCode.EnUS,  // 1033
         _ => 0
     };
-
-    /// <summary>
-    /// Saves translation to the cache table.
-    /// </summary>
-    private async Task SaveToCacheAsync(int issueId, int languageId, string content, CancellationToken ct)
-    {
-        try
-        {
-            var cachedText = new CachedText
-            {
-                IssueId = issueId,
-                LanguageId = languageId,
-                TextTypeId = (int)TextTypeCode.Title,
-                Content = content,
-                CachedAt = _timeProvider.GetUtcNow().UtcDateTime
-            };
-            await _translationRepository.SaveCachedTextAsync(cachedText, ct);
-            _logger.LogDebug("[TitleTranslation] Saved to cache: Issue {IssueId}, Language {LanguageId}", issueId, languageId);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            // Concurrent insert - another request already cached it
-            _logger.LogDebug("[TitleTranslation] Concurrent cache insert detected for Issue {IssueId}", issueId);
-        }
-    }
-
-    /// <summary>
-    /// Checks if the exception is a duplicate key violation.
-    /// </summary>
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") ||    // PostgreSQL
-               message.Contains("2627") ||     // SQL Server
-               message.Contains("2601") ||     // SQL Server
-               message.Contains("duplicate key") ||
-               message.Contains("unique constraint");
-    }
 
     /// <summary>
     /// Simple heuristic to detect if text might already be in Czech.

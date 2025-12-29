@@ -22,6 +22,7 @@ public class CacheTimeProviderTests
     private readonly Mock<ITranslator> _mockTranslator = new();
     private readonly Mock<ITitleTranslationNotifier> _mockNotifier = new();
     private readonly Mock<ILogger<TitleTranslationService>> _mockLogger = new();
+    private readonly Mock<ILogger<TitleCacheService>> _mockCacheLogger = new();
 
     [Fact]
     public async Task TitleTranslationService_SavesCache_WithTimeProviderTimestamp()
@@ -57,11 +58,16 @@ public class CacheTimeProviderTests
                 Provider = "Azure"
             });
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockLogger.Object,
             null);
 
@@ -113,11 +119,16 @@ public class CacheTimeProviderTests
         context.CachedTexts.Add(cachedText);
         await context.SaveChangesAsync();
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockLogger.Object,
             null);
 
@@ -185,11 +196,16 @@ public class CacheTimeProviderTests
                 Provider = "Azure"
             });
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockLogger.Object,
             null);
 
@@ -234,11 +250,16 @@ public class CacheTimeProviderTests
         context.Issues.Add(issue);
         await context.SaveChangesAsync();
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockLogger.Object,
             null);
 
@@ -299,11 +320,16 @@ public class CacheTimeProviderTests
         // Advance time by 30 days
         _fakeTimeProvider.Advance(TimeSpan.FromDays(30));
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockLogger.Object,
             null);
 

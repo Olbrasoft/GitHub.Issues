@@ -11,6 +11,7 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 public class TitleTranslationServiceTests
 {
     private readonly Mock<ITranslator> _mockTranslator = new();
+    private readonly Mock<ITitleCacheService> _mockCacheService = new();
     private readonly Mock<ITitleTranslationNotifier> _mockNotifier = new();
     private readonly Mock<ILogger<TitleTranslationService>> _mockLogger = new();
 
@@ -19,9 +20,9 @@ public class TitleTranslationServiceTests
         var repository = new EfCoreTranslationRepository(context);
         return new TitleTranslationService(
             repository,
+            _mockCacheService.Object,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            TimeProvider.System,
             _mockLogger.Object,
             fallback);
     }

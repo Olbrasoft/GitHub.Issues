@@ -123,8 +123,12 @@ public static class TranslationServiceExtensions
             return new TranslationFallbackService(translator, logger, fallbackTranslator: null);
         });
 
+        // Title cache service - extracted for SRP compliance (issue #312)
+        services.AddScoped<ITitleCacheService, TitleCacheService>();
+
         // Title translation service - uses RoundRobinTranslator which handles rotation and fallback
         // Updated to use ITranslationRepository for DIP compliance (issue #280)
+        // Cache operations delegated to ITitleCacheService (issue #312)
         services.AddScoped<ITitleTranslationService, TitleTranslationService>();
 
         return services;

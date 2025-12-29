@@ -18,9 +18,18 @@ namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
 /// </summary>
 public class TitleTranslationFallbackIntegrationTests
 {
+    private readonly Mock<ITitleCacheService> _mockCacheService = new();
     private readonly Mock<ITitleTranslationNotifier> _mockNotifier = new();
     private readonly Mock<ILogger<TitleTranslationService>> _mockLogger = new();
     private readonly Mock<ILogger<DeepLTranslator>> _mockDeepLLogger = new();
+
+    public TitleTranslationFallbackIntegrationTests()
+    {
+        _mockCacheService.Setup(c => c.GetCachedTitleAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _mockCacheService.Setup(c => c.SaveTitleAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+    }
 
     /// <summary>
     /// Tests that when primary translator fails, DeepL fallback is used.
@@ -70,9 +79,9 @@ public class TitleTranslationFallbackIntegrationTests
         // Arrange - Create service with failing primary and real DeepL fallback
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            _mockCacheService.Object,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
-            TimeProvider.System,
             _mockLogger.Object,
             deepLTranslator);
 
@@ -129,9 +138,9 @@ public class TitleTranslationFallbackIntegrationTests
         // Arrange - Create service with failing primary and mocked fallback
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            _mockCacheService.Object,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
-            TimeProvider.System,
             _mockLogger.Object,
             mockFallbackTranslator.Object);
 
@@ -187,9 +196,9 @@ public class TitleTranslationFallbackIntegrationTests
         // Arrange - Create service with both failing
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            _mockCacheService.Object,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
-            TimeProvider.System,
             _mockLogger.Object,
             mockFallbackTranslator.Object);
 
@@ -239,9 +248,9 @@ public class TitleTranslationFallbackIntegrationTests
         // Arrange - Create service WITHOUT fallback (null)
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            _mockCacheService.Object,
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
-            TimeProvider.System,
             _mockLogger.Object,
             null);  // No fallback!
 

@@ -23,6 +23,7 @@ public class CacheIntegrationTests
     private readonly Mock<ITranslator> _mockTranslator = new();
     private readonly Mock<ITitleTranslationNotifier> _mockNotifier = new();
     private readonly Mock<ILogger<TitleTranslationService>> _mockTitleLogger = new();
+    private readonly Mock<ILogger<TitleCacheService>> _mockCacheLogger = new();
     private readonly Mock<ISummarizationService> _mockSummarizationService = new();
     private readonly Mock<ITranslationFallbackService> _mockTranslationService = new();
     private readonly Mock<ISummaryNotifier> _mockSummaryNotifier = new();
@@ -67,11 +68,16 @@ public class CacheIntegrationTests
                 Provider = "Azure"
             });
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockTitleLogger.Object,
             null);
 
@@ -140,11 +146,16 @@ public class CacheIntegrationTests
                 Provider = "Azure"
             });
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockTitleLogger.Object,
             null);
 
@@ -206,11 +217,16 @@ public class CacheIntegrationTests
             .Setup(t => t.TranslateAsync("New feature", "de", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TranslatorResult { Success = true, Translation = "Neue Funktion", Provider = "Azure" });
 
+        var cacheService = new TitleCacheService(
+            new EfCoreTranslationRepository(context),
+            _fakeTimeProvider,
+            _mockCacheLogger.Object);
+
         var service = new TitleTranslationService(
             new EfCoreTranslationRepository(context),
+            cacheService,
             _mockTranslator.Object,
             _mockNotifier.Object,
-            _fakeTimeProvider,
             _mockTitleLogger.Object,
             null);
 
