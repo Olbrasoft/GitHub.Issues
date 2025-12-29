@@ -1,12 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Olbrasoft.GitHub.Issues.Business.Models;
-using Olbrasoft.GitHub.Issues.Business.Detail;
 using Olbrasoft.GitHub.Issues.Business.Search;
-using Olbrasoft.GitHub.Issues.Business.Summarization;
-using Olbrasoft.GitHub.Issues.Business.Translation;
-using Olbrasoft.GitHub.Issues.Business.Sync;
-using Olbrasoft.GitHub.Issues.Business.Database;
 using Olbrasoft.Text.Transformation.Abstractions;
 
 namespace Olbrasoft.GitHub.Issues.Business.Tests.Services;
