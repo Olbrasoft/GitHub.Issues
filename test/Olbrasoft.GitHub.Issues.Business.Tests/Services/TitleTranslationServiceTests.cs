@@ -16,7 +16,7 @@ public class TitleTranslationServiceTests
 
     private TitleTranslationService CreateService(GitHubDbContext context, ITranslator? fallback = null)
     {
-        var repository = new EfCoreTranslationRepository(context);
+        var repository = new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object);
         return new TitleTranslationService(
             repository,
             _mockTranslator.Object,

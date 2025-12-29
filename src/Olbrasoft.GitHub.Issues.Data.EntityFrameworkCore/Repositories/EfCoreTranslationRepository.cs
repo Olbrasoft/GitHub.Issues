@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Olbrasoft.GitHub.Issues.Data.Entities;
 using Olbrasoft.GitHub.Issues.Data.Repositories;
 
@@ -7,20 +8,16 @@ namespace Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore.Repositories;
 /// <summary>
 /// Entity Framework Core implementation of ITranslationRepository.
 /// </summary>
-public class EfCoreTranslationRepository : ITranslationRepository
+public class EfCoreTranslationRepository : EfCoreRepositoryBase, ITranslationRepository
 {
-    private readonly GitHubDbContext _context;
-
-    public EfCoreTranslationRepository(GitHubDbContext context)
+    public EfCoreTranslationRepository(GitHubDbContext context, ILogger<EfCoreTranslationRepository> logger)
+        : base(context, logger)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
-        _context = context;
     }
 
     public async Task<Issue?> GetIssueByIdAsync(int issueId, CancellationToken cancellationToken = default)
     {
-        return await _context.Issues.FindAsync(new object[] { issueId }, cancellationToken);
+        return await Context.Issues.FindAsync(new object[] { issueId }, cancellationToken);
     }
 
     public async Task<CachedText?> GetCachedTranslationAsync(
@@ -29,31 +26,17 @@ public class EfCoreTranslationRepository : ITranslationRepository
         int textTypeId,
         CancellationToken cancellationToken = default)
     {
-        return await _context.CachedTexts
-            .FirstOrDefaultAsync(t =>
-                t.IssueId == issueId &&
-                t.LanguageId == languageId &&
-                t.TextTypeId == textTypeId, cancellationToken);
+        return await GetCachedTextInternalAsync(issueId, languageId, textTypeId, cancellationToken);
     }
 
     public async Task DeleteCachedTextAsync(CachedText cachedText, CancellationToken cancellationToken = default)
     {
-        _context.CachedTexts.Remove(cachedText);
-        await _context.SaveChangesAsync(cancellationToken);
+        await DeleteCachedTextInternalAsync(cachedText, cancellationToken);
     }
 
     public async Task SaveCachedTextAsync(CachedText cachedText, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            _context.CachedTexts.Add(cachedText);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
-        {
-            // Concurrent insert - another request already cached this text
-            // This is expected behavior, no action needed
-        }
+        await SaveCachedTextInternalAsync(cachedText, cancellationToken);
     }
 
     public async Task<string?> GetIfFreshAsync(
@@ -63,33 +46,6 @@ public class EfCoreTranslationRepository : ITranslationRepository
         DateTime issueUpdatedAt,
         CancellationToken cancellationToken = default)
     {
-        var cached = await GetCachedTranslationAsync(issueId, languageId, textTypeId, cancellationToken);
-
-        if (cached == null) return null;
-
-        // Validate freshness - if issue was updated after cache, invalidate
-        if (issueUpdatedAt > cached.CachedAt)
-        {
-            // Cache is stale - delete it
-            await DeleteCachedTextAsync(cached, cancellationToken);
-            return null;
-        }
-
-        // Cache is fresh
-        return cached.Content;
-    }
-
-    /// <summary>
-    /// Checks if exception is a duplicate key violation.
-    /// Supports PostgreSQL (23505), SQL Server (2627, 2601).
-    /// </summary>
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        var message = ex.InnerException?.Message ?? string.Empty;
-        return message.Contains("23505") || // PostgreSQL unique violation
-               message.Contains("2627") ||  // SQL Server unique constraint
-               message.Contains("2601") ||  // SQL Server unique index
-               message.Contains("duplicate key") ||
-               message.Contains("unique constraint");
+        return await GetIfFreshInternalAsync(issueId, languageId, textTypeId, issueUpdatedAt, cancellationToken);
     }
 }

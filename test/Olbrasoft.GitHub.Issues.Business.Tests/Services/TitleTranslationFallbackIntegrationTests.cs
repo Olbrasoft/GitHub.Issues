@@ -69,7 +69,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with failing primary and real DeepL fallback
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -128,7 +128,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with failing primary and mocked fallback
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -186,7 +186,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service with both failing
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
@@ -238,7 +238,7 @@ public class TitleTranslationFallbackIntegrationTests
 
         // Arrange - Create service WITHOUT fallback (null)
         var service = new TitleTranslationService(
-            new EfCoreTranslationRepository(context),
+            new EfCoreTranslationRepository(context, new Mock<ILogger<EfCoreTranslationRepository>>().Object),
             mockPrimaryTranslator.Object,
             _mockNotifier.Object,
             TimeProvider.System,
