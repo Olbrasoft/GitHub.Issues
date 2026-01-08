@@ -30,8 +30,14 @@ var keyPath = secureStoreConfig["KeyPath"] ?? "~/.config/github-issues/keys/secr
 builder.Configuration.AddSecureStore(secretsPath, keyPath);
 
 // Configure DbContext for SQL Server (NOT PostgreSQL!)
+// Database credentials loaded from SecureStore (DbUserId, DbPassword)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+var dbUserId = builder.Configuration["DbUserId"];
 var dbPassword = builder.Configuration["DbPassword"];
+if (!string.IsNullOrEmpty(dbUserId))
+{
+    connectionString += $";User Id={dbUserId}";
+}
 if (!string.IsNullOrEmpty(dbPassword))
 {
     connectionString += $";Password={dbPassword}";
