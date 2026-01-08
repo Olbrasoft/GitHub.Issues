@@ -1,5 +1,5 @@
 using NeoSmart.SecureStore;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
+using Olbrasoft.GitHub.Issues.Configuration;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests.Configuration;
 
