@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
@@ -39,7 +40,7 @@ public static class AiServiceExtensions
             // Try to get Cohere API keys from various locations
             var keys = new List<string>();
 
-            // 1. TextTransformation:Embeddings:Cohere:ApiKeys
+            // 1. TextTransformation:Embeddings:Cohere:ApiKeys (array from appsettings.json)
             var cohereSection = configuration.GetSection("TextTransformation:Embeddings:Cohere:ApiKeys");
             var arrayKeys = cohereSection.Get<string[]>() ?? [];
             keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
@@ -52,14 +53,20 @@ public static class AiServiceExtensions
                 keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
             }
 
-            // 3. AiProviders:Cohere:Keys
+            // 3. AiProviders:Cohere:Keys (array from appsettings.json)
             if (keys.Count == 0)
             {
                 var aiProviderKeys = configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
                 keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
             }
 
-            // 4. Single key fallbacks
+            // 4. Individual keys from SecureStore (AiProviders:Cohere:Key1, Key2, etc.)
+            if (keys.Count == 0)
+            {
+                keys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "AiProviders:Cohere:Key"));
+            }
+
+            // 5. Single key fallbacks
             if (keys.Count == 0)
             {
                 var singleKey = configuration["Embeddings:CohereApiKey"]

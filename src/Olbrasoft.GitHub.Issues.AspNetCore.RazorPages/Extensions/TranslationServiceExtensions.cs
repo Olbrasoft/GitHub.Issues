@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Business.Translation;
@@ -45,11 +46,17 @@ public static class TranslationServiceExtensions
             // Collect Azure API keys from various sources
             var azureKeys = new List<string>();
 
-            // 1. TranslatorPool:AzureApiKeys (array)
+            // 1. TranslatorPool:AzureApiKeys (array from appsettings.json)
             var poolAzureKeys = configuration.GetSection("TranslatorPool:AzureApiKeys").Get<string[]>() ?? [];
             azureKeys.AddRange(poolAzureKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            // 2. Fallback to single AzureTranslator:ApiKey
+            // 2. Individual keys from SecureStore (TranslatorPool:AzureApiKey1, AzureApiKey2, etc.)
+            if (azureKeys.Count == 0)
+            {
+                azureKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "TranslatorPool:AzureApiKey"));
+            }
+
+            // 3. Fallback to single AzureTranslator:ApiKey
             if (azureKeys.Count == 0)
             {
                 var singleKey = configuration["AzureTranslator:ApiKey"]
@@ -73,11 +80,17 @@ public static class TranslationServiceExtensions
             // Collect DeepL API keys from various sources
             var deepLKeys = new List<string>();
 
-            // 1. TranslatorPool:DeepLApiKeys (array)
+            // 1. TranslatorPool:DeepLApiKeys (array from appsettings.json)
             var poolDeepLKeys = configuration.GetSection("TranslatorPool:DeepLApiKeys").Get<string[]>() ?? [];
             deepLKeys.AddRange(poolDeepLKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            // 2. Fallback to single DeepL:ApiKey
+            // 2. Individual keys from SecureStore (TranslatorPool:DeepLApiKey1, DeepLApiKey2, etc.)
+            if (deepLKeys.Count == 0)
+            {
+                deepLKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "TranslatorPool:DeepLApiKey"));
+            }
+
+            // 3. Fallback to single DeepL:ApiKey
             if (deepLKeys.Count == 0)
             {
                 var singleKey = configuration["DeepL:ApiKey"]
