@@ -23,6 +23,7 @@
     <PackageReference Include="Olbrasoft.Text.Translation.Bing" Version="10.0.2" />
     <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.1" />
     <PackageReference Include="Olbrasoft.Text.Translation.Google" Version="10.0.2" />
+    <PackageReference Include="SecureStore" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>

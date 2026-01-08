@@ -45,11 +45,24 @@ public static class TranslationServiceExtensions
             // Collect Azure API keys from various sources
             var azureKeys = new List<string>();
 
-            // 1. TranslatorPool:AzureApiKeys (array)
+            // 1. TranslatorPool:AzureApiKeys (array from appsettings.json)
             var poolAzureKeys = configuration.GetSection("TranslatorPool:AzureApiKeys").Get<string[]>() ?? [];
             azureKeys.AddRange(poolAzureKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            // 2. Fallback to single AzureTranslator:ApiKey
+            // 2. Individual keys from SecureStore (TranslatorPool:AzureApiKey1, AzureApiKey2, etc.)
+            if (azureKeys.Count == 0)
+            {
+                for (int i = 1; i <= 10; i++)
+                {
+                    var key = configuration[$"TranslatorPool:AzureApiKey{i}"];
+                    if (!string.IsNullOrWhiteSpace(key))
+                        azureKeys.Add(key);
+                    else
+                        break; // Stop at first missing key
+                }
+            }
+
+            // 3. Fallback to single AzureTranslator:ApiKey
             if (azureKeys.Count == 0)
             {
                 var singleKey = configuration["AzureTranslator:ApiKey"]
@@ -73,11 +86,24 @@ public static class TranslationServiceExtensions
             // Collect DeepL API keys from various sources
             var deepLKeys = new List<string>();
 
-            // 1. TranslatorPool:DeepLApiKeys (array)
+            // 1. TranslatorPool:DeepLApiKeys (array from appsettings.json)
             var poolDeepLKeys = configuration.GetSection("TranslatorPool:DeepLApiKeys").Get<string[]>() ?? [];
             deepLKeys.AddRange(poolDeepLKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            // 2. Fallback to single DeepL:ApiKey
+            // 2. Individual keys from SecureStore (TranslatorPool:DeepLApiKey1, DeepLApiKey2, etc.)
+            if (deepLKeys.Count == 0)
+            {
+                for (int i = 1; i <= 10; i++)
+                {
+                    var key = configuration[$"TranslatorPool:DeepLApiKey{i}"];
+                    if (!string.IsNullOrWhiteSpace(key))
+                        deepLKeys.Add(key);
+                    else
+                        break; // Stop at first missing key
+                }
+            }
+
+            // 3. Fallback to single DeepL:ApiKey
             if (deepLKeys.Count == 0)
             {
                 var singleKey = configuration["DeepL:ApiKey"]
