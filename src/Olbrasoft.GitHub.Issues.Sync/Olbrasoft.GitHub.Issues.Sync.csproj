@@ -17,11 +17,11 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
     <PackageReference Include="Octokit" Version="13.0.1" />
-    <PackageReference Include="SecureStore" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Business\Olbrasoft.GitHub.Issues.Business.csproj" />
+    <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Configuration\Olbrasoft.GitHub.Issues.Configuration.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL\Olbrasoft.GitHub.Issues.Migrations.PostgreSQL.csproj" />
     <ProjectReference Include="..\Olbrasoft.GitHub.Issues.Migrations.SqlServer\Olbrasoft.GitHub.Issues.Migrations.SqlServer.csproj" />
   </ItemGroup>

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace Olbrasoft.GitHub.Issues.Sync.Configuration;
+namespace Olbrasoft.GitHub.Issues.Configuration;
 
 /// <summary>
 /// Helper for loading API keys from configuration (supports both array and individual key formats).

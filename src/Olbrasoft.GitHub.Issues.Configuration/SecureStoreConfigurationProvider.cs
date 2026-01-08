@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using NeoSmart.SecureStore;
 
-namespace Olbrasoft.GitHub.Issues.Sync.Configuration;
+namespace Olbrasoft.GitHub.Issues.Configuration;
 
 /// <summary>
 /// Configuration provider that loads secrets from SecureStore encrypted vault.

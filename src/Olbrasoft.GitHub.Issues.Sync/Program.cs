@@ -11,7 +11,7 @@ using Olbrasoft.GitHub.Issues.Business.Database;
 using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
-using Olbrasoft.GitHub.Issues.Sync.Configuration;
+using Olbrasoft.GitHub.Issues.Configuration;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
