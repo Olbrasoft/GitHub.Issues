@@ -1,4 +1,4 @@
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
+using Olbrasoft.GitHub.Issues.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Endpoints;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Extensions;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;

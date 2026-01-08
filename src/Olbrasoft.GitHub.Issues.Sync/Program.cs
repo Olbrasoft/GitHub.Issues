@@ -11,6 +11,7 @@ using Olbrasoft.GitHub.Issues.Business.Database;
 using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Data.EntityFrameworkCore;
 using Olbrasoft.GitHub.Issues.Sync.ApiClients;
+using Olbrasoft.GitHub.Issues.Configuration;
 using Olbrasoft.GitHub.Issues.Sync.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
@@ -21,6 +22,12 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddUserSecrets(Assembly.GetExecutingAssembly(), optional: true);
+
+// Add SecureStore for encrypted secrets (same vault as web app)
+var secureStoreConfig = builder.Configuration.GetSection("SecureStore");
+var secretsPath = secureStoreConfig["SecretsPath"] ?? "~/.config/github-issues/secrets/secrets.json";
+var keyPath = secureStoreConfig["KeyPath"] ?? "~/.config/github-issues/keys/secrets.key";
+builder.Configuration.AddSecureStore(secretsPath, keyPath);
 
 // Configure DbContext for SQL Server (NOT PostgreSQL!)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
@@ -46,14 +53,20 @@ builder.Services.PostConfigure<EmbeddingSettings>(options =>
     var arrayKeys = cohereSection.Get<string[]>() ?? [];
     keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-    // 2. AiProviders:Cohere:Keys
+    // 2. AiProviders:Cohere:Keys (array)
     if (keys.Count == 0)
     {
         var aiProviderKeys = builder.Configuration.GetSection("AiProviders:Cohere:Keys").Get<string[]>() ?? [];
         keys.AddRange(aiProviderKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
     }
 
-    // 3. Single key fallbacks (for user-secrets)
+    // 3. Individual keys from SecureStore (AiProviders:Cohere:Key1, Key2, etc.)
+    if (keys.Count == 0)
+    {
+        keys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(builder.Configuration, "AiProviders:Cohere:Key"));
+    }
+
+    // 4. Single key fallbacks (for user-secrets)
     if (keys.Count == 0)
     {
         var singleKey = builder.Configuration["TextTransformation:Embeddings:Cohere:ApiKey"]

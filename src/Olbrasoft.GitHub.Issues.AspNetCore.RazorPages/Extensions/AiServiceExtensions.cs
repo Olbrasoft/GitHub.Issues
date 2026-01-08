@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Sync.Services;
-using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
+using Olbrasoft.GitHub.Issues.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
