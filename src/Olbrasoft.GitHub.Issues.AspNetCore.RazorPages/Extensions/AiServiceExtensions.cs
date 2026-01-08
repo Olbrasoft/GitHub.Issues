@@ -88,7 +88,7 @@ public static class AiServiceExtensions
         services.AddHttpClient<CohereEmbeddingService>();
         services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
 
-        // Configure LLM API keys for summarization from SecureStore
+        // Configure LLM API keys for summarization from configuration sources (appsettings.json and SecureStore)
         services.PostConfigure<SummarizationSettings>(options =>
         {
             // Only configure if OpenAICompatible is being used
