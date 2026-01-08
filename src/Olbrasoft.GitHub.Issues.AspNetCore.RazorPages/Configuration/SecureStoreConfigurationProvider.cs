@@ -105,23 +105,23 @@ public static class SecureStoreConfigurationExtensions
         string secretsPath,
         string keyPath)
     {
-        // Expand ~ to home directory
-        secretsPath = ExpandPath(secretsPath);
-        keyPath = ExpandPath(keyPath);
+        // Expand ~ to home directory (inputs are non-null, so results are non-null)
+        var expandedSecretsPath = ExpandPath(secretsPath) ?? secretsPath;
+        var expandedKeyPath = ExpandPath(keyPath) ?? keyPath;
 
         return builder.Add(new SecureStoreConfigurationSource
         {
-            SecretsPath = secretsPath,
-            KeyPath = keyPath
+            SecretsPath = expandedSecretsPath,
+            KeyPath = expandedKeyPath
         });
     }
 
     /// <summary>
     /// Expands tilde (~) in path to user's home directory.
     /// </summary>
-    /// <param name="path">Path that may contain tilde prefix.</param>
-    /// <returns>Expanded path.</returns>
-    public static string ExpandPath(string path)
+    /// <param name="path">Path that may contain tilde prefix (can be null).</param>
+    /// <returns>Expanded path, or null/empty if input was null/empty.</returns>
+    public static string? ExpandPath(string? path)
     {
         if (string.IsNullOrEmpty(path))
         {

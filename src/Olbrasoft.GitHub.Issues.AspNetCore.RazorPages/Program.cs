@@ -5,7 +5,7 @@ using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add SecureStore for encrypted secrets (loaded before other configuration)
+// Add SecureStore for encrypted secrets (paths configured in appsettings.json, secrets override config values)
 var secureStoreConfig = builder.Configuration.GetSection("SecureStore");
 var secretsPath = secureStoreConfig["SecretsPath"] ?? "~/.config/github-issues/secrets/secrets.json";
 var keyPath = secureStoreConfig["KeyPath"] ?? "~/.config/github-issues/keys/secrets.key";

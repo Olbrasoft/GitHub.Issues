@@ -1,3 +1,4 @@
+using NeoSmart.SecureStore;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
 
 namespace Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Tests.Configuration;
@@ -20,7 +21,7 @@ public class SecureStoreConfigurationTests
     public void ExpandPath_NullPath_ReturnsNull()
     {
         // Arrange & Act
-        var result = SecureStoreConfigurationExtensions.ExpandPath(null!);
+        var result = SecureStoreConfigurationExtensions.ExpandPath(null);
 
         // Assert
         Assert.Null(result);
@@ -166,6 +167,53 @@ public class SecureStoreConfigurationTests
             // Act & Assert - Should not throw (graceful degradation)
             var exception = Record.Exception(() => provider.Load());
             Assert.Null(exception);
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Load_ValidVault_LoadsSecretsIntoConfiguration()
+    {
+        // Arrange - Create a valid SecureStore vault with real secrets
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        var secretsPath = Path.Combine(tempDir, "secrets.json");
+        var keyPath = Path.Combine(tempDir, "secrets.key");
+
+        try
+        {
+            // Create a valid SecureStore vault
+            using (var sman = SecretsManager.CreateStore())
+            {
+                sman.GenerateKey();
+                sman.Set("TestSecret1", "Value1");
+                sman.Set("AzureTranslator:ApiKey", "test-azure-key");
+                sman.Set("DeepL:ApiKey", "test-deepl-key");
+                sman.SaveStore(secretsPath);
+                sman.ExportKey(keyPath);
+            }
+
+            var provider = new SecureStoreConfigurationProvider(secretsPath, keyPath);
+
+            // Act
+            provider.Load();
+
+            // Assert - Verify secrets are loaded into configuration
+            Assert.True(provider.TryGet("TestSecret1", out var value1));
+            Assert.Equal("Value1", value1);
+
+            Assert.True(provider.TryGet("AzureTranslator:ApiKey", out var azureKey));
+            Assert.Equal("test-azure-key", azureKey);
+
+            Assert.True(provider.TryGet("DeepL:ApiKey", out var deepLKey));
+            Assert.Equal("test-deepl-key", deepLKey);
         }
         finally
         {

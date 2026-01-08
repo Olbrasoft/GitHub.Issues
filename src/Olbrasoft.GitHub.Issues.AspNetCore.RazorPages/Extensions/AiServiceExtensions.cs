@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
 using Olbrasoft.GitHub.Issues.Business.Sync;
 using Olbrasoft.GitHub.Issues.Sync.Services;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.Text.Transformation.Abstractions;
 using Olbrasoft.Text.Transformation.Cohere;
@@ -62,14 +63,7 @@ public static class AiServiceExtensions
             // 4. Individual keys from SecureStore (AiProviders:Cohere:Key1, Key2, etc.)
             if (keys.Count == 0)
             {
-                for (int i = 1; i <= 10; i++)
-                {
-                    var key = configuration[$"AiProviders:Cohere:Key{i}"];
-                    if (!string.IsNullOrWhiteSpace(key))
-                        keys.Add(key);
-                    else
-                        break; // Stop at first missing key
-                }
+                keys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "AiProviders:Cohere:Key"));
             }
 
             // 5. Single key fallbacks

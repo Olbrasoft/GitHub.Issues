@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Olbrasoft.GitHub.Issues.Business;
+using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Configuration;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Hubs;
 using Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Services;
 using Olbrasoft.GitHub.Issues.Business.Translation;
@@ -52,14 +53,7 @@ public static class TranslationServiceExtensions
             // 2. Individual keys from SecureStore (TranslatorPool:AzureApiKey1, AzureApiKey2, etc.)
             if (azureKeys.Count == 0)
             {
-                for (int i = 1; i <= 10; i++)
-                {
-                    var key = configuration[$"TranslatorPool:AzureApiKey{i}"];
-                    if (!string.IsNullOrWhiteSpace(key))
-                        azureKeys.Add(key);
-                    else
-                        break; // Stop at first missing key
-                }
+                azureKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "TranslatorPool:AzureApiKey"));
             }
 
             // 3. Fallback to single AzureTranslator:ApiKey
@@ -93,14 +87,7 @@ public static class TranslationServiceExtensions
             // 2. Individual keys from SecureStore (TranslatorPool:DeepLApiKey1, DeepLApiKey2, etc.)
             if (deepLKeys.Count == 0)
             {
-                for (int i = 1; i <= 10; i++)
-                {
-                    var key = configuration[$"TranslatorPool:DeepLApiKey{i}"];
-                    if (!string.IsNullOrWhiteSpace(key))
-                        deepLKeys.Add(key);
-                    else
-                        break; // Stop at first missing key
-                }
+                deepLKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "TranslatorPool:DeepLApiKey"));
             }
 
             // 3. Fallback to single DeepL:ApiKey
