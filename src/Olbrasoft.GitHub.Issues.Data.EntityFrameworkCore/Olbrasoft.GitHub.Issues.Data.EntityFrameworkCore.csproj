@@ -19,7 +19,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.*" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.*" />
-    <PackageReference Include="Olbrasoft.Data.Cqrs.EntityFrameworkCore" Version="1.8.0" />
+    <PackageReference Include="Olbrasoft.Data.Cqrs.EntityFrameworkCore" Version="*" />
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.2.2" />
   </ItemGroup>
 
@@ -28,7 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="*" />
   </ItemGroup>
 
   <!-- appsettings.json is only for design-time (EF migrations), not copied to output/publish -->

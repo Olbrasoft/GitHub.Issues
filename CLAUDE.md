@@ -211,6 +211,18 @@ Test with Playwright:
 
 ---
 
+## Package Versioning
+
+**Olbrasoft packages use `*` (wildcard) version** - always get the latest version automatically:
+```xml
+<PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="*" />
+<PackageReference Include="Olbrasoft.Data.Cqrs" Version="*" />
+```
+
+**NEVER use specific versions for Olbrasoft.* packages** - use `*` instead to ensure automatic updates.
+
+---
+
 ## Notes for Claude Code
 
 1. **Database is SQL Server** - never PostgreSQL
@@ -219,3 +231,4 @@ Test with Playwright:
 4. **Test after deployment** before marking complete
 5. **Ask user** if unsure about configuration changes
 6. **NEVER run sync for ALL repositories** - this will overwhelm API rate limits and cause failures; always sync ONE repository at a time
+7. **Olbrasoft packages use `*` version** - never use specific versions like `10.0.3`, always use `*`

@@ -27,8 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Cohere" Version="*" />
   </ItemGroup>
 
   <ItemGroup>

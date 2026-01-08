@@ -6,20 +6,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="10.0.0" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="10.0.2" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Azure" Version="10.0.1" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Bing" Version="10.0.2" />
-    <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="10.0.1" />
-    <PackageReference Include="Olbrasoft.Text.Translation.Google" Version="10.0.2" />
+    <PackageReference Include="Olbrasoft.Text.Transformation.Abstractions" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Abstractions" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Azure" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Bing" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Translation.DeepL" Version="*" />
+    <PackageReference Include="Olbrasoft.Text.Translation.Google" Version="*" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.1" />
-    <PackageReference Include="Olbrasoft.Data.Cqrs" Version="1.7.2" />
-    <PackageReference Include="Olbrasoft.Mediation" Version="10.0.0" />
+    <PackageReference Include="Olbrasoft.Data.Cqrs" Version="*" />
+    <PackageReference Include="Olbrasoft.Mediation" Version="*" />
   </ItemGroup>
 
   <PropertyGroup>

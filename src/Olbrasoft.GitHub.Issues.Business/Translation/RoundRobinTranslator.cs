@@ -74,6 +74,14 @@ public class RoundRobinTranslator : ITranslator
     public int ProviderCount => _providers.Count;
 
     /// <inheritdoc />
+    public int MaxRequestCharacters => _providers
+        .SelectMany(p => p.Translators)
+        .Select(t => t.MaxRequestCharacters)
+        .Where(m => m > 0)
+        .DefaultIfEmpty(0)
+        .Min();
+
+    /// <inheritdoc />
     public async Task<TranslatorResult> TranslateAsync(
         string text,
         string targetLanguage,

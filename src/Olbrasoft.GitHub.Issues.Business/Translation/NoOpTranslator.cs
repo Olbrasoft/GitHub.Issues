@@ -9,6 +9,9 @@ namespace Olbrasoft.GitHub.Issues.Business.Translation;
 public class NoOpTranslator : ITranslator
 {
     /// <inheritdoc />
+    public int MaxRequestCharacters => 0;
+
+    /// <inheritdoc />
     public Task<TranslatorResult> TranslateAsync(
         string text,
         string targetLanguage,
