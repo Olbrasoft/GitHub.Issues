@@ -31,6 +31,11 @@ builder.Configuration.AddSecureStore(secretsPath, keyPath);
 
 // Configure DbContext for SQL Server (NOT PostgreSQL!)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+var dbPassword = builder.Configuration["DbPassword"];
+if (!string.IsNullOrEmpty(dbPassword))
+{
+    connectionString += $";Password={dbPassword}";
+}
 builder.Services.AddGitHubDbContext(connectionString, DatabaseProvider.SqlServer);
 
 // Register Mediator
