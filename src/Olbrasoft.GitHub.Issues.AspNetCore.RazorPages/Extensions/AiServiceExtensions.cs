@@ -88,58 +88,40 @@ public static class AiServiceExtensions
         services.AddHttpClient<CohereEmbeddingService>();
         services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<CohereEmbeddingService>());
 
-        // Configure LLM API keys for summarization from configuration sources (appsettings.json and SecureStore)
-        services.PostConfigure<SummarizationSettings>(options =>
+        // Configure AiProvidersSettings for OpenAICompatibleSummarizationService
+        services.Configure<AiProvidersSettings>(configuration.GetSection("AiProviders"));
+
+        // Load API keys for Cerebras and Groq from SecureStore (individual keys: Key1, Key2, etc.)
+        services.PostConfigure<AiProvidersSettings>(options =>
         {
-            // Only configure if OpenAICompatible is being used
-            if (options.OpenAICompatible?.BaseUrl == null) return;
+            // Load Cerebras keys from SecureStore
+            var cerebrasKeys = new List<string>();
+            var arrayKeys = configuration.GetSection("AiProviders:Cerebras:Keys").Get<string[]>() ?? [];
+            cerebrasKeys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
 
-            var baseUrl = options.OpenAICompatible.BaseUrl.ToLowerInvariant();
-            var keys = new List<string>();
-
-            // Determine provider from BaseUrl and load corresponding keys
-            string providerPrefix;
-            if (baseUrl.Contains("cerebras"))
+            if (cerebrasKeys.Count == 0)
             {
-                providerPrefix = "AiProviders:Cerebras";
-            }
-            else if (baseUrl.Contains("groq"))
-            {
-                providerPrefix = "AiProviders:Groq";
-            }
-            else if (baseUrl.Contains("openrouter"))
-            {
-                providerPrefix = "AiProviders:OpenRouter";
-            }
-            else
-            {
-                // Unknown provider, try generic OpenAI key
-                providerPrefix = "AiProviders:OpenAI";
+                cerebrasKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "AiProviders:Cerebras:Key"));
             }
 
-            // 1. Try array from appsettings.json (Provider:Keys)
-            var arrayKeys = configuration.GetSection($"{providerPrefix}:Keys").Get<string[]>() ?? [];
-            keys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
-
-            // 2. Individual keys from SecureStore (Provider:Key1, Key2, etc.)
-            if (keys.Count == 0)
+            if (cerebrasKeys.Count > 0)
             {
-                keys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, $"{providerPrefix}:Key"));
+                options.Cerebras.Keys = cerebrasKeys.ToArray();
             }
 
-            // 3. Single key fallback
-            if (keys.Count == 0)
+            // Load Groq keys from SecureStore
+            var groqKeys = new List<string>();
+            arrayKeys = configuration.GetSection("AiProviders:Groq:Keys").Get<string[]>() ?? [];
+            groqKeys.AddRange(arrayKeys.Where(k => !string.IsNullOrWhiteSpace(k)));
+
+            if (groqKeys.Count == 0)
             {
-                var singleKey = configuration[$"{providerPrefix}:ApiKey"];
-                if (!string.IsNullOrWhiteSpace(singleKey))
-                {
-                    keys.Add(singleKey);
-                }
+                groqKeys.AddRange(ConfigurationKeyLoader.LoadNumberedKeys(configuration, "AiProviders:Groq:Key"));
             }
 
-            if (keys.Count > 0)
+            if (groqKeys.Count > 0)
             {
-                options.OpenAICompatible.ApiKeys = keys.ToArray();
+                options.Groq.Keys = groqKeys.ToArray();
             }
         });
 
