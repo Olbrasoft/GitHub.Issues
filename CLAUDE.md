@@ -218,3 +218,4 @@ Test with Playwright:
 3. **Never commit passwords** to Git
 4. **Test after deployment** before marking complete
 5. **Ask user** if unsure about configuration changes
+6. **NEVER run sync for ALL repositories** - this will overwhelm API rate limits and cause failures; always sync ONE repository at a time
