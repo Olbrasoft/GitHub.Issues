@@ -62,7 +62,7 @@
 
         <div class="filter-row">
             <label>Stav:</label>
-            <select name="State" class="state-select">
+            <select name="State" class="state-select" onchange="if(document.getElementById('reposHidden').value!==''||document.getElementById('Query').value.trim()!==''){document.getElementById('searchForm').submit();}">
                 @if (Model.State == "all") { <option value="all" selected>Vše</option> } else { <option value="all">Vše</option> }
                 @if (Model.State == "open") { <option value="open" selected>Otevřený</option> } else { <option value="open">Otevřený</option> }
                 @if (Model.State == "closed") { <option value="closed" selected>Zavřený</option> } else { <option value="closed">Zavřený</option> }
