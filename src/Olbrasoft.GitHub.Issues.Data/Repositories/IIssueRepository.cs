@@ -43,4 +43,20 @@ public interface IIssueRepository
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Total number of issues</returns>
     Task<int> CountAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets sub-issues for a parent issue, ordered by state (open first) then number.
+    /// </summary>
+    /// <param name="parentIssueId">Internal ID of the parent issue</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of sub-issues with basic info</returns>
+    Task<List<Issue>> GetSubIssuesAsync(int parentIssueId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the parent issue for a given sub-issue.
+    /// </summary>
+    /// <param name="parentIssueId">Internal ID of the parent issue</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Parent issue or null</returns>
+    Task<Issue?> GetParentIssueAsync(int parentIssueId, CancellationToken cancellationToken = default);
 }

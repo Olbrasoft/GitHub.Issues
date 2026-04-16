@@ -29,4 +29,16 @@ public class IssueSearchResultDto
 
     /// <summary>Issue labels with colors.</summary>
     public List<LabelDto> Labels { get; set; } = [];
+
+    /// <summary>Parent issue database ID (null if not a sub-issue).</summary>
+    public int? ParentIssueId { get; set; }
+
+    /// <summary>Parent issue GitHub number (null if not a sub-issue).</summary>
+    public int? ParentIssueNumber { get; set; }
+
+    /// <summary>Total number of non-deleted sub-issues.</summary>
+    public int SubIssueCount { get; set; }
+
+    /// <summary>Number of closed (completed) sub-issues.</summary>
+    public int ClosedSubIssueCount { get; set; }
 }

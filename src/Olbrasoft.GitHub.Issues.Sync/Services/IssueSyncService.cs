@@ -222,7 +222,27 @@ public class IssueSyncService : IIssueSyncService
         }
 
         // Update parent-child relationships
-        await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
+        // For smart sync (since != null), the incremental fetch may miss sub-issues
+        // that weren't modified but have parent_issue_url set. Do a full fetch of
+        // parent relationships to ensure all are captured.
+        if (since != null)
+        {
+            _logger.LogInformation("Smart sync: fetching full parent-child relationships for {Owner}/{Repo}", owner, repo);
+            var allIssuesForRelationships = await _apiClient.FetchIssuesAsync(owner, repo, since: null, cancellationToken);
+            var fullRelationships = new Dictionary<int, string>();
+            foreach (var ghIssue in allIssuesForRelationships)
+            {
+                if (!ghIssue.IsPullRequest && !string.IsNullOrEmpty(ghIssue.ParentIssueUrl))
+                {
+                    fullRelationships[ghIssue.Number] = ghIssue.ParentIssueUrl;
+                }
+            }
+            await UpdateParentChildRelationshipsAsync(repository.Id, fullRelationships, cancellationToken);
+        }
+        else
+        {
+            await UpdateParentChildRelationshipsAsync(repository.Id, parentChildRelationships, cancellationToken);
+        }
 
         // Detect and mark deleted issues during FULL SYNC only
         if (since == null)

@@ -49,6 +49,12 @@
             <div class="issue-meta">
                 <span class="repository">Repository: <strong>@Model.Issue.RepositoryName</strong></span>
                 <span class="issue-number">Issue #@Model.Issue.IssueNumber</span>
+                @if (Model.Issue.IsSubIssue)
+                {
+                    <a href="/Issue/Detail/@Model.Issue.ParentIssueId?returnUrl=@Uri.EscapeDataString(Model.SafeReturnUrl)" class="parent-issue-link">
+                        ↳ Parent: #@Model.Issue.ParentIssueNumber @Model.Issue.ParentIssueTitle
+                    </a>
+                }
             </div>
 
             @if (Model.Issue.Labels.Count > 0)
@@ -58,6 +64,33 @@
                     {
                         <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                     }
+                </div>
+            }
+
+            @if (Model.Issue.HasSubIssues)
+            {
+                var closedCount = Model.Issue.SubIssueClosed;
+                var totalCount = Model.Issue.SubIssueTotal;
+                var progressPercent = totalCount > 0 ? (int)Math.Round((double)closedCount / totalCount * 100) : 0;
+                <div class="sub-issues-section">
+                    <div class="sub-issues-header">
+                        <h3>Sub-issues</h3>
+                        <span class="sub-issues-count">@closedCount / @totalCount dokončeno</span>
+                    </div>
+                    <div class="sub-issues-progress-bar">
+                        <div class="sub-issues-progress-fill" style="width: @(progressPercent)%;"></div>
+                    </div>
+                    <ul class="sub-issues-list">
+                        @foreach (var sub in Model.Issue.SubIssues!)
+                        {
+                            <li class="sub-issue-entry @(sub.IsOpen ? "" : "sub-issue-closed")">
+                                <span class="sub-issue-state-dot @(sub.IsOpen ? "dot-open" : "dot-closed")" title="@(sub.IsOpen ? "Otevřený" : "Zavřený")"></span>
+                                <a href="/Issue/Detail/@sub.Id?returnUrl=@Uri.EscapeDataString(Model.SafeReturnUrl)" class="sub-issue-link">
+                                    #@sub.IssueNumber @sub.Title
+                                </a>
+                            </li>
+                        }
+                    </ul>
                 </div>
             }
 
@@ -409,6 +442,109 @@
             background-color: transparent;
             transform: scale(1);
         }
+    }
+
+    /* Parent issue link */
+    .parent-issue-link {
+        color: #0969da;
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+
+    .parent-issue-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Sub-issues section */
+    .sub-issues-section {
+        background: #f6f8fa;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .sub-issues-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .sub-issues-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: #24292f;
+    }
+
+    .sub-issues-count {
+        font-size: 0.85rem;
+        color: #656d76;
+        font-weight: 500;
+    }
+
+    .sub-issues-progress-bar {
+        height: 8px;
+        background-color: #e1e4e8;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+
+    .sub-issues-progress-fill {
+        height: 100%;
+        background-color: #1a7f37;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .sub-issues-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .sub-issue-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid #e1e4e8;
+    }
+
+    .sub-issue-entry:last-child {
+        border-bottom: none;
+    }
+
+    .sub-issue-state-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .dot-open {
+        background-color: #1a7f37;
+    }
+
+    .dot-closed {
+        background-color: #8250df;
+    }
+
+    .sub-issue-link {
+        color: #24292f;
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+
+    .sub-issue-link:hover {
+        color: #0969da;
+        text-decoration: underline;
+    }
+
+    .sub-issue-closed .sub-issue-link {
+        color: #656d76;
+        text-decoration: line-through;
     }
 
     /* Issue labels */

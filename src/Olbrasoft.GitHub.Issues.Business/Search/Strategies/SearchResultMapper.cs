@@ -27,7 +27,11 @@ public static class SearchResultMapper
             Similarity = dto.Similarity,
             IsExactMatch = isExactMatch,
             Labels = dto.Labels,
-            PreviewMaxLength = previewMaxLength
+            PreviewMaxLength = previewMaxLength,
+            ParentIssueId = dto.ParentIssueId,
+            ParentIssueNumber = dto.ParentIssueNumber,
+            SubIssueCount = dto.SubIssueCount,
+            ClosedSubIssueCount = dto.ClosedSubIssueCount
         };
     }
 }

@@ -42,7 +42,11 @@ public class IssueTextSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueText
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
                 Similarity = 0.5f, // Fixed similarity for text search (lower than semantic)
-                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList(),
+                ParentIssueId = i.ParentIssueId,
+                ParentIssueNumber = i.ParentIssue != null ? (int?)i.ParentIssue.Number : null,
+                SubIssueCount = i.SubIssues.Count(s => !s.IsDeleted),
+                ClosedSubIssueCount = i.SubIssues.Count(s => !s.IsDeleted && !s.IsOpen)
             })
             .ToListAsync(token);
 

@@ -57,7 +57,11 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
                 Similarity = 1 - i.Embedding!.CosineDistance(query.QueryEmbedding),
-                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList(),
+                ParentIssueId = i.ParentIssueId,
+                ParentIssueNumber = i.ParentIssue != null ? (int?)i.ParentIssue.Number : null,
+                SubIssueCount = i.SubIssues.Count(s => !s.IsDeleted),
+                ClosedSubIssueCount = i.SubIssues.Count(s => !s.IsDeleted && !s.IsOpen)
             })
             .ToListAsync(token);
 
@@ -95,7 +99,11 @@ public class IssueSearchQueryHandler : GitHubDbQueryHandler<Issue, IssueSearchQu
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
                 Similarity = 1 - EF.Functions.VectorDistance("cosine", i.Embedding!, query.QueryEmbedding),
-                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList(),
+                ParentIssueId = i.ParentIssueId,
+                ParentIssueNumber = i.ParentIssue != null ? (int?)i.ParentIssue.Number : null,
+                SubIssueCount = i.SubIssues.Count(s => !s.IsDeleted),
+                ClosedSubIssueCount = i.SubIssues.Count(s => !s.IsDeleted && !s.IsOpen)
             })
             .ToListAsync(token);
 

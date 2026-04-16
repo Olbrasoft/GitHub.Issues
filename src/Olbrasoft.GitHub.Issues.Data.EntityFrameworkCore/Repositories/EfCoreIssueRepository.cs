@@ -46,4 +46,19 @@ public class EfCoreIssueRepository : IIssueRepository
     {
         return await _context.Issues.CountAsync(cancellationToken);
     }
+
+    public async Task<List<Issue>> GetSubIssuesAsync(int parentIssueId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Issues
+            .Where(i => i.ParentIssueId == parentIssueId && !i.IsDeleted)
+            .OrderByDescending(i => i.IsOpen)
+            .ThenByDescending(i => i.Number)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Issue?> GetParentIssueAsync(int parentIssueId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Issues
+            .FirstOrDefaultAsync(i => i.Id == parentIssueId, cancellationToken);
+    }
 }

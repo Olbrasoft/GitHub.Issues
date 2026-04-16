@@ -72,7 +72,15 @@ public record IssueDetailDto(
     string RepoName,
     string RepositoryName,
     string? Body,
-    List<LabelDto> Labels)
+    List<LabelDto> Labels,
+    int? ParentIssueId = null,
+    int? ParentIssueNumber = null,
+    string? ParentIssueTitle = null,
+    List<SubIssueSummaryDto>? SubIssues = null)
 {
     public string StateCzech => IsOpen ? "Otevřený" : "Zavřený";
+    public bool HasSubIssues => SubIssues is { Count: > 0 };
+    public bool IsSubIssue => ParentIssueId.HasValue;
+    public int SubIssueTotal => SubIssues?.Count ?? 0;
+    public int SubIssueClosed => SubIssues?.Count(s => !s.IsOpen) ?? 0;
 }

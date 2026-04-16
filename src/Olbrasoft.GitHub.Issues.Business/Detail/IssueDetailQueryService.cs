@@ -47,6 +47,30 @@ public class IssueDetailQueryService : IIssueDetailQueryService
             .Select(il => new LabelDto(il.Label.Name, il.Label.Color))
             .ToList();
 
+        // Fetch sub-issues if this is a parent
+        List<SubIssueSummaryDto>? subIssues = null;
+        var subIssueEntities = await _issueRepository.GetSubIssuesAsync(issueId, cancellationToken);
+        if (subIssueEntities.Count > 0)
+        {
+            subIssues = subIssueEntities
+                .Select(s => new SubIssueSummaryDto(s.Id, s.Number, s.Title, s.IsOpen))
+                .ToList();
+        }
+
+        // Fetch parent info if this is a sub-issue
+        int? parentIssueId = issue.ParentIssueId;
+        int? parentIssueNumber = null;
+        string? parentIssueTitle = null;
+        if (parentIssueId.HasValue)
+        {
+            var parent = await _issueRepository.GetParentIssueAsync(parentIssueId.Value, cancellationToken);
+            if (parent != null)
+            {
+                parentIssueNumber = parent.Number;
+                parentIssueTitle = parent.Title;
+            }
+        }
+
         var issueDto = new IssueDetailDto(
             Id: issue.Id,
             IssueNumber: issue.Number,
@@ -57,7 +81,11 @@ public class IssueDetailQueryService : IIssueDetailQueryService
             RepoName: repoName,
             RepositoryName: issue.Repository.FullName,
             Body: null,
-            Labels: labels);
+            Labels: labels,
+            ParentIssueId: parentIssueId,
+            ParentIssueNumber: parentIssueNumber,
+            ParentIssueTitle: parentIssueTitle,
+            SubIssues: subIssues);
 
         return new IssueDetailResult(
             Found: true,

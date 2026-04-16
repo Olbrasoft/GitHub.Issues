@@ -54,6 +54,24 @@ public class IssueSearchResult
     /// </summary>
     public int PreviewMaxLength { get; set; } = 500;
 
+    /// <summary>Parent issue database ID (null if not a sub-issue).</summary>
+    public int? ParentIssueId { get; set; }
+
+    /// <summary>Parent issue GitHub number (null if not a sub-issue).</summary>
+    public int? ParentIssueNumber { get; set; }
+
+    /// <summary>Total number of non-deleted sub-issues.</summary>
+    public int SubIssueCount { get; set; }
+
+    /// <summary>Number of closed (completed) sub-issues.</summary>
+    public int ClosedSubIssueCount { get; set; }
+
+    /// <summary>Whether this issue is a sub-issue of another issue.</summary>
+    public bool IsSubIssue => ParentIssueId.HasValue;
+
+    /// <summary>Whether this issue is a parent with sub-issues.</summary>
+    public bool IsParentIssue => SubIssueCount > 0;
+
     /// <summary>
     /// Short preview of issue body for list display.
     /// Computed property that truncates at sentence boundary.

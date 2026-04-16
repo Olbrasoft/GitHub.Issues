@@ -30,7 +30,9 @@ public class IssueListQueryHandler : GitHubDbQueryHandler<Issue, IssueListQuery,
         var skip = (query.Page - 1) * query.PageSize;
 
         var results = await baseQuery
-            .OrderByDescending(i => i.Number)
+            .OrderByDescending(i => i.ParentIssueId.HasValue ? i.ParentIssue!.Number : i.Number)
+            .ThenBy(i => i.ParentIssueId.HasValue ? 1 : 0)
+            .ThenByDescending(i => i.Number)
             .Skip(skip)
             .Take(query.PageSize)
             .Select(i => new IssueSearchResultDto
@@ -42,7 +44,11 @@ public class IssueListQueryHandler : GitHubDbQueryHandler<Issue, IssueListQuery,
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
                 Similarity = 1.0f, // No similarity for list queries
-                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList()
+                Labels = i.IssueLabels.Select(il => new LabelDto(il.Label.Name, il.Label.Color)).ToList(),
+                ParentIssueId = i.ParentIssueId,
+                ParentIssueNumber = i.ParentIssue != null ? (int?)i.ParentIssue.Number : null,
+                SubIssueCount = i.SubIssues.Count(s => !s.IsDeleted),
+                ClosedSubIssueCount = i.SubIssues.Count(s => !s.IsDeleted && !s.IsOpen)
             })
             .ToListAsync(token);
 

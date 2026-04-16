@@ -99,6 +99,12 @@
         <div class="results-header">
             <h2>Výsledky vyhledávání</h2>
             <span class="signalr-status disconnected" title="Připojování..."></span>
+            @if (Model.SelectedRepositories.Count() == 1)
+            {
+                <button id="quickSyncBtn" class="quick-sync-btn" title="Synchronizovat @Model.SelectedRepositories.First().FullName a obnovit">
+                    <span class="sync-icon">&#8635;</span> Sync
+                </button>
+            }
             @if (Model.SearchResult.TotalCount > 0)
             {
                 <span class="results-count">
@@ -113,74 +119,188 @@
         }
         else
         {
+            // Build lookup: parentId -> list of sub-issues in current results
+            var subsByParent = Model.SearchResult.Results
+                .Where(r => r.IsSubIssue)
+                .GroupBy(r => r.ParentIssueId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            var renderedIds = new HashSet<int>();
+
             <ul class="results-list">
                 @foreach (var result in Model.SearchResult.Results)
                 {
-                    <li class="result-item" data-issue-id="@result.Id">
-                        <div class="result-header">
-                            <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
-                            <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
-                                @result.StateCzech
-                            </span>
-                            @foreach (var label in result.Labels)
-                            {
-                                <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
-                            }
-                        </div>
-                        <div class="ai-summary-container" data-issue-id="@result.Id">
-                            @* Phase 1: Immediate body preview (shown right away) *@
-                            <div class="body-preview">
-                                @if (!string.IsNullOrEmpty(result.BodyPreview))
+                    if (renderedIds.Contains(result.Id)) { continue; }
+                    renderedIds.Add(result.Id);
+
+                    // Check if this is a parent issue with sub-issues in current results
+                    var hasSubsInResults = subsByParent.ContainsKey(result.Id);
+                    var isGroupParent = result.IsParentIssue || hasSubsInResults;
+
+                    if (isGroupParent)
+                    {
+                        // === PARENT GROUP: parent header + nested sub-issues ===
+                        <li class="result-item parent-issue-item" data-issue-id="@result.Id">
+                            <div class="result-header">
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
+                                    @result.StateCzech
+                                </span>
+                                @if (result.SubIssueCount > 0)
                                 {
-                                    @result.BodyPreview
+                                    var completedCount = result.ClosedSubIssueCount;
+                                    var totalSubs = result.SubIssueCount;
+                                    var allDone = completedCount == totalSubs;
+                                    <span class="sub-issue-progress @(allDone ? "progress-done" : "progress-pending")" title="@completedCount z @totalSubs sub-issues dokončeno">
+                                        ◉ @completedCount/@totalSubs
+                                    </span>
+                                }
+                                @foreach (var label in result.Labels)
+                                {
+                                    <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                 }
                             </div>
-                            @* Phase 2: AI Summary - initially hidden, SignalR populates and shows *@
-                            <div class="ai-summary-en" style="display:none;"></div>
-                            @* Phase 3: Translation - initially hidden, SignalR populates and shows *@
-                            <div class="ai-summary-cs" style="display:none;"></div>
-                        </div>
-                        <div class="result-meta">
-                            <span class="repository">@result.RepositoryName</span>
-                            @if (!string.IsNullOrWhiteSpace(Model.Query))
+                            <div class="result-meta">
+                                <span class="repository">@result.RepositoryName</span>
+                            </div>
+                            <div class="result-actions">
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
+                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                            </div>
+
+                            @* Render sub-issues nested inside the parent *@
+                            @if (subsByParent.TryGetValue(result.Id, out var subs))
                             {
-                                @if (result.IsExactMatch)
+                                <ul class="sub-issues-inline">
+                                    @foreach (var sub in subs)
+                                    {
+                                        renderedIds.Add(sub.Id);
+                                        <li class="result-item sub-issue-item" data-issue-id="@sub.Id">
+                                            <div class="result-header">
+                                                <span class="sub-issue-indent">↳</span>
+                                                <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="result-title">#@sub.IssueNumber @sub.Title</a>
+                                                <span class="state-badge @(sub.IsOpen ? "state-open" : "state-closed")">
+                                                    @sub.StateCzech
+                                                </span>
+                                                @if (sub.IsParentIssue)
+                                                {
+                                                    <span class="sub-issue-progress progress-pending" title="@sub.ClosedSubIssueCount z @sub.SubIssueCount sub-issues dokončeno">
+                                                        ◉ @sub.ClosedSubIssueCount/@sub.SubIssueCount
+                                                    </span>
+                                                }
+                                                @foreach (var label in sub.Labels)
+                                                {
+                                                    <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
+                                                }
+                                            </div>
+                                            <div class="result-actions">
+                                                <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="detail-link">Detail</a>
+                                                <a href="@sub.Url" target="_blank" class="github-link">GitHub ↗</a>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                    else if (result.IsSubIssue)
+                    {
+                        // === ORPHAN SUB-ISSUE: parent not in current results ===
+                        <li class="result-item sub-issue-orphan" data-issue-id="@result.Id">
+                            <div class="result-header">
+                                <span class="sub-issue-indent" title="Sub-issue of #@result.ParentIssueNumber">↳ #@result.ParentIssueNumber</span>
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
+                                    @result.StateCzech
+                                </span>
+                                @foreach (var label in result.Labels)
+                                {
+                                    <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
+                                }
+                            </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">
+                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
+                                </div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
+                            <div class="result-meta">
+                                <span class="repository">@result.RepositoryName</span>
+                                @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch)
                                 {
                                     <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
                                 }
-                                else
+                                else if (!string.IsNullOrWhiteSpace(Model.Query))
                                 {
                                     <span class="similarity">Podobnost: @result.SimilarityPercent</span>
                                 }
-                            }
-                        </div>
-                        <div class="result-actions">
-                            <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
-                            <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
-                            @if (result.IsOpen)
-                            {
-                                <button class="issue-state-btn issue-close-btn"
-                                        data-issue-id="@result.Id"
-                                        data-new-state="closed"
-                                        style="display: none;"
-                                        title="Zavřít tento issue">
-                                    <span class="btn-icon">✕</span>
-                                    <span class="btn-text">Zavřít</span>
-                                </button>
-                            }
-                            else
-                            {
-                                <button class="issue-state-btn issue-reopen-btn"
-                                        data-issue-id="@result.Id"
-                                        data-new-state="open"
-                                        style="display: none;"
-                                        title="Znovu otevřít tento issue">
-                                    <span class="btn-icon">↺</span>
-                                    <span class="btn-text">Otevřít</span>
-                                </button>
-                            }
-                        </div>
-                    </li>
+                            </div>
+                            <div class="result-actions">
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
+                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                            </div>
+                        </li>
+                    }
+                    else
+                    {
+                        // === STANDALONE ISSUE: no parent, no children ===
+                        <li class="result-item" data-issue-id="@result.Id">
+                            <div class="result-header">
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
+                                    @result.StateCzech
+                                </span>
+                                @foreach (var label in result.Labels)
+                                {
+                                    <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
+                                }
+                            </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">
+                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
+                                </div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
+                            <div class="result-meta">
+                                <span class="repository">@result.RepositoryName</span>
+                                @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch)
+                                {
+                                    <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(Model.Query))
+                                {
+                                    <span class="similarity">Podobnost: @result.SimilarityPercent</span>
+                                }
+                            </div>
+                            <div class="result-actions">
+                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
+                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                                @if (result.IsOpen)
+                                {
+                                    <button class="issue-state-btn issue-close-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="closed"
+                                            style="display: none;"
+                                            title="Zavřít tento issue">
+                                        <span class="btn-icon">✕</span>
+                                        <span class="btn-text">Zavřít</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="issue-state-btn issue-reopen-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="open"
+                                            style="display: none;"
+                                            title="Znovu otevřít tento issue">
+                                        <span class="btn-icon">↺</span>
+                                        <span class="btn-text">Otevřít</span>
+                                    </button>
+                                }
+                            </div>
+                        </li>
+                    }
                 }
             </ul>
 
@@ -294,6 +414,45 @@
         function clearSearch() {
             document.getElementById('clearSearchForm').submit();
         }
+
+        // Quick sync for single selected repository
+        (function() {
+            const btn = document.getElementById('quickSyncBtn');
+            if (!btn || !window.initialSelectedRepos || window.initialSelectedRepos.length !== 1) return;
+
+            const repoName = window.initialSelectedRepos[0].fullName;
+
+            btn.addEventListener('click', async function() {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="sync-icon spinning">&#8635;</span> Synchronizuji...';
+
+                try {
+                    const response = await fetch('/api/data/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            repositoryFullNames: [repoName],
+                            fullRefresh: false,
+                            generateEmbeddings: true
+                        })
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        btn.innerHTML = '<span class="sync-icon">✓</span> Hotovo, obnovuji...';
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        btn.innerHTML = '<span class="sync-icon">&#8635;</span> Sync';
+                        btn.disabled = false;
+                        alert('Chyba synchronizace: ' + result.message);
+                    }
+                } catch (error) {
+                    btn.innerHTML = '<span class="sync-icon">&#8635;</span> Sync';
+                    btn.disabled = false;
+                    alert('Chyba: ' + error.message);
+                }
+            });
+        })();
     </script>
     <script src="~/js/repo-filter.js" asp-append-version="true"></script>
     <script src="~/js/db-status.js" asp-append-version="true"></script>

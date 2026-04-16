@@ -60,7 +60,11 @@ public class IssuesByNumbersQueryHandler : GitHubDbQueryHandler<Issue, IssuesByN
                 IsOpen = i.IsOpen,
                 Url = i.Url,
                 RepositoryFullName = i.Repository.FullName,
-                Similarity = 1.0 // Exact match = 100% similarity
+                Similarity = 1.0, // Exact match = 100% similarity
+                ParentIssueId = i.ParentIssueId,
+                ParentIssueNumber = i.ParentIssue != null ? (int?)i.ParentIssue.Number : null,
+                SubIssueCount = i.SubIssues.Count(s => !s.IsDeleted),
+                ClosedSubIssueCount = i.SubIssues.Count(s => !s.IsDeleted && !s.IsOpen)
             })
             .ToListAsync(token);
     }
