@@ -136,10 +136,10 @@
         }
 
         // Parent issue with open sub-issues: show confirmation
-        const openSubs = btn.dataset.openSubs;
-        if (openSubs && newState === 'closed') {
-            const count = parseInt(openSubs, 10);
-            if (!confirm(`Toto je parent issue s ${count} otevřenými sub-issues.\n\nOpravdu chcete zavřít tento issue?`)) {
+        const openSubsAttr = btn.dataset.openSubs;
+        if (openSubsAttr && newState === 'closed') {
+            const count = parseInt(openSubsAttr, 10);
+            if (count > 0 && !confirm(`Toto je parent issue s ${count} otevřenými sub-issues.\n\nOpravdu chcete zavřít tento issue?`)) {
                 return;
             }
         }

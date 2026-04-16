@@ -179,7 +179,7 @@
                                     <button class="issue-state-btn @(hasOpenSubs ? "issue-close-parent-btn" : "issue-close-btn")"
                                             data-issue-id="@result.Id"
                                             data-new-state="closed"
-                                            @(hasOpenSubs ? $"data-open-subs=\"{openSubCount}\"" : "")
+                                            data-open-subs="@(hasOpenSubs ? openSubCount : 0)"
                                             style="display: none;"
                                             title="@(hasOpenSubs ? $"Zavřít s {openSubCount} otevřenými sub-issues" : "Zavřít tento issue")">
                                         <span class="btn-icon">✕</span>
