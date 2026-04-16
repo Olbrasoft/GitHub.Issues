@@ -98,15 +98,24 @@
     var returnUrlEncoded = Uri.EscapeDataString(currentUrl);
 
     var showStateBadge = string.Equals(Model.State, "all", StringComparison.OrdinalIgnoreCase);
-    var stateLabel = Model.State switch { "open" => "otevřené", "closed" => "zavřené", _ => "všechny" };
+    var stateLabel = Model.State switch { "open" => "otevřené", "closed" => "zavřené", _ => "" };
+    var stateBadgeClass = Model.State switch { "open" => "state-open", "closed" => "state-closed", _ => "" };
     var repoPrefix = repoShortName != null ? $"{repoShortName} — " : "";
-    var resultsHeading = !string.IsNullOrWhiteSpace(Model.Query)
-        ? $"{repoPrefix}výsledky: \"{Model.Query}\""
-        : $"{repoPrefix}{stateLabel} issues";
 
     <div class="results-container">
         <div class="results-header">
-            <h2>@resultsHeading</h2>
+            @if (!string.IsNullOrWhiteSpace(Model.Query))
+            {
+                <h2>@($"{repoPrefix}výsledky: \"{Model.Query}\"")</h2>
+            }
+            else if (!showStateBadge)
+            {
+                <h2>@(repoShortName ?? "")@(repoShortName != null ? " — " : "")<span class="state-badge @stateBadgeClass heading-state-badge">@stateLabel</span> issues</h2>
+            }
+            else
+            {
+                <h2>@($"{repoPrefix}všechny issues")</h2>
+            }
             <span class="signalr-status disconnected" title="Připojování..."></span>
             @if (Model.SelectedRepositories.Count() == 1)
             {

@@ -431,6 +431,14 @@ footer {
     vertical-align: middle;
 }
 
+/* State badge in results heading */
+.heading-state-badge {
+    font-size: 0.75em;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+}
+
 /* GitHub SVG icon link */
 .gh-icon {
     color: #656d76;
