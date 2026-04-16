@@ -519,3 +519,5 @@ See the [Wiki](https://github.com/Olbrasoft/GitHub.Issues/wiki) for detailed doc
 ## License
 
 MIT
+
+<!-- channel-test-2 marker -->
