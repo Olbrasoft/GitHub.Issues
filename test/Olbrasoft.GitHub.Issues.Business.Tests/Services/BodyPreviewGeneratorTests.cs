@@ -177,4 +177,24 @@ public class BodyPreviewGeneratorTests
         Assert.DoesNotContain("  ", result); // No double spaces
         Assert.Contains("Text with multiple spaces and newlines", result);
     }
+
+    [Fact]
+    public void CreatePreview_MixedMarkdown_StripsAllFormattingAndReturnsPlainText()
+    {
+        // Arrange
+        const string body = "# Title\n\nParagraph with **bold**, *italic*, `inline`, and [link](https://x.y).\n\n```\ncode block\n```\n\n> quote\n\n---\n\nEnd.";
+
+        // Act
+        var result = _generator.CreatePreview(body, 500);
+
+        // Assert
+        Assert.Equal("Title Paragraph with bold, italic, , and link. quote End.", result);
+    }
+
+    [Fact]
+    public void CreatePreview_NegativeMaxLength_ThrowsArgumentOutOfRangeException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => _generator.CreatePreview("any body", -1));
+    }
 }

@@ -6,11 +6,49 @@ namespace Olbrasoft.GitHub.Issues.Business.Detail;
 /// Generates text previews from markdown content.
 /// Strips markdown formatting and truncates to specified length.
 /// </summary>
-public class BodyPreviewGenerator : IBodyPreviewGenerator
+public partial class BodyPreviewGenerator : IBodyPreviewGenerator
 {
+    [GeneratedRegex(@"```[\s\S]*?```", RegexOptions.Multiline)]
+    private static partial Regex CodeBlockPattern();
+
+    [GeneratedRegex(@"`[^`]+`")]
+    private static partial Regex InlineCodePattern();
+
+    [GeneratedRegex(@"^#+\s+", RegexOptions.Multiline)]
+    private static partial Regex HeaderPattern();
+
+    [GeneratedRegex(@"\[([^\]]+)\]\([^)]+\)")]
+    private static partial Regex LinkPattern();
+
+    [GeneratedRegex(@"!\[[^\]]*\]\([^)]+\)")]
+    private static partial Regex ImagePattern();
+
+    [GeneratedRegex(@"\*\*([^*]+)\*\*")]
+    private static partial Regex BoldPattern();
+
+    [GeneratedRegex(@"\*([^*]+)\*")]
+    private static partial Regex ItalicPattern();
+
+    [GeneratedRegex(@"__([^_]+)__")]
+    private static partial Regex BoldUnderscorePattern();
+
+    [GeneratedRegex(@"_([^_]+)_")]
+    private static partial Regex ItalicUnderscorePattern();
+
+    [GeneratedRegex(@"^>\s*", RegexOptions.Multiline)]
+    private static partial Regex BlockquotePattern();
+
+    [GeneratedRegex(@"^[-*_]{3,}\s*$", RegexOptions.Multiline)]
+    private static partial Regex HorizontalRulePattern();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespacePattern();
+
     /// <inheritdoc />
     public string CreatePreview(string body, int maxLength)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxLength);
+
         if (string.IsNullOrWhiteSpace(body))
         {
             return string.Empty;
@@ -18,42 +56,25 @@ public class BodyPreviewGenerator : IBodyPreviewGenerator
 
         var text = body;
 
-        // Remove code blocks
-        text = Regex.Replace(text, @"```[\s\S]*?```", " ", RegexOptions.Multiline);
-        text = Regex.Replace(text, @"`[^`]+`", " ");
-
-        // Remove headers
-        text = Regex.Replace(text, @"^#+\s+", "", RegexOptions.Multiline);
-
-        // Remove links but keep text: [text](url) -> text
-        text = Regex.Replace(text, @"\[([^\]]+)\]\([^)]+\)", "$1");
-
-        // Remove images: ![alt](url)
-        text = Regex.Replace(text, @"!\[[^\]]*\]\([^)]+\)", "");
-
-        // Remove bold/italic markers
-        text = Regex.Replace(text, @"\*\*([^*]+)\*\*", "$1");
-        text = Regex.Replace(text, @"\*([^*]+)\*", "$1");
-        text = Regex.Replace(text, @"__([^_]+)__", "$1");
-        text = Regex.Replace(text, @"_([^_]+)_", "$1");
-
-        // Remove blockquotes
-        text = Regex.Replace(text, @"^>\s*", "", RegexOptions.Multiline);
-
-        // Remove horizontal rules
-        text = Regex.Replace(text, @"^[-*_]{3,}\s*$", "", RegexOptions.Multiline);
-
-        // Normalize whitespace
-        text = Regex.Replace(text, @"\s+", " ");
+        text = CodeBlockPattern().Replace(text, " ");
+        text = InlineCodePattern().Replace(text, " ");
+        text = HeaderPattern().Replace(text, "");
+        text = ImagePattern().Replace(text, "");
+        text = LinkPattern().Replace(text, "$1");
+        text = BoldPattern().Replace(text, "$1");
+        text = ItalicPattern().Replace(text, "$1");
+        text = BoldUnderscorePattern().Replace(text, "$1");
+        text = ItalicUnderscorePattern().Replace(text, "$1");
+        text = BlockquotePattern().Replace(text, "");
+        text = HorizontalRulePattern().Replace(text, "");
+        text = WhitespacePattern().Replace(text, " ");
         text = text.Trim();
 
-        // Truncate if needed
         if (text.Length <= maxLength)
         {
             return text;
         }
 
-        // Try to truncate at word boundary
         var truncated = text[..maxLength];
         var lastSpace = truncated.LastIndexOf(' ');
         if (lastSpace > maxLength * 0.7)
