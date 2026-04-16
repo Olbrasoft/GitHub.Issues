@@ -126,6 +126,30 @@ public class IssueNumberParserTests
 
     #endregion
 
+    #region TryParse Tests
+
+    [Fact]
+    public void TryParse_HashNumber_ReturnsTrueWithFirstMatch()
+    {
+        var ok = IssueNumberParser.TryParse("#123", out var result);
+
+        Assert.True(ok);
+        Assert.NotNull(result);
+        Assert.Equal(123, result!.Number);
+        Assert.Null(result.RepositoryName);
+    }
+
+    [Fact]
+    public void TryParse_NonMatchingText_ReturnsFalseWithNullResult()
+    {
+        var ok = IssueNumberParser.TryParse("just some random text without numbers", out var result);
+
+        Assert.False(ok);
+        Assert.Null(result);
+    }
+
+    #endregion
+
     #region GetSemanticQuery Tests
 
     [Fact]

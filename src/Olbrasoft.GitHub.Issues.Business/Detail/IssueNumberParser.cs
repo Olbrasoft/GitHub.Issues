@@ -23,6 +23,27 @@ public static partial class IssueNumberParser
     public record ParsedIssueNumber(int Number, string? RepositoryName);
 
     /// <summary>
+    /// Attempts to parse a single issue number from the query string.
+    /// Convenience wrapper around <see cref="Parse(string?)"/> for callers that only care about
+    /// a true/false answer plus the first match.
+    /// </summary>
+    /// <param name="query">Search query string</param>
+    /// <param name="result">The first parsed issue number, or <c>null</c> when no match was found.</param>
+    /// <returns><c>true</c> when at least one issue number was parsed; otherwise <c>false</c>.</returns>
+    public static bool TryParse(string? query, out ParsedIssueNumber? result)
+    {
+        var matches = Parse(query);
+        if (matches.Count == 0)
+        {
+            result = null;
+            return false;
+        }
+
+        result = matches[0];
+        return true;
+    }
+
+    /// <summary>
     /// Attempts to parse issue number(s) from the query string.
     /// </summary>
     /// <param name="query">Search query string</param>
