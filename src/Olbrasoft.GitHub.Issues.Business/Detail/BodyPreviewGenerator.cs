@@ -47,7 +47,7 @@ public partial class BodyPreviewGenerator : IBodyPreviewGenerator
     /// <inheritdoc />
     public string CreatePreview(string body, int maxLength)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(maxLength);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxLength, nameof(maxLength));
 
         if (string.IsNullOrWhiteSpace(body))
         {
@@ -59,8 +59,8 @@ public partial class BodyPreviewGenerator : IBodyPreviewGenerator
         text = CodeBlockPattern().Replace(text, " ");
         text = InlineCodePattern().Replace(text, " ");
         text = HeaderPattern().Replace(text, "");
-        text = ImagePattern().Replace(text, "");
         text = LinkPattern().Replace(text, "$1");
+        text = ImagePattern().Replace(text, "");
         text = BoldPattern().Replace(text, "$1");
         text = ItalicPattern().Replace(text, "$1");
         text = BoldUnderscorePattern().Replace(text, "$1");
