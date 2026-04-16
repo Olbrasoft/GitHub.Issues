@@ -407,6 +407,22 @@ footer {
     color: #1a7f37;
 }
 
+/* Parent close button (warning - has open sub-issues) */
+.issue-close-parent-btn {
+    background-color: #d29922;
+    color: white;
+}
+
+.issue-close-parent-btn:hover:not(:disabled) {
+    background-color: #b07d19;
+}
+
+.issue-close-parent-btn .btn-icon::after {
+    content: "⚠";
+    margin-left: 2px;
+    font-size: 0.8em;
+}
+
 .results-count {
     font-size: 0.875rem;
     color: #666;

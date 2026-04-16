@@ -135,6 +135,15 @@
             return;
         }
 
+        // Parent issue with open sub-issues: show confirmation
+        const openSubs = btn.dataset.openSubs;
+        if (openSubs && newState === 'closed') {
+            const count = parseInt(openSubs, 10);
+            if (!confirm(`Toto je parent issue s ${count} otevřenými sub-issues.\n\nOpravdu chcete zavřít tento issue?`)) {
+                return;
+            }
+        }
+
         changeIssueState(issueId, newState, btn);
     }
 
@@ -182,7 +191,7 @@
                     const newBtnState = newState === 'open' ? 'closed' : 'open';
                     const newBtnTitle = newState === 'open' ? 'Zavřít tento issue' : 'Znovu otevřít tento issue';
 
-                    button.classList.remove('issue-close-btn', 'issue-reopen-btn', 'loading');
+                    button.classList.remove('issue-close-btn', 'issue-close-parent-btn', 'issue-reopen-btn', 'loading');
                     button.classList.add(newBtnClass);
                     button.dataset.newState = newBtnState;
                     button.title = newBtnTitle;

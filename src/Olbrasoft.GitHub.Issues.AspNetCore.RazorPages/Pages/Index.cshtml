@@ -174,11 +174,14 @@
                                 <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
                                 @if (result.IsOpen)
                                 {
-                                    <button class="issue-state-btn issue-close-btn"
+                                    var hasOpenSubs = result.SubIssueCount > 0 && result.ClosedSubIssueCount < result.SubIssueCount;
+                                    var openSubCount = result.SubIssueCount - result.ClosedSubIssueCount;
+                                    <button class="issue-state-btn @(hasOpenSubs ? "issue-close-parent-btn" : "issue-close-btn")"
                                             data-issue-id="@result.Id"
                                             data-new-state="closed"
+                                            @(hasOpenSubs ? $"data-open-subs=\"{openSubCount}\"" : "")
                                             style="display: none;"
-                                            title="Zavřít tento issue">
+                                            title="@(hasOpenSubs ? $"Zavřít s {openSubCount} otevřenými sub-issues" : "Zavřít tento issue")">
                                         <span class="btn-icon">✕</span>
                                         <span class="btn-text">Zavřít</span>
                                     </button>
@@ -220,6 +223,13 @@
                                                 {
                                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                                 }
+                                            </div>
+                                            <div class="ai-summary-container" data-issue-id="@sub.Id">
+                                                <div class="body-preview">
+                                                    @if (!string.IsNullOrEmpty(sub.BodyPreview)) { @sub.BodyPreview }
+                                                </div>
+                                                <div class="ai-summary-en" style="display:none;"></div>
+                                                <div class="ai-summary-cs" style="display:none;"></div>
                                             </div>
                                             <div class="result-actions">
                                                 <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="detail-link">Detail</a>
