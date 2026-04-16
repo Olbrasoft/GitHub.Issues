@@ -141,65 +141,49 @@
                     if (isGroupParent)
                     {
                         // === PARENT GROUP: parent header + nested sub-issues ===
+                        var hasOpenSubs = result.SubIssueCount > 0 && result.ClosedSubIssueCount < result.SubIssueCount;
+                        var openSubCount = result.SubIssueCount - result.ClosedSubIssueCount;
                         <li class="result-item parent-issue-item" data-issue-id="@result.Id">
                             <div class="result-header">
                                 <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
-                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
-                                    @result.StateCzech
-                                </span>
+                                <a href="@result.Url" target="_blank" class="gh-icon" title="Otevřít na GitHubu"><svg height="16" width="16" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">@result.StateCzech</span>
                                 @if (result.SubIssueCount > 0)
                                 {
                                     var completedCount = result.ClosedSubIssueCount;
                                     var totalSubs = result.SubIssueCount;
                                     var allDone = completedCount == totalSubs;
-                                    <span class="sub-issue-progress @(allDone ? "progress-done" : "progress-pending")" title="@completedCount z @totalSubs sub-issues dokončeno">
-                                        ◉ @completedCount/@totalSubs
-                                    </span>
+                                    <span class="sub-issue-progress @(allDone ? "progress-done" : "progress-pending")" title="@completedCount z @totalSubs sub-issues dokončeno">◉ @completedCount/@totalSubs</span>
                                 }
                                 @foreach (var label in result.Labels)
                                 {
                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                 }
-                            </div>
-                            <div class="ai-summary-container" data-issue-id="@result.Id">
-                                <div class="body-preview">
-                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
-                                </div>
-                                <div class="ai-summary-en" style="display:none;"></div>
-                                <div class="ai-summary-cs" style="display:none;"></div>
-                            </div>
-                            <div class="result-meta">
-                                <span class="repository">@result.RepositoryName</span>
-                            </div>
-                            <div class="result-actions">
-                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
-                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
                                 @if (result.IsOpen)
                                 {
-                                    var hasOpenSubs = result.SubIssueCount > 0 && result.ClosedSubIssueCount < result.SubIssueCount;
-                                    var openSubCount = result.SubIssueCount - result.ClosedSubIssueCount;
-                                    <button class="issue-state-btn @(hasOpenSubs ? "issue-close-parent-btn" : "issue-close-btn")"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="closed"
-                                            data-open-subs="@(hasOpenSubs ? openSubCount : 0)"
-                                            style="display: none;"
-                                            title="@(hasOpenSubs ? $"Zavřít s {openSubCount} otevřenými sub-issues" : "Zavřít tento issue")">
-                                        <span class="btn-icon">✕</span>
-                                        <span class="btn-text">Zavřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline @(hasOpenSubs ? "issue-close-parent-btn" : "issue-close-btn")"
+                                            data-issue-id="@result.Id" data-new-state="closed" data-open-subs="@(hasOpenSubs ? openSubCount : 0)"
+                                            style="display: none;" title="@(hasOpenSubs ? $"Zavřít s {openSubCount} otevřenými sub-issues" : "Zavřít")">
+                                        <span class="btn-icon">✕</span><span class="btn-text">Zavřít</span>
                                     </button>
                                 }
                                 else
                                 {
-                                    <button class="issue-state-btn issue-reopen-btn"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="open"
-                                            style="display: none;"
-                                            title="Znovu otevřít tento issue">
-                                        <span class="btn-icon">↺</span>
-                                        <span class="btn-text">Otevřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline issue-reopen-btn"
+                                            data-issue-id="@result.Id" data-new-state="open" style="display: none;" title="Znovu otevřít">
+                                        <span class="btn-icon">↺</span><span class="btn-text">Otevřít</span>
                                     </button>
                                 }
                             </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">@if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }</div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
+                            @if (singleRepo == null)
+                            {
+                                <div class="result-meta"><span class="repository">@result.RepositoryName</span></div>
+                            }
 
                             @* Render sub-issues nested inside the parent *@
                             @if (subsByParent.TryGetValue(result.Id, out var subs))
@@ -212,52 +196,35 @@
                                             <div class="result-header">
                                                 <span class="sub-issue-indent">↳</span>
                                                 <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="result-title">#@sub.IssueNumber @sub.Title</a>
-                                                <span class="state-badge @(sub.IsOpen ? "state-open" : "state-closed")">
-                                                    @sub.StateCzech
-                                                </span>
+                                                <a href="@sub.Url" target="_blank" class="gh-icon" title="Otevřít na GitHubu"><svg height="14" width="14" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+                                                <span class="state-badge @(sub.IsOpen ? "state-open" : "state-closed")">@sub.StateCzech</span>
                                                 @if (sub.IsParentIssue)
                                                 {
-                                                    <span class="sub-issue-progress progress-pending" title="@sub.ClosedSubIssueCount z @sub.SubIssueCount sub-issues dokončeno">
-                                                        ◉ @sub.ClosedSubIssueCount/@sub.SubIssueCount
-                                                    </span>
+                                                    <span class="sub-issue-progress progress-pending" title="@sub.ClosedSubIssueCount z @sub.SubIssueCount sub-issues dokončeno">◉ @sub.ClosedSubIssueCount/@sub.SubIssueCount</span>
                                                 }
                                                 @foreach (var label in sub.Labels)
                                                 {
                                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                                 }
-                                            </div>
-                                            <div class="ai-summary-container" data-issue-id="@sub.Id">
-                                                <div class="body-preview">
-                                                    @if (!string.IsNullOrEmpty(sub.BodyPreview)) { @sub.BodyPreview }
-                                                </div>
-                                                <div class="ai-summary-en" style="display:none;"></div>
-                                                <div class="ai-summary-cs" style="display:none;"></div>
-                                            </div>
-                                            <div class="result-actions">
-                                                <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="detail-link">Detail</a>
-                                                <a href="@sub.Url" target="_blank" class="github-link">GitHub ↗</a>
                                                 @if (sub.IsOpen)
                                                 {
-                                                    <button class="issue-state-btn issue-close-btn"
-                                                            data-issue-id="@sub.Id"
-                                                            data-new-state="closed"
-                                                            style="display: none;"
-                                                            title="Zavřít tento issue">
-                                                        <span class="btn-icon">✕</span>
-                                                        <span class="btn-text">Zavřít</span>
+                                                    <button class="issue-state-btn issue-state-btn-inline issue-close-btn"
+                                                            data-issue-id="@sub.Id" data-new-state="closed" style="display: none;" title="Zavřít">
+                                                        <span class="btn-icon">✕</span><span class="btn-text">Zavřít</span>
                                                     </button>
                                                 }
                                                 else
                                                 {
-                                                    <button class="issue-state-btn issue-reopen-btn"
-                                                            data-issue-id="@sub.Id"
-                                                            data-new-state="open"
-                                                            style="display: none;"
-                                                            title="Znovu otevřít tento issue">
-                                                        <span class="btn-icon">↺</span>
-                                                        <span class="btn-text">Otevřít</span>
+                                                    <button class="issue-state-btn issue-state-btn-inline issue-reopen-btn"
+                                                            data-issue-id="@sub.Id" data-new-state="open" style="display: none;" title="Otevřít">
+                                                        <span class="btn-icon">↺</span><span class="btn-text">Otevřít</span>
                                                     </button>
                                                 }
+                                            </div>
+                                            <div class="ai-summary-container" data-issue-id="@sub.Id">
+                                                <div class="body-preview">@if (!string.IsNullOrEmpty(sub.BodyPreview)) { @sub.BodyPreview }</div>
+                                                <div class="ai-summary-en" style="display:none;"></div>
+                                                <div class="ai-summary-cs" style="display:none;"></div>
                                             </div>
                                         </li>
                                     }
@@ -272,58 +239,40 @@
                             <div class="result-header">
                                 <span class="sub-issue-indent" title="Sub-issue of #@result.ParentIssueNumber">↳ #@result.ParentIssueNumber</span>
                                 <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
-                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
-                                    @result.StateCzech
-                                </span>
+                                <a href="@result.Url" target="_blank" class="gh-icon" title="Otevřít na GitHubu"><svg height="16" width="16" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">@result.StateCzech</span>
                                 @foreach (var label in result.Labels)
                                 {
                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                 }
-                            </div>
-                            <div class="ai-summary-container" data-issue-id="@result.Id">
-                                <div class="body-preview">
-                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
-                                </div>
-                                <div class="ai-summary-en" style="display:none;"></div>
-                                <div class="ai-summary-cs" style="display:none;"></div>
-                            </div>
-                            <div class="result-meta">
-                                <span class="repository">@result.RepositoryName</span>
-                                @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch)
-                                {
-                                    <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(Model.Query))
-                                {
-                                    <span class="similarity">Podobnost: @result.SimilarityPercent</span>
-                                }
-                            </div>
-                            <div class="result-actions">
-                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
-                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
                                 @if (result.IsOpen)
                                 {
-                                    <button class="issue-state-btn issue-close-btn"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="closed"
-                                            style="display: none;"
-                                            title="Zavřít tento issue">
-                                        <span class="btn-icon">✕</span>
-                                        <span class="btn-text">Zavřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline issue-close-btn"
+                                            data-issue-id="@result.Id" data-new-state="closed" style="display: none;" title="Zavřít">
+                                        <span class="btn-icon">✕</span><span class="btn-text">Zavřít</span>
                                     </button>
                                 }
                                 else
                                 {
-                                    <button class="issue-state-btn issue-reopen-btn"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="open"
-                                            style="display: none;"
-                                            title="Znovu otevřít tento issue">
-                                        <span class="btn-icon">↺</span>
-                                        <span class="btn-text">Otevřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline issue-reopen-btn"
+                                            data-issue-id="@result.Id" data-new-state="open" style="display: none;" title="Otevřít">
+                                        <span class="btn-icon">↺</span><span class="btn-text">Otevřít</span>
                                     </button>
                                 }
                             </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">@if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }</div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
+                            @if (singleRepo == null)
+                            {
+                                <div class="result-meta">
+                                    <span class="repository">@result.RepositoryName</span>
+                                    @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch) { <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span> }
+                                    else if (!string.IsNullOrWhiteSpace(Model.Query)) { <span class="similarity">Podobnost: @result.SimilarityPercent</span> }
+                                </div>
+                            }
                         </li>
                     }
                     else
@@ -332,58 +281,40 @@
                         <li class="result-item" data-issue-id="@result.Id">
                             <div class="result-header">
                                 <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="result-title">#@result.IssueNumber @result.Title</a>
-                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">
-                                    @result.StateCzech
-                                </span>
+                                <a href="@result.Url" target="_blank" class="gh-icon" title="Otevřít na GitHubu"><svg height="16" width="16" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+                                <span class="state-badge @(result.IsOpen ? "state-open" : "state-closed")">@result.StateCzech</span>
                                 @foreach (var label in result.Labels)
                                 {
                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                 }
-                            </div>
-                            <div class="ai-summary-container" data-issue-id="@result.Id">
-                                <div class="body-preview">
-                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
-                                </div>
-                                <div class="ai-summary-en" style="display:none;"></div>
-                                <div class="ai-summary-cs" style="display:none;"></div>
-                            </div>
-                            <div class="result-meta">
-                                <span class="repository">@result.RepositoryName</span>
-                                @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch)
-                                {
-                                    <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(Model.Query))
-                                {
-                                    <span class="similarity">Podobnost: @result.SimilarityPercent</span>
-                                }
-                            </div>
-                            <div class="result-actions">
-                                <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
-                                <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
                                 @if (result.IsOpen)
                                 {
-                                    <button class="issue-state-btn issue-close-btn"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="closed"
-                                            style="display: none;"
-                                            title="Zavřít tento issue">
-                                        <span class="btn-icon">✕</span>
-                                        <span class="btn-text">Zavřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline issue-close-btn"
+                                            data-issue-id="@result.Id" data-new-state="closed" style="display: none;" title="Zavřít">
+                                        <span class="btn-icon">✕</span><span class="btn-text">Zavřít</span>
                                     </button>
                                 }
                                 else
                                 {
-                                    <button class="issue-state-btn issue-reopen-btn"
-                                            data-issue-id="@result.Id"
-                                            data-new-state="open"
-                                            style="display: none;"
-                                            title="Znovu otevřít tento issue">
-                                        <span class="btn-icon">↺</span>
-                                        <span class="btn-text">Otevřít</span>
+                                    <button class="issue-state-btn issue-state-btn-inline issue-reopen-btn"
+                                            data-issue-id="@result.Id" data-new-state="open" style="display: none;" title="Otevřít">
+                                        <span class="btn-icon">↺</span><span class="btn-text">Otevřít</span>
                                     </button>
                                 }
                             </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">@if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }</div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
+                            @if (singleRepo == null)
+                            {
+                                <div class="result-meta">
+                                    <span class="repository">@result.RepositoryName</span>
+                                    @if (!string.IsNullOrWhiteSpace(Model.Query) && result.IsExactMatch) { <span class="exact-match">Přesná shoda (#@result.IssueNumber)</span> }
+                                    else if (!string.IsNullOrWhiteSpace(Model.Query)) { <span class="similarity">Podobnost: @result.SimilarityPercent</span> }
+                                </div>
+                            }
                         </li>
                     }
                 }

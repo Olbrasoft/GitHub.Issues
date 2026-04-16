@@ -423,6 +423,28 @@ footer {
     font-size: 0.8em;
 }
 
+/* Inline state button (in result header row) */
+.issue-state-btn-inline {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+}
+
+/* GitHub SVG icon link */
+.gh-icon {
+    color: #656d76;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.gh-icon:hover {
+    color: #24292f;
+}
+
 .results-count {
     font-size: 0.875rem;
     color: #666;
