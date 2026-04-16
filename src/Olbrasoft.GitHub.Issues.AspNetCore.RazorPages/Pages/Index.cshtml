@@ -159,12 +159,41 @@
                                     <span class="label-badge" style="background-color: #@label.Color; color: @label.TextColor;">@label.Name</span>
                                 }
                             </div>
+                            <div class="ai-summary-container" data-issue-id="@result.Id">
+                                <div class="body-preview">
+                                    @if (!string.IsNullOrEmpty(result.BodyPreview)) { @result.BodyPreview }
+                                </div>
+                                <div class="ai-summary-en" style="display:none;"></div>
+                                <div class="ai-summary-cs" style="display:none;"></div>
+                            </div>
                             <div class="result-meta">
                                 <span class="repository">@result.RepositoryName</span>
                             </div>
                             <div class="result-actions">
                                 <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
                                 <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                                @if (result.IsOpen)
+                                {
+                                    <button class="issue-state-btn issue-close-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="closed"
+                                            style="display: none;"
+                                            title="Zavřít tento issue">
+                                        <span class="btn-icon">✕</span>
+                                        <span class="btn-text">Zavřít</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="issue-state-btn issue-reopen-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="open"
+                                            style="display: none;"
+                                            title="Znovu otevřít tento issue">
+                                        <span class="btn-icon">↺</span>
+                                        <span class="btn-text">Otevřít</span>
+                                    </button>
+                                }
                             </div>
 
                             @* Render sub-issues nested inside the parent *@
@@ -195,6 +224,28 @@
                                             <div class="result-actions">
                                                 <a href="/Issue/Detail/@sub.Id?returnUrl=@returnUrlEncoded" class="detail-link">Detail</a>
                                                 <a href="@sub.Url" target="_blank" class="github-link">GitHub ↗</a>
+                                                @if (sub.IsOpen)
+                                                {
+                                                    <button class="issue-state-btn issue-close-btn"
+                                                            data-issue-id="@sub.Id"
+                                                            data-new-state="closed"
+                                                            style="display: none;"
+                                                            title="Zavřít tento issue">
+                                                        <span class="btn-icon">✕</span>
+                                                        <span class="btn-text">Zavřít</span>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="issue-state-btn issue-reopen-btn"
+                                                            data-issue-id="@sub.Id"
+                                                            data-new-state="open"
+                                                            style="display: none;"
+                                                            title="Znovu otevřít tento issue">
+                                                        <span class="btn-icon">↺</span>
+                                                        <span class="btn-text">Otevřít</span>
+                                                    </button>
+                                                }
                                             </div>
                                         </li>
                                     }
@@ -238,6 +289,28 @@
                             <div class="result-actions">
                                 <a href="/Issue/Detail/@result.Id?returnUrl=@returnUrlEncoded" class="detail-link">Zobrazit detail</a>
                                 <a href="@result.Url" target="_blank" class="github-link">GitHub ↗</a>
+                                @if (result.IsOpen)
+                                {
+                                    <button class="issue-state-btn issue-close-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="closed"
+                                            style="display: none;"
+                                            title="Zavřít tento issue">
+                                        <span class="btn-icon">✕</span>
+                                        <span class="btn-text">Zavřít</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="issue-state-btn issue-reopen-btn"
+                                            data-issue-id="@result.Id"
+                                            data-new-state="open"
+                                            style="display: none;"
+                                            title="Znovu otevřít tento issue">
+                                        <span class="btn-icon">↺</span>
+                                        <span class="btn-text">Otevřít</span>
+                                    </button>
+                                }
                             </div>
                         </li>
                     }
