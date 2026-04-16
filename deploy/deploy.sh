@@ -21,6 +21,17 @@ if [ -z "$BASE_DIR" ]; then
   exit 1
 fi
 
+# Safety guard: BASE_DIR must be an absolute path under /opt/olbrasoft or /home — we rm -rf
+# $BASE_DIR/app later, so an unexpected value like "/" or "" would be catastrophic.
+case "$BASE_DIR" in
+    /opt/olbrasoft/*|/home/*)
+        ;;
+    *)
+        echo "❌ BASE_DIR must be an absolute path under /opt/olbrasoft/ or /home/ (got: $BASE_DIR)"
+        exit 1
+        ;;
+esac
+
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║           GitHub.Issues Deploy Script                        ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
@@ -62,7 +73,7 @@ dotnet publish src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/Olbrasoft.GitHu
 echo "✅ Published to $BASE_DIR/app"
 echo ""
 
-# Step 3: Create directory structure
+# Step 4: Create directory structure
 echo "📁 Creating directory structure..."
 mkdir -p "$BASE_DIR/config"
 mkdir -p "$BASE_DIR/data"
@@ -71,7 +82,7 @@ mkdir -p "$BASE_DIR/logs"
 echo "✅ Directory structure created"
 echo ""
 
-# Step 4: Copy config if not exists
+# Step 5: Copy config if not exists
 if [ ! -f "$BASE_DIR/config/appsettings.json" ]; then
     echo "📝 Creating default appsettings.json..."
     if [ -f "$BASE_DIR/app/appsettings.json" ]; then
