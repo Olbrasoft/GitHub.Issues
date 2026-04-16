@@ -40,7 +40,19 @@ fi
 echo "✅ All tests passed"
 echo ""
 
-# Step 2: Build and publish
+# Step 2: Clean previous publish output
+# dotnet publish is incremental and will not always overwrite stale framework/dependency DLLs
+# (e.g. when NuGet resolves a floating version to a newer patch than last deploy). Wipe the
+# output directory so every deploy starts from a known-empty state — fixes runtime
+# FileNotFoundException for assemblies whose version changed between deploys.
+echo "🧹 Cleaning previous publish output..."
+if [ -d "$BASE_DIR/app" ]; then
+    rm -rf "$BASE_DIR/app"
+    echo "✅ Removed $BASE_DIR/app"
+fi
+echo ""
+
+# Step 3: Build and publish
 echo "🔨 Building and publishing..."
 dotnet publish src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.csproj \
   -c Release \
