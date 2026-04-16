@@ -98,10 +98,11 @@
     var returnUrlEncoded = Uri.EscapeDataString(currentUrl);
 
     var showStateBadge = string.Equals(Model.State, "all", StringComparison.OrdinalIgnoreCase);
-    var stateLabel = Model.State switch { "open" => "Otevřené", "closed" => "Zavřené", _ => "" };
+    var stateLabel = Model.State switch { "open" => "otevřené", "closed" => "zavřené", _ => "všechny" };
+    var repoPrefix = repoShortName != null ? $"{repoShortName} — " : "";
     var resultsHeading = !string.IsNullOrWhiteSpace(Model.Query)
-        ? $"Výsledky: \"{Model.Query}\""
-        : stateLabel != "" ? $"{stateLabel} issues" : "Všechny issues";
+        ? $"{repoPrefix}výsledky: \"{Model.Query}\""
+        : $"{repoPrefix}{stateLabel} issues";
 
     <div class="results-container">
         <div class="results-header">
