@@ -2,7 +2,8 @@
 @model Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.Pages.IndexModel
 @{
     var singleRepo = Model.SelectedRepositories.Count() == 1 ? Model.SelectedRepositories.First() : null;
-    ViewData["Title"] = singleRepo != null ? singleRepo.FullName : "Hledat GitHub issues";
+    var repoShortName = singleRepo?.FullName.Contains('/') == true ? singleRepo.FullName.Split('/').Last() : singleRepo?.FullName;
+    ViewData["Title"] = repoShortName ?? "Hledat GitHub issues";
 }
 
 <!-- Database status notification area -->
@@ -17,7 +18,7 @@
 
 <div class="search-container">
     <div class="search-header">
-        <h1>@(singleRepo != null ? singleRepo.FullName : "Hledat GitHub issues")</h1>
+        <h1>@(repoShortName ?? "Hledat GitHub issues")</h1>
         <div class="header-actions">
             <!-- Auth controls - shown based on auth status -->
             <div id="authControls" class="auth-controls" style="display: none;">
