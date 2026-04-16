@@ -21,6 +21,17 @@ if [ -z "$BASE_DIR" ]; then
   exit 1
 fi
 
+# Safety guard: BASE_DIR must be an absolute path under /opt/olbrasoft or /home — we rm -rf
+# $BASE_DIR/app later, so an unexpected value like "/" or "" would be catastrophic.
+case "$BASE_DIR" in
+    /opt/olbrasoft/*|/home/*)
+        ;;
+    *)
+        echo "❌ BASE_DIR must be an absolute path under /opt/olbrasoft/ or /home/ (got: $BASE_DIR)"
+        exit 1
+        ;;
+esac
+
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║           GitHub.Issues Deploy Script                        ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
@@ -40,7 +51,19 @@ fi
 echo "✅ All tests passed"
 echo ""
 
-# Step 2: Build and publish
+# Step 2: Clean previous publish output
+# dotnet publish is incremental and will not always overwrite stale framework/dependency DLLs
+# (e.g. when NuGet resolves a floating version to a newer patch than last deploy). Wipe the
+# output directory so every deploy starts from a known-empty state — fixes runtime
+# FileNotFoundException for assemblies whose version changed between deploys.
+echo "🧹 Cleaning previous publish output..."
+if [ -d "$BASE_DIR/app" ]; then
+    rm -rf "$BASE_DIR/app"
+    echo "✅ Removed $BASE_DIR/app"
+fi
+echo ""
+
+# Step 3: Build and publish
 echo "🔨 Building and publishing..."
 dotnet publish src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages.csproj \
   -c Release \
@@ -50,7 +73,7 @@ dotnet publish src/Olbrasoft.GitHub.Issues.AspNetCore.RazorPages/Olbrasoft.GitHu
 echo "✅ Published to $BASE_DIR/app"
 echo ""
 
-# Step 3: Create directory structure
+# Step 4: Create directory structure
 echo "📁 Creating directory structure..."
 mkdir -p "$BASE_DIR/config"
 mkdir -p "$BASE_DIR/data"
@@ -59,7 +82,7 @@ mkdir -p "$BASE_DIR/logs"
 echo "✅ Directory structure created"
 echo ""
 
-# Step 4: Copy config if not exists
+# Step 5: Copy config if not exists
 if [ ! -f "$BASE_DIR/config/appsettings.json" ]; then
     echo "📝 Creating default appsettings.json..."
     if [ -f "$BASE_DIR/app/appsettings.json" ]; then
